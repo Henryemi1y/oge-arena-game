@@ -1,0 +1,149 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Герой в ракурсе 3/4</title>
+<style>
+:root{--bg:#0e1118;--panel:#161b26;--tx:#dfe5f0;--mut:#8c97ab;--ac:#5b8cff;--line:#2a3142}
+:root[data-theme="light"]{--bg:#eef1f6;--panel:#fff;--tx:#18202e;--mut:#5c677a;--ac:#2f62e0;--line:#d5dbe6}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#eef1f6;--panel:#fff;--tx:#18202e;--mut:#5c677a;--ac:#2f62e0;--line:#d5dbe6}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:14px 16px}h1{font-size:17px;margin:0 0 4px}.sub{color:var(--mut);margin:0 0 10px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+button{background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font:inherit;cursor:pointer}
+button.on{border-color:var(--ac);color:var(--ac)}label{color:var(--mut);display:flex;gap:6px;align-items:center}
+canvas{display:block;width:100%;max-width:1068px;border-radius:10px;touch-action:none}
+.m{font:12px ui-monospace,monospace;color:var(--mut);margin-top:8px}
+kbd{border:1px solid var(--line);border-radius:4px;padding:0 5px;font:12px ui-monospace,monospace}
+</style></head><body><div class="wrap">
+<h1>Герой в ракурсе 3/4: ходьба, меч, удары, рывок</h1>
+<p class="sub">Управление: <kbd>WASD</kbd>/стрелки — ходьба по диагоналям (лицом к камере или спиной, влево — зеркально), <kbd>J</kbd> удар сверху, <kbd>K</kbd> горизонтальный, <kbd>L</kbd> снизу вверх, <kbd>Shift</kbd> рывок. Удары и рывок — те же ключевые позы и тайминги, что у вида сбоку.</p>
+<div class="row"><button id="demo" class="on">Демо</button><button data-a="0">Сверху (J)</button><button data-a="1">Горизонтально (K)</button><button data-a="2">Снизу вверх (L)</button><button id="dash">Рывок (Shift)</button>
+<button data-f="front">3/4 лицом</button><button data-f="back">3/4 спиной</button><button id="mir">Зеркало</button>
+<label>шаг <input id="sp" type="range" min="0" max="1.3" step="0.05" value="1"></label><label><input id="jt" type="checkbox"> суставы</label><button id="ps">Пауза</button></div>
+<canvas id="c" width="1068" height="700"></canvas><div class="m" id="m"></div></div>
+<script>
+const RIG=__RIG__,TEX=__TEX__;
+const sm=x=>{x=Math.min(1,Math.max(0,x));return x*x*(3-2*x)},cl=(x,a,b)=>Math.min(b,Math.max(a,x)),lp=(a,b,k)=>a+(b-a)*k,TAU=Math.PI*2;
+/*__ATK__*/
+const IM={};let left=0;const load=(k,src)=>{left++;const i=new Image();i.onload=()=>{if(--left==0)start()};i.src=src;return i};
+for(const v of['front','back']){IM[v]={};for(const n in TEX[v])IM[v][n]=load(v+n,TEX[v][n])}IM.sword=load('sword',TEX.sword);
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');
+// ---------- проекция 3/4: вперёд по взгляду, вниз, вправо (бок героя) ----------
+const K34=1.15,REACH=625*K34,VB=625*.78*K34,SWH=800*K34,P=h=>[Math.cos(h),.5*Math.sin(h)];
+const VIEW={front:{hf:Math.PI/4},back:{hf:-Math.PI/4}};for(const v in VIEW){const o=VIEW[v];o.F=P(o.hf);o.R=P(o.hf+Math.PI/2)}
+const proj=(V,f,d,l)=>[f*V.F[0]+l*V.R[0],f*V.F[1]+d+l*V.R[1]];
+// side-view angle (0 вниз, минус — вперёд) → 3D (f,d)
+const sag=(a,L,lat=0)=>{const c=Math.hypot(1,lat);return[-Math.sin(a)*L/c,Math.cos(a)*L/c,lat*L/c]};
+// аффинная карта: отрезок покоя pv→pv+r0 в текстуре ↦ q→q+r1 на экране; поперёк кости масштаб s
+function aff(pv,r0,q,r1,s=1){const l0=Math.hypot(r0[0],r0[1]),l1=Math.hypot(r1[0],r1[1])||1e-6,u0=[r0[0]/l0,r0[1]/l0],u1=[r1[0]/l1,r1[1]/l1],n0=[-u0[1],u0[0]],n1=[-u1[1],u1[0]],a=l1/l0;
+ const m00=u1[0]*a*u0[0]+n1[0]*s*n0[0],m01=u1[0]*a*u0[1]+n1[0]*s*n0[1],m10=u1[1]*a*u0[0]+n1[1]*s*n0[0],m11=u1[1]*a*u0[1]+n1[1]*s*n0[1];
+ return[m00,m10,m01,m11,q[0]-(m00*pv[0]+m01*pv[1]),q[1]-(m10*pv[0]+m11*pv[1])]}
+const ap=(M,p)=>[M[0]*p[0]+M[2]*p[1]+M[4],M[1]*p[0]+M[3]*p[1]+M[5]],sub=(a,b)=>[a[0]-b[0],a[1]-b[1]],add=(a,b)=>[a[0]+b[0],a[1]+b[1]],mulv=(a,k)=>[a[0]*k,a[1]*k];
+const mid=(a,b)=>[(a[0]+b[0])/2,(a[1]+b[1])/2],len=a=>Math.hypot(a[0],a[1]);
+// ---------- раскладка покоя (координаты рига, как при сборке по якорю) ----------
+const LAY={};for(const v of['front','back']){const r=RIG[v],t=r.torso,L={};
+ L.hc=mid(t.hipN,t.hipF);for(const s of['N','F']){const g=r['leg'+s],hip=t['hip'+s];L['ank'+s]=add(hip,sub(g.an,g.hip));L['L1'+s]=len(sub(g.kn,g.hip));L['L2'+s]=len(sub(g.an,g.kn));
+  const a=r['arm'+s];L['U'+s]=len(sub(a.el,a.sh));L['Fa'+s]=len(sub(a.wr,a.el))}
+ L.G0=[L.hc[0],L.ankN[1]+(IM[v]?0:0)+ (r.legN.an?0:0)];LAY[v]=L}
+// ---------- состояние ----------
+const st={x:0,y:0,face:'front',mir:false,F:.25,t:0,v:0,vt:0,py:0,pyv:0,cape:0,capev:0,atk:-1,ak:0,dsh:-1,hd:0,tips:[],fl:null,demo:true,dt0:0,lastIn:0};
+const keys={};addEventListener('keydown',e=>{keys[e.code]=1;st.demo=false;demoBtn.classList.remove('on');if(e.code=='KeyJ')hit(0);if(e.code=='KeyK')hit(1);if(e.code=='KeyL')hit(2);if(e.code.startsWith('Shift'))dash();if(e.code.startsWith('Arrow')||e.code=='Space')e.preventDefault()});addEventListener('keyup',e=>keys[e.code]=0);
+const demoBtn=document.getElementById('demo');demoBtn.onclick=()=>{st.demo=!st.demo;demoBtn.classList.toggle('on',st.demo);st.dt0=0};
+document.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>hit(+b.dataset.a));document.getElementById('dash').onclick=()=>dash();
+document.querySelectorAll('[data-f]').forEach(b=>b.onclick=()=>{st.face=b.dataset.f});document.getElementById('mir').onclick=()=>st.mir=!st.mir;
+let paused=false;document.getElementById('ps').onclick=e=>{paused=!paused;e.target.textContent=paused?'Дальше':'Пауза'};
+function hit(k){if(st.atk>=0&&st.atk<ATK[st.ak].T-.18)return;st.atk=0;st.ak=k;st.hd=0;st.tips=[]}
+function dash(){if(st.dsh<0)st.dsh=0}
+// демо: стойка → шаг вправо-вниз → удар → шаг вверх-вправо → удар → рывок → шаг влево → удар
+const DEMO=[[1.2,0,0,null],[2.2,1,1,null],[.2,0,0,0],[1.1,0,0,null],[2.0,1,-1,null],[.2,0,0,1],[1.0,0,0,null],[.1,0,0,'d'],[1.5,1,1,null],[.2,0,0,2],[1.2,0,0,null],[2.0,-1,1,null],[.2,0,0,1],[1.2,0,0,null],[2.0,-1,-1,null],[.2,0,0,0],[1.0,0,0,null]];
+function demoInput(dt){st.dt0+=dt;let T=0;for(const s of DEMO){if(st.dt0<T+s[0]){if(s[3]!=null&&!s.done){s.done=1;s[3]=='d'?dash():hit(s[3])}return[s[1],s[2]]}T+=s[0]}st.dt0=0;DEMO.forEach(s=>s.done=0);return[0,0]}
+// ---------- кадр ----------
+function frame(dt){st.t+=dt;let D=0,AT=-1;const A_=ATK[st.ak];
+ if(st.atk>=0){const hs=A_.hs,sl=st.atk>=hs[0]&&st.atk<hs[1]?.06:1;st.atk+=dt*sl;if(sl==1&&st.atk>hs[0]&&st.atk-dt<hs[0])st.atk=hs[0];AT=st.atk;if(AT>A_.T)st.atk=-1}
+ if(st.dsh>=0){st.dsh+=dt;D=sm(st.dsh/.05)*(1-sm((st.dsh-.18)/.1));if(st.dsh>.34)st.dsh=-1}
+ let [ix,iy]=st.demo?demoInput(dt):[(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0),(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0)];
+ const moving=(ix||iy)&&AT<0;if(ix||iy){if(iy<0)st.face='back';else if(iy>0||st.face!='back')st.face=iy<0?'back':'front';if(ix)st.mir=ix<0}
+ const sp=+document.getElementById('sp').value;st.vt=moving?VB*sp:0;if(AT>=0)st.vt=0;
+ st.v=lp(st.v,Math.max(st.vt,D>0?VB*(1.3+2*D):0),1-Math.exp(-dt*(D>0?30:7)));const v=st.v;
+ const V=VIEW[st.face],dir=[V.F[0]*(st.mir?-1:1),V.F[1]];st.x+=dir[0]*v*dt;st.y+=dir[1]*v*dt;
+ const KA=AT>=0?atkKey(A_,AT):null,W=KA?sm(AT/.09)*(1-sm((AT-(A_.T-.22))/.22)):0;let hit1=false;if(KA&&AT>=A_.hs[0]&&!st.hd){st.hd=1;hit1=true}
+ const shk=KA&&AT>=A_.hs[0]&&AT<A_.hs[1]?Math.sin(st.t*110)*3.5:0;
+ // шаг: фаза стопы по пройденному пути (без скольжения)
+ const S3=.72*REACH,g=sm(v/(VB*.25)),beta=.56;st.F+=v/S3*dt;
+ const feet={};for(const [s,o] of [['N',0],['F',.5]]){const u=((st.F+o)%1+1)%1;let z,lift=0,stance=u<beta;
+  if(stance)z=S3*beta*(.5-u/beta);else{const q=(u-beta)/(1-beta),q5=q*q*q*(q*(q*6-15)+10);z=-S3*beta/2+S3*beta*q5;lift=Math.pow(Math.sin(Math.PI*q),2)*.12*REACH}
+  if(g<1){z*=g;lift*=g}feet[s]={z,lift,u,stance}}
+ // таз: в ходьбе выше всего над опорной ногой (перевёрнутый маятник), в стойке — дыхание и перенос веса
+ const Lg=LAY[st.face].L1N+LAY[st.face].L2N;let drop=0;for(const s of'NF'){const f=feet[s];if(f.stance)drop=Math.max(drop,Lg-Math.sqrt(Math.max(0,Lg*Lg-f.z*f.z)))}
+ const ws=Math.sin(st.t*.6);
+ // рывок: стопы в разножке, корпус вперёд
+ if(D>0){feet.F.z=lp(feet.F.z,.36*REACH,D);feet.N.z=lp(feet.N.z,-.4*REACH,D);feet.F.lift=lp(feet.F.lift,10,D);feet.N.lift=lp(feet.N.lift,40,D);drop=lp(drop,.09*REACH,D)}
+ // выпад удара: передняя (дальняя) и задняя (ближняя) стопы переставляются, таз смещается вперёд
+ const LGw=KA?KA.LG*W:0,oxA=KA?KA.ox*W*K34:0;
+ if(LGw>.001){const ent=AT<A_.hs[0],sn=x=>Math.sin(Math.PI*cl(x,0,1)),lfR=ent?30*sn(LGw/.45):40*sn((1-LGw)/.7),lfF=ent?45*sn((LGw-.35)/.65):40*sn((1-LGw-.3)/.7);
+  feet.F.z=lp(feet.F.z,KA.Ff*K34,LGw);feet.N.z=lp(feet.N.z,KA.Rr*K34,LGw);feet.F.lift=lp(feet.F.lift,lfF,LGw);feet.N.lift=lp(feet.N.lift,lfR,LGw);
+  const zz=Math.max(Math.abs(KA.Rr*K34-oxA),Math.abs(KA.Ff*K34-oxA));drop=lp(drop,Lg-Math.sqrt(Math.max(0,(Lg*.99)**2-zz*zz)),LGw)}
+ const pyT=drop+(1-g)*(1-W)*(3+2*Math.abs(ws));st.pyv+=((pyT-st.py)*260-st.pyv*30)*dt;st.py+=st.pyv*dt;
+ // руки: свободная — маятник против ног, с мечом — стойка-гард (G0) и удары из таблицы вида сбоку
+ const ph=Math.sin(TAU*(st.F+.5)),swing=g*.38*ph;
+ let ru=lp(G0.ru+.12*g*Math.sin(TAU*st.F),-.2,D),rf=lp(G0.rf+.1*g*Math.sin(TAU*st.F),-.5,D),w=lp(G0.w,.3,D),ya=0;
+ let fru=lp(.06*(1-g)+(-swing)*g+(1-g)*.03*Math.sin(st.t*1.1),-.7,D),ffx=lp(lp(.18,.2+.3*Math.max(0,-ph),g),1.1,D);
+ if(KA){ru=lp(ru,KA.ru,W);rf=ru-cl(lp(ru-rf,KA.ru-KA.rf,W),0,2.7);w=lp(w,KA.w,W);ya=KA.ya*W;fru=lp(fru,KA.fru,W);ffx=lp(ffx,KA.ffx,W)}
+ const ln=(KA?KA.ln*W:0)+.06*g+.3*D,cp=(KA?KA.cp*W:0)+.5*D;
+ // плащ: пружина от скорости, шага и выпада
+ const capeT=-.0009*v-cp*.6+.04*g*Math.sin(TAU*st.F*2);st.capev+=((capeT-st.cape)*55-st.capev*8)*dt;st.cape+=st.capev*dt;
+ return{face:st.face,mir:st.mir,feet,py:st.py,ws,g,ru,rf,w,ya,fru,ffx,ln,ox:oxA,D,KA,W,AT,shk,hit1,cape:st.cape,breath:(1-g)*Math.sin(st.t*1.7)}}
+// ---------- отрисовка ----------
+const S=.42;
+function drawPart(img,M,clip){ctx.save();ctx.setTransform(...cur(M));if(clip){ctx.beginPath();if(clip.c)ctx.arc(clip.c[0],clip.c[1],clip.r,0,TAU);else ctx.rect(-50,clip.y0,img.width+100,clip.y1-clip.y0);ctx.clip()}ctx.globalAlpha=clip&&clip.a!=null?clip.a:1;ctx.drawImage(img,0,0);ctx.restore()}
+let BASE=[1,0,0,1,0,0];const cur=M=>{const A=BASE,B=M;return[A[0]*B[0]+A[2]*B[1],A[1]*B[0]+A[3]*B[1],A[0]*B[2]+A[2]*B[3],A[1]*B[2]+A[3]*B[3],A[0]*B[4]+A[2]*B[5]+A[4],A[1]*B[4]+A[3]*B[5]+A[5]]};
+function drawHero(f,showJ){const v=f.face,r=RIG[v],t=r.torso,L=LAY[v],V=VIEW[v],I=IM[v],jp=[];
+ // мир → экран рига: точка земли под тазом = (0,0); таз в покое на высоте hipH
+ const hipH=(r.legN.an[1]-r.legN.hip[1])+(IM[v].legN.height-r.legN.an[1]),rest=p=>[p[0]-L.hc[0],p[1]-L.hc[1]-hipH];
+ const pel=add([0,f.py],mulv(V.F,f.ox));
+ // корпус: наклон вперёд проецируется по направлению взгляда, плюс тряска при попадании
+ const a0=sub(t.neck,L.hc),lean=proj(V,Math.sin(f.ln)*len(a0),-Math.cos(f.ln)*len(a0),0),roll=.02*f.g*Math.sin(TAU*st.F)+.01*f.ws*(1-f.g);
+ const la=[lean[0]*Math.cos(roll)-lean[1]*Math.sin(roll),lean[0]*Math.sin(roll)+lean[1]*Math.cos(roll)];
+ const hcW=add(rest(L.hc),pel),Mt0=aff(L.hc,a0,hcW,mulv(la,1+.006*f.breath)),Mt=[Mt0[0],Mt0[1],Mt0[2],Mt0[3],Mt0[4]+f.shk,Mt0[5]];
+ const W=n=>ap(Mt,t[n]);
+ // ноги: IK в плоскости картинки (ref2game §15.1), колено сгибается к направлению взгляда лишь частично, остальное — укорочение голени
+ const leg=s=>{const g=r['leg'+s],hipW=ap(Mt0,t['hip'+s]),f0=f.feet[s],tgt=add(rest(L['ank'+s]),add(mulv(V.F,f0.z),[0,-f0.lift]));
+  const q=(s=='N'?1:-1)*34;tgt[0]+=V.R[0]*q;tgt[1]+=V.R[1]*q;const L1=L['L1'+s],L2=L['L2'+s],dv=sub(tgt,hipW),d=Math.min(len(dv),(L1+L2)*1.02),th=Math.atan2(dv[1],dv[0]),al=Math.acos(cl((L1*L1+d*d-L2*L2)/(2*L1*Math.max(d,1)),-1,1)),side=V.F[0]>0?-1:1;
+  const kn=add(hipW,mulv([Math.cos(th+side*.6*al),Math.sin(th+side*.6*al)],L1)),A=add(hipW,mulv(dv,Math.min(1,d/len(dv))));
+  const Mu=aff(g.hip,sub(g.kn,g.hip),hipW,sub(kn,hipW)),Ml=aff(g.kn,sub(g.an,g.kn),kn,sub(A,kn)),ov=g.r*.7,img=I['leg'+s];
+  drawPart(img,Ml,{y0:g.kn[1]-ov,y1:img.height+10});drawPart(img,Mu,{y0:-10,y1:g.kn[1]+ov});drawPart(img,Mu,{c:g.kn,r:g.r,a:sm(al/.25)});jp.push(hipW,kn,A)};
+ // руки: 3D-поворот у плеча и проекция (§15.2); локоть — круглая шапка
+ const arm=(s,a1,a2,lat,sword,what='both')=>{const g=r['arm'+s],shW=W('sh'+s),U=L['U'+s],Fa=L['Fa'+s];
+  const u3=sag(a1,U,lat),f3=sag(a2,Fa,lat*.6),v1=proj(V,u3[0],u3[1],u3[2]),v2=proj(V,f3[0],f3[1],f3[2]),elW=add(shW,v1);
+  const Mu=aff(g.sh,sub(g.el,g.sh),shW,v1),Ml=aff(g.el,sub(g.wr,g.el),elW,v2),ov=g.r*.7,fist=sword&&I.armN_fist,img=I['arm'+s];
+  if(sword&&what!='arm')drawSword(f,ap(Ml,g.fist||g.wr),V,a2);if(what=='sword')return;
+  drawPart(img,Ml,{y0:g.el[1]-ov,y1:img.height+10});drawPart(img,Mu,{y0:-10,y1:g.el[1]+ov});drawPart(img,Mu,{c:g.el,r:g.r,a:sm(Math.abs(a1-a2)/.3)});jp.push(shW,elW,add(elW,v2))};
+ const head=()=>{const nW=W('neck'),h=r.head,M=aff(h.neck,[0,-100],nW,mulv([la[0]/len(la),la[1]/len(la)],100));drawPart(I.head,M)};
+ const cape=()=>{const c=r.cape,top=W('capeTop'),img=I.cape,M=aff(c.top,[0,100],top,mulv([-la[0]/len(la),-la[1]/len(la)],100));
+  ctx.save();ctx.setTransform(...cur(M));const h=img.height,sw=f.cape*160;for(let y=0;y<h;y+=3){const k=sm(y/h);ctx.drawImage(img,0,y,img.width,Math.min(4,h-y),sw*k*k,y,img.width,Math.min(4,h-y))}ctx.restore()};
+ const latR=.12,latL=-.32;
+ if(v=='front'){cape();arm('F',f.fru,f.fru-f.ffx,latL,false);leg('F');leg('N');drawPart(I.torso,Mt);head();arm('N',f.ru,f.rf,latR,true)}
+ else{arm('N',f.ru,f.rf,latR,true,'sword');arm('F',f.fru,f.fru-f.ffx,latL,false);leg('F');leg('N');drawPart(I.torso,Mt);head();cape();arm('N',f.ru,f.rf,latR,true,'arm')}
+ if(showJ){ctx.save();ctx.setTransform(...BASE);ctx.fillStyle='#ffd84a';for(const p of jp){ctx.beginPath();ctx.arc(p[0],p[1],6,0,TAU);ctx.fill()}ctx.restore()}}
+let redrawNearArm=false;
+// меч: направление клинка = предплечье + хват (ph = rf + w), разворот ya — к зрителю (правый бок героя), проекция 3/4
+function drawSword(f,fistW,V,rf){const ph=rf+f.w,b3=[Math.cos(ph)*Math.cos(f.ya),Math.sin(ph),Math.cos(ph)*Math.sin(f.ya)],sv=proj(V,b3[0],b3[1],b3[2]),ln=Math.max(.05,len(sv)),ang=Math.atan2(sv[1],sv[0]),im=IM.sword,w=im.width*SWH/im.height;
+ ctx.save();ctx.setTransform(...BASE);ctx.transform(1,0,0,1,fistW[0],fistW[1]);ctx.rotate(ang+Math.PI/2);ctx.scale(1,ln);ctx.drawImage(im,-w/2,-SWH*.82,w,SWH);ctx.restore();
+ const tip=add(fistW,mulv([Math.cos(ang),Math.sin(ang)],SWH*.82*ln)),base=add(fistW,mulv([Math.cos(ang),Math.sin(ang)],SWH*.2*ln));swordPts={tip,base}}
+let swordPts=null;
+function floor(cx,cy){ctx.fillStyle='#1b2130';ctx.fillRect(0,0,cv.width,cv.height);const T=180,ox=((-cx*S)%(T*2)+T*2)%(T*2),oy=((-cy*S)%T+T)%T;ctx.strokeStyle='rgba(120,140,190,.14)';ctx.lineWidth=1;
+ for(let i=-8;i<14;i++){ctx.beginPath();ctx.moveTo(ox+i*T*2-800,oy-400);ctx.lineTo(ox+i*T*2+800,oy+400);ctx.stroke();ctx.beginPath();ctx.moveTo(ox+i*T*2+800,oy-400);ctx.lineTo(ox+i*T*2-800,oy+400);ctx.stroke()}}
+let last=null,F0=null;
+function start(){requestAnimationFrame(loop)}
+function loop(ts){const dt=last==null?1/60:Math.min(.05,(ts-last)/1000);last=ts;if(!window.__hold){if(!paused||!F0)F0=frame(paused?0:dt);render(F0)}requestAnimationFrame(loop)}
+function render(f){
+ ctx.setTransform(1,0,0,1,0,0);floor(st.x,st.y);
+ const gx=cv.width/2,gy=cv.height*.86;ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(gx,gy-8,120,34,0,0,TAU);ctx.fill();
+ BASE=f.mir?[-S,0,0,S,gx,gy]:[S,0,0,S,gx,gy];
+ drawHero(f,document.getElementById('jt').checked);
+ // след клинка в окне удара
+ if(f.KA&&swordPts){const A_=ATK[st.ak];if(f.AT>=A_.tr[0]&&f.AT<=A_.tr[1]){const m=BASE;const tp=[m[0]*swordPts.tip[0]+m[4],m[3]*swordPts.tip[1]+m[5]],bp=[m[0]*swordPts.base[0]+m[4],m[3]*swordPts.base[1]+m[5]];st.tips.push({tp,bp,t:st.t})}}
+ st.tips=st.tips.filter(p=>st.t-p.t<.12);if(st.tips.length>1){ctx.setTransform(1,0,0,1,0,0);ctx.globalCompositeOperation='lighter';ctx.beginPath();st.tips.forEach((p,i)=>i?ctx.lineTo(p.tp[0],p.tp[1]):ctx.moveTo(p.tp[0],p.tp[1]));for(let i=st.tips.length-1;i>=0;i--)ctx.lineTo(st.tips[i].bp[0],st.tips[i].bp[1]);ctx.closePath();ctx.fillStyle='rgba(150,200,255,.28)';ctx.fill();ctx.globalCompositeOperation='source-over'}
+ if(f.hit1&&swordPts){const m=BASE;st.fl={x:m[0]*swordPts.tip[0]+m[4],y:m[3]*swordPts.tip[1]+m[5],t:st.t}}
+ if(st.fl&&st.t-st.fl.t<.2){const k=(st.t-st.fl.t)/.2,gr=ctx.createRadialGradient(st.fl.x,st.fl.y,0,st.fl.x,st.fl.y,80*(.4+k));gr.addColorStop(0,`rgba(220,240,255,${.8*(1-k)})`);gr.addColorStop(1,'rgba(150,200,255,0)');ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle=gr;ctx.fillRect(st.fl.x-120,st.fl.y-120,240,240)}
+ document.getElementById('m').textContent=`${f.face=='front'?'3/4 лицом':'3/4 спиной'}${f.mir?' (зеркально)':''} · скорость ${(st.v/VB).toFixed(2)} · ${f.AT>=0?'удар '+['сверху','горизонтальный','снизу вверх'][st.ak]+' '+f.AT.toFixed(2):f.D>0?'рывок':'—'}`}
+window.__dbg={st,frame,render,hit,dash,keys,LAY,RIG};
+</script></body></html>
