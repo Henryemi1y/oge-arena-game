@@ -10,8 +10,8 @@ h1{font-size:16px;margin:0 0 6px}.m{display:flex;justify-content:space-between;g
 button{background:#1d2740;color:var(--fg);border:1px solid #2c3a5c;border-radius:6px;padding:6px 11px;cursor:pointer}button:hover{background:#26335a}</style></head><body><div id="w"><div><canvas id="c" width="1100" height="620"></canvas></div>
 <div class="p"><h1>Критик движения</h1><div class="s" id="sc">…</div><div id="mt"></div>
 <label>Скорость: <span id="vv"></span> · <span id="gm"></span></label><input id="v" type="range" min="0" max="260" value="100">
-<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button id="au">Авто-профиль: вкл</button><button id="ps">Пауза</button><button id="ba">Сверху (J)</button><button id="bb">Горизонтально (K)</button><button id="bc">Снизу вверх (L)</button><button id="bd">Рывок (Shift)</button></div>
-<p style="color:var(--mut);font-size:12px;margin:10px 0 0">Красные точки — опора на земле. Бег включается выше 115% скорости шага.</p></div></div>
+<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button id="au">Авто-профиль: вкл</button><button id="ps">Пауза</button><button id="ba">Сверху (J)</button><button id="bb">Горизонтально (K)</button><button id="bc">Снизу вверх (L)</button><button id="bd">Рывок (Space)</button></div>
+<p style="color:var(--mut);font-size:12px;margin:10px 0 0">Управление: <b>A/D</b> или <b>←/→</b> — шаг влево/вправо, с зажатым <b>Shift</b> — бег, <b>Space</b> — рывок, <b>J/K/L</b> — удары. Красные точки — опора на земле. Бег включается выше 115% скорости шага.</p></div></div>
 <script>
 const A=__A__,J=A.J,L1=J.leg.knee[1]-J.leg.hip[1],L2=J.leg.ankle[1]-J.leg.knee[1],SOLE=J.leg.H-J.leg.ankle[1],REACH=L1+L2+SOLE,SC=.3,GY=520,LMAX=(L1+L2)*.985,VB=REACH*.78,AX=J.leg.hip[0],HEEL=-66,BALL=117,SWH=800,O=24,YC=525,SL=200,PB=150,PF=215,YN=205,NP=[190,205];
 let BW=.56,LW0=.12,WLP=0,TRP=.3,WD=.34,HD=.03,AE=.65,KV=1,ER=1.6,F0=3,WP=.32,PHC=.28,PHM=.58,PHT=.02,SW=.72,RW=400,SR=1.2,WH=0,LP=0,AK=0,LF=.27,PFLOOR=40,DPK=.4,DTR=4,SKA=0,SKB=.5,SKW=20;const RH0=.05,RA=.016,LW=(L1+L2)-.4,LC=(L1+L2)-.08;
@@ -143,24 +143,27 @@ const ctx=document.getElementById('c').getContext('2d');let GX=480,tips=[],hist=
 function pc(img,x,y,px,py,r){ctx.save();ctx.translate(GX+x*SC,GY+y*SC);ctx.rotate(r);ctx.scale(SC,SC);ctx.drawImage(img,-px,-py);ctx.restore()}
 function drawLeg(l,hy,d){const D=d?'D':'';pc(IMG['shin'+D],l.kx,l.ky,AX,O,l.r2);pc(IMG['foot'+D],l.ax,l.ay,AX,O,l.r3);pc(IMG['thigh'+D],0,hy,AX,J.leg.hip[1],l.r1);
  pc(IMG['kc'+D],l.kx,l.ky,66,66,(l.r1+l.r2)/2);pc(IMG['ac'+D],l.ax,l.ay,54,54,(l.r2+l.r3)/2);pc(IMG['guard'+D],l.kx,l.ky,J.guard.piv[0],J.guard.piv[1],(l.r1+l.r2)/2)}
-function drawArm(a,f,near,rec){const k=near?'N':'F',D=near?'':'D',j=J['arm'+k];
- if(near){const dx=j.fist[0]-j.el[0],dy=j.fist[1]-j.el[1],fx=a.ex+dx*Math.cos(a.rf)-dy*Math.sin(a.rf),fy=a.ey+dx*Math.sin(a.rf)+dy*Math.cos(a.rf),im=IMG.sword,w=im.width*SWH/im.height,ph=a.rf+a.w,vx=Math.cos(ph)*Math.cos(a.ya||0),vy=Math.sin(ph),ln=Math.max(.04,Math.hypot(vx,vy)),ang=Math.atan2(vy,vx);
+function drawArm(a,f,near,rec,K,DK,mode='all'){const k=K||(near?'N':'F'),D=DK!=null?DK:(near?'':'D'),j=J['arm'+k];
+ if(near&&mode!='arm'&&mode!='fist'){const dx=j.fist[0]-j.el[0],dy=j.fist[1]-j.el[1],fx=a.ex+dx*Math.cos(a.rf)-dy*Math.sin(a.rf),fy=a.ey+dx*Math.sin(a.rf)+dy*Math.cos(a.rf),im=IMG.sword,w=im.width*SWH/im.height,ph=a.rf+a.w,vx=Math.cos(ph)*Math.cos(a.ya||0),vy=Math.sin(ph),ln=Math.max(.04,Math.hypot(vx,vy)),ang=Math.atan2(vy,vx);
   if(rec){tips.push({x:fx+f.ox+Math.cos(ang)*SWH*.82*ln,y:fy+Math.sin(ang)*SWH*.82*ln,bx:fx+f.ox+Math.cos(ang)*SWH*.2*ln,by:fy+Math.sin(ang)*SWH*.2*ln,X:f.X,t:st.t});if(f.hit1)st.fl={x:fx+f.ox+Math.cos(ang)*SWH*.74*ln,y:fy+Math.sin(ang)*SWH*.74*ln,t:st.t}}
   ctx.save();ctx.translate(GX+fx*SC,GY+fy*SC);ctx.rotate(ang+Math.PI/2);ctx.scale(SC,SC*ln);ctx.drawImage(im,-w/2,-SWH*.82,w,SWH);ctx.restore()}
+ if(mode=='sword')return;
+ if(mode=='fist'){const dx=j.fist[0]-j.el[0],dy=j.fist[1]-j.el[1],fx=a.ex+dx*Math.cos(a.rf)-dy*Math.sin(a.rf),fy=a.ey+dx*Math.sin(a.rf)+dy*Math.cos(a.rf);ctx.save();ctx.beginPath();ctx.arc(GX+fx*SC,GY+fy*SC,62*SC,0,TAU);ctx.clip();pc(IMG['fore'+k+D],a.ex,a.ey,j.el[0],O,a.rf);ctx.restore();return}
  pc(IMG['fore'+k+D],a.ex,a.ey,j.el[0],O,a.rf);pc(IMG['upper'+k+D],f.shx,f.hy+f.shy,j.sh[0],j.sh[1],a.ru);pc(IMG['ec'+k+D],a.ex,a.ey,50,50,(a.ru+a.rf)/2)}
 function drawCape(f){const c=IMG.cape,w=c.width,h=c.height,n=26,sh=h/n,top=J.cape.top,sp=cl(f.v/VB,0,2.6);ctx.save();ctx.translate(GX+f.cx*SC,GY+f.cy*SC);ctx.rotate(f.ca);ctx.scale(SC,SC);
  for(let i=0;i<n;i++){const u=i/n,dx=Math.sin(st.t*7+u*6)*(6+30*sp)*u*u;ctx.drawImage(c,0,i*sh,w,sh+1,-top[0]+dx,-top[1]+i*sh,w,sh+1)}ctx.restore()}
 function drawChar(f,rec){const far=f.legs[1],near=f.legs[0],hx=J.body.hip[0],hy_=J.body.hip[1];ctx.save();ctx.translate(f.ox*SC,0);
- const sk=(f.shk||0)*SC;ctx.save();ctx.translate(sk,0);drawArm(f.arm[1],f,false);ctx.restore();drawLeg(far,f.hy,true);drawLeg(near,f.hy,false);ctx.translate(sk,0);
+ const sk=(f.shk||0)*SC,L_=FACE<0;ctx.save();ctx.translate(sk,0);if(L_)drawArm(f.arm[0],f,true,false,'N','D','arm');else drawArm(f.arm[1],f,false);ctx.restore();drawLeg(far,f.hy,true);drawLeg(near,f.hy,false);ctx.translate(sk,0);
  ctx.save();ctx.translate(GX,GY+f.hy*SC);ctx.rotate(f.lean);ctx.scale(SC,SC);
  ctx.save();ctx.translate(PB-hx,YC-hy_);ctx.rotate(f.sb);ctx.drawImage(IMG.sb,-PB,0);ctx.restore();ctx.save();ctx.translate(PF-hx,YC-hy_);ctx.rotate(f.sf);ctx.drawImage(IMG.sf,-(PF-SL),0);ctx.restore();
  ctx.translate(-hx,-hy_);ctx.drawImage(IMG.tt,0,YN);
  ctx.save();ctx.translate(NP[0],NP[1]);ctx.rotate(f.hrot);ctx.translate(0,f.hdy);ctx.drawImage(IMG.head,-NP[0],-NP[1]);ctx.restore();
  ctx.save();ctx.translate(115,215);ctx.rotate(f.hrot*.5);ctx.drawImage(IMG.nc,-56,-56);ctx.restore();ctx.restore();
  drawCapeOver(f);
- drawArm(f.arm[0],f,true,rec);ctx.restore()}
+ if(L_){drawArm(f.arm[0],f,true,rec,'N','D','sword');drawArm(f.arm[0],f,true,false,'N','D','fist');drawArm(f.arm[1],f,false,false,'N','','arm')}else drawArm(f.arm[0],f,true,rec);ctx.restore()}
 function drawCapeOver(f){drawCape(f)}
-function draw(f){ctx.clearRect(0,0,1100,620);ctx.fillStyle='#10131c';ctx.fillRect(0,0,1100,620);
+let FACE=1;
+function draw(f){ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,1100,620);ctx.fillStyle='#10131c';ctx.fillRect(0,0,1100,620);if(FACE<0)ctx.setTransform(-1,0,0,1,2*480,0);
  ctx.strokeStyle='#2b3550';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,GY);ctx.lineTo(1100,GY);ctx.stroke();
  const tk=60;ctx.strokeStyle='#1f2840';ctx.lineWidth=1;for(let x=-((f.X*SC)%tk);x<1100;x+=tk){ctx.beginPath();ctx.moveTo(x,GY);ctx.lineTo(x,GY+12);ctx.stroke()}
  ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(GX,GY+2,130,13,0,0,TAU);ctx.fill();
@@ -200,8 +203,13 @@ function start(){const res=critic();window.__crit=res;document.getElementById('m
  const vs=document.getElementById('v'),vv=document.getElementById('vv'),gm=document.getElementById('gm');vs.oninput=()=>{auto=false;document.getElementById('au').textContent='Авто-профиль: выкл'};
  document.getElementById('au').onclick=e=>{auto=!auto;e.target.textContent='Авто-профиль: '+(auto?'вкл':'выкл')};document.getElementById('ps').onclick=e=>{pause=!pause;e.target.textContent=pause?'Продолжить':'Пауза'};
  const hit=k=>{if(st.atk<0){st.atk=0;st.ak=k;st.hd=0;st.bo=0}},dash=()=>{if(st.dsh<0)st.dsh=0};document.getElementById('ba').onclick=()=>hit(0);document.getElementById('bb').onclick=()=>hit(1);document.getElementById('bc').onclick=()=>hit(2);document.getElementById('bd').onclick=dash;
- addEventListener('keydown',e=>{if(e.code=='KeyJ')hit(0);if(e.code=='KeyK')hit(1);if(e.code=='KeyL')hit(2);if(e.code=='ShiftLeft'||e.code=='ShiftRight')dash()});
+ const KY={};addEventListener('keydown',e=>{KY[e.code]=1;if(e.code=='KeyJ')hit(0);if(e.code=='KeyK')hit(1);if(e.code=='KeyL')hit(2);if(e.code=='Space'){dash();e.preventDefault()}if(e.code.startsWith('Arrow'))e.preventDefault();if(['KeyA','KeyD','ArrowLeft','ArrowRight'].includes(e.code)&&auto){auto=false;document.getElementById('au').textContent='Авто-профиль: выкл'}});addEventListener('keyup',e=>KY[e.code]=0);
+ let SV=0,KEYUSED=0;window.__KY=KY;vs.addEventListener('input',()=>KEYUSED=0);
  let last=0,t0=0;const prof=t=>{const u=t%22;return u<2?0:u<4?(u-2)/2:u<8?1:u<10?lp(1,2.3,(u-8)/2):u<14?2.3:u<16?lp(2.3,.4,(u-14)/2):u<18?lp(.4,0,(u-16)/2):0};
- function loop(ts){const dt=Math.min(.05,(ts-last)/1000||0);last=ts;if(!pause){t0+=dt;const k=auto?prof(t0):vs.value/100;if(auto)vs.value=k*100;vv.textContent=(k*100|0)+'%';const f=frame(k*VB,dt);gm.textContent=f.D>.05?'рывок':f.AT>=0?'удар '+(f.ak+1):f.g>.5?'бег':f.m>.3?'шаг':'стойка';draw(f)}requestAnimationFrame(loop)}requestAnimationFrame(loop)}
+ function loop(ts){const dt=Math.min(.05,(ts-last)/1000||0);last=ts;if(!pause){t0+=dt;let k;
+  const dr=(KY.KeyD||KY.ArrowRight?1:0)-(KY.KeyA||KY.ArrowLeft?1:0);
+  if(auto){k=prof(t0);SV=k*FACE}else{const run=KY.ShiftLeft||KY.ShiftRight;if(dr)KEYUSED=1;const tg=dr?dr*(run?2.3:1):(KEYUSED?0:vs.value/100*FACE);let want=tg;if(SV*tg<0||(Math.abs(SV)<.04&&tg*FACE<0))want=0;
+   SV+=cl(want-SV,-2.4*dt,2.4*dt);if(Math.abs(SV)<.04&&tg*FACE<0)FACE=-FACE;k=Math.abs(SV);if(KEYUSED)vs.value=k*100}
+  if(auto)vs.value=k*100;vv.textContent=(k*100|0)+'%';const f=frame(k*VB,dt);gm.textContent=f.D>.05?'рывок':f.AT>=0?'удар '+(f.ak+1):f.g>.5?'бег':f.m>.3?'шаг':'стойка';draw(f)}requestAnimationFrame(loop)}requestAnimationFrame(loop)}
 window.__fr=v=>frame(v*VB,1/60);window.__T={snap:(v)=>{const f=frame(v*VB,1/60);draw(f);return f.g},step:(v,s)=>{for(let i=0;i<s;i++)frame(v*VB,1/60)},hit:(k=0)=>{st.atk=0;st.ak=k;st.hd=0;st.bo=0},dash:()=>{st.dsh=0}};
 </script></body></html>
