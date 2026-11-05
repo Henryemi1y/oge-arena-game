@@ -1,7 +1,7 @@
 ---
 id: 008
 title: Враг «Козлорог» — вид сбоку: риг-поза и лист деталей
-status: pending
+status: done
 created_by: claude
 ---
 
@@ -63,4 +63,33 @@ True transparent background.
 - Если якорь получился не в профиль или с перекрытиями, переделай и сохрани `_v2`; то же для листа.
 
 ## Результат
-(заполняет Codex)
+- `assets/enemies/goatman/goatman_side_rigpose_v1.png` — PNG 1024×1536, прозрачный фон. Высота силуэта 1450 px, нижняя подошва на y=1500. Выбранный вариант.
+- `assets/enemies/goatman/goatman_side_parts_v1.png` — PNG 2048×1536, прозрачный фон. 7 деталей, минимальный зазор по прямоугольникам 88 px. Выбранный вариант.
+- Рога целы, ноги сохраняют пальцеходящие суставы и копыта. Верх дальней руки в профиль частично скрыт туловищем, закрытая область восстановлена на листе.
+- Размеры деталей откалиброваны по видимым ориентирам якоря. Под одеждой и бронёй длины восстановлены по пропорциям, точное совпадение скрытых участков 1:1 не подтверждено.
+- Выбранные PNG открыты и проверены в отдельном превью Chrome. Координаты указаны от левого верхнего угла, в пикселях.
+
+`goatman_side_parts_v1.png`
+
+| Деталь | x | y | w | h |
+|---|---:|---:|---:|---:|
+| Голова | 1520 | 548 | 337 | 325 |
+| Торс | 1213 | 40 | 219 | 450 |
+| Ближняя рука | 660 | 40 | 200 | 672 |
+| Дальняя рука | 948 | 40 | 177 | 640 |
+| Ближняя нога | 40 | 40 | 225 | 788 |
+| Дальняя нога | 353 | 40 | 219 | 780 |
+| Набедренная ткань с поясом | 1520 | 40 | 280 | 420 |
+
+<details>
+<summary>Промпты встроенного imagegen</summary>
+
+**Якорь**
+
+Game character reference for cutout rigging. ONE 1024×1536 transparent PNG. The exact goat-man brute in image 1. Thick muscular humanoid, shaggy dark ash-grey fur, pale heavy furred chest, goat muzzle with amber eye and two complete large curling ram horns, no crop. Thick clawed arms, wide dark leather belt with bronze ring buckle, rust-brown ragged loincloth. Strong digitigrade goat legs with backward ankle/hock and right-facing cloven clawed hooves, straight neutral load-bearing stance as anatomy permits. Image 2 controls profile rig and pixel density. Strict 90-degree RIGHT-FACING SIDE PROFILE, no three-quarter or front view. Nose/beak and BOTH toes point SCREEN RIGHT, only the near eye visible. Neutral upright cutout rig pose with both feet planted on exactly one baseline, straight legs gently staggered horizontally so each leg and foot has a visible transparent gap below the hips. Keep the near arm lowered slightly forward of the body toward screen right and the far arm lowered slightly behind toward screen left, open empty hands, elbows almost straight. Distinct transparent gaps between forearms and trunk; both arms visible below shoulder attachments, far side somewhat darker. Only one full figure, entire head to toes with margins, no action pose. Approximate visible height 1450 px, lowest sole near y=1500, centered. Crisp high-detail dark-fantasy pixel art matching the hero, square pixel clusters, dark outlines and restrained stepped upper-left lighting. True transparent background, no cast shadow, backdrop, floor, text, label, or frame.
+
+**Лист деталей**
+
+Rigging parts sheet for the EXACT same figure in image 1, still pure side profile facing screen RIGHT. Transparent PNG 2048×1536, same pixel scale as the anchor, same side orientation and lighting. EXACTLY 7 parts: 1 HEAD with short neck stub; 2 TORSO with fully drawn pelvis, neck and shoulders but NO separate limb pieces attached; 3 complete NEAR ARM vertical with rounded shoulder at top, whole hand at bottom; 4 complete darker FAR ARM vertical with whole hand; 5 complete NEAR LEG vertical from rounded full hip (including the hidden part under clothing) to right-facing flat sole; 6 complete darker FAR LEG likewise; extras: one complete rust-brown ragged loincloth with the wide ring-buckle belt on its own. Head has BOTH complete original spiral horns and the same goat muzzle, neck mane and amber eye. Torso shows massive ash-grey fur chest with paler front pelt, strong shoulder roots and hips. Arms thick and long with the same fur and curved claws. Legs are two anatomically complete digitigrade goat legs with backward hocks and whole cloven hooves facing right. Lay out as two loose rows: top has HEAD, TORSO, extra garment/accessories, bottom has NEAR ARM, FAR ARM, NEAR LEG, FAR LEG in that left-to-right order. Reserve the far right edge for a long weapon if present. Exactly the listed parts, transparent gaps of at least 80px. Do not merge or duplicate pieces. Arms and legs straight and vertical, all root joints rounded and whole. No backdrop, text, numbers as labels, frame, shadow or pose diagram. Retain high-detail crisp pixel clusters and dark fantasy shading from the anchor; image 2 only sets general game art style.
+
+</details>
