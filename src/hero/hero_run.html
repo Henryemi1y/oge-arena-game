@@ -153,14 +153,14 @@ function drawArm(a,f,near,rec,K,DK,mode='all'){const k=K||(near?'N':'F'),D=DK!=n
 function drawCape(f){const c=IMG.cape,w=c.width,h=c.height,n=26,sh=h/n,top=J.cape.top,sp=cl(f.v/VB,0,2.6);ctx.save();ctx.translate(GX+f.cx*SC,GY+f.cy*SC);ctx.rotate(f.ca);ctx.scale(SC,SC);
  for(let i=0;i<n;i++){const u=i/n,dx=Math.sin(st.t*7+u*6)*(6+30*sp)*u*u;ctx.drawImage(c,0,i*sh,w,sh+1,-top[0]+dx,-top[1]+i*sh,w,sh+1)}ctx.restore()}
 function drawChar(f,rec){const far=f.legs[1],near=f.legs[0],hx=J.body.hip[0],hy_=J.body.hip[1];ctx.save();ctx.translate(f.ox*SC,0);
- const sk=(f.shk||0)*SC,L_=FACE<0;ctx.save();ctx.translate(sk,0);if(L_)drawArm(f.arm[0],f,true,false,'N','D','arm');else drawArm(f.arm[1],f,false);ctx.restore();drawLeg(far,f.hy,true);drawLeg(near,f.hy,false);ctx.translate(sk,0);
+ const sk=(f.shk||0)*SC,L_=FACE<0;ctx.save();ctx.translate(sk,0);if(L_)drawArm(f.arm[0],f,true,rec,'N','D');else drawArm(f.arm[1],f,false);ctx.restore();drawLeg(far,f.hy,true);drawLeg(near,f.hy,false);ctx.translate(sk,0);
  ctx.save();ctx.translate(GX,GY+f.hy*SC);ctx.rotate(f.lean);ctx.scale(SC,SC);
  ctx.save();ctx.translate(PB-hx,YC-hy_);ctx.rotate(f.sb);ctx.drawImage(IMG.sb,-PB,0);ctx.restore();ctx.save();ctx.translate(PF-hx,YC-hy_);ctx.rotate(f.sf);ctx.drawImage(IMG.sf,-(PF-SL),0);ctx.restore();
  ctx.translate(-hx,-hy_);ctx.drawImage(IMG.tt,0,YN);
  ctx.save();ctx.translate(NP[0],NP[1]);ctx.rotate(f.hrot);ctx.translate(0,f.hdy);ctx.drawImage(IMG.head,-NP[0],-NP[1]);ctx.restore();
  ctx.save();ctx.translate(115,215);ctx.rotate(f.hrot*.5);ctx.drawImage(IMG.nc,-56,-56);ctx.restore();ctx.restore();
  drawCapeOver(f);
- if(L_){drawArm(f.arm[0],f,true,rec,'N','D','sword');drawArm(f.arm[0],f,true,false,'N','D','fist');drawArm(f.arm[1],f,false,false,'N','','arm')}else drawArm(f.arm[0],f,true,rec);ctx.restore()}
+ if(L_){drawArm(f.arm[1],f,false,false,'N','','arm')}else drawArm(f.arm[0],f,true,rec);ctx.restore()}
 function drawCapeOver(f){drawCape(f)}
 let FACE=1;
 function draw(f){ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,1100,620);ctx.fillStyle='#10131c';ctx.fillRect(0,0,1100,620);if(FACE<0)ctx.setTransform(-1,0,0,1,2*480,0);
