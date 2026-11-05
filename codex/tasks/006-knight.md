@@ -1,7 +1,7 @@
 ---
 id: 006
 title: Враг «Падший рыцарь» — вид сбоку: риг-поза и лист деталей
-status: pending
+status: done
 created_by: claude
 ---
 
@@ -65,4 +65,59 @@ True transparent background.
 - Если якорь получился не в профиль или с перекрытиями, переделай и сохрани `_v2`; то же для листа.
 
 ## Результат
-(заполняет Codex)
+- `assets/enemies/knight/knight_side_rigpose_v1.png` — PNG 1024×1536, прозрачный фон. Высота силуэта 1400 px, нижняя подошва на y=1500. Первый вариант.
+- `assets/enemies/knight/knight_side_rigpose_v2.png` — PNG 1024×1536, прозрачный фон. Высота силуэта 1400 px, нижняя подошва на y=1500. Выбранный вариант.
+- `assets/enemies/knight/knight_side_parts_v1.png` — PNG 2048×1536, прозрачный фон. 9 деталей, минимальный зазор по прямоугольникам 88 px. Первый вариант.
+- `assets/enemies/knight/knight_side_parts_v2.png` — PNG 2048×1536, прозрачный фон. 9 деталей, минимальный зазор по прямоугольникам 88 px. Выбранный вариант.
+- Выбраны якорь и лист v2. Восстановлен дальний локоть, разнесены сабатоны, на листе две отдельные красные полы и меч без дополнительных креплений. Полы на якоре частично закрывают контуры коленей.
+- Размеры деталей откалиброваны по видимым ориентирам якоря. Под одеждой и бронёй длины восстановлены по пропорциям, точное совпадение скрытых участков 1:1 не подтверждено.
+- Выбранные PNG открыты и проверены в отдельном превью Chrome. Координаты указаны от левого верхнего угла, в пикселях.
+
+`knight_side_parts_v1.png`
+
+| Деталь | x | y | w | h |
+|---|---:|---:|---:|---:|
+| Голова | 40 | 908 | 257 | 265 |
+| Торс | 641 | 738 | 230 | 480 |
+| Ближняя рука | 992 | 40 | 172 | 575 |
+| Дальняя рука | 1252 | 688 | 136 | 545 |
+| Ближняя нога | 40 | 40 | 225 | 780 |
+| Дальняя нога | 353 | 40 | 200 | 770 |
+| Передняя пола | 1252 | 40 | 285 | 560 |
+| Задняя пола | 641 | 40 | 263 | 610 |
+| Меч | 1748 | 40 | 260 | 1150 |
+
+`knight_side_parts_v2.png`
+
+| Деталь | x | y | w | h |
+|---|---:|---:|---:|---:|
+| Голова | 641 | 738 | 258 | 265 |
+| Торс | 1253 | 688 | 234 | 480 |
+| Ближняя рука | 993 | 40 | 172 | 575 |
+| Дальняя рука | 1461 | 40 | 136 | 545 |
+| Ближняя нога | 40 | 40 | 225 | 780 |
+| Дальняя нога | 353 | 40 | 200 | 770 |
+| Передняя пола | 1253 | 40 | 120 | 560 |
+| Задняя пола | 641 | 40 | 264 | 610 |
+| Меч | 1745 | 40 | 263 | 1150 |
+
+<details>
+<summary>Промпты встроенного imagegen</summary>
+
+**Якорь**
+
+Game character reference for cutout rigging. ONE 1024×1536 transparent PNG. The exact fallen knight in image 1, massive dark steel plate armor, ridged steel pauldrons, breastplate, closed charcoal great helm with a narrow amber eye slit under a deep crimson hood, steel gauntlets and faceted knee guards, sabatons, brown leather belt and plain steel buckle. Original long pointed crimson front AND rear tabard flaps, drape narrowly beside the thighs so knees and lower forearms are readable. No sword or scabbard, hands empty. Image 2 is only profile rig and pixel-art style. Strict 90-degree RIGHT-FACING SIDE PROFILE, no three-quarter or front view. Nose/beak and BOTH toes point SCREEN RIGHT, only the near eye visible. Neutral upright cutout rig pose with both feet planted on exactly one baseline, straight legs gently staggered horizontally so each leg and foot has a visible transparent gap below the hips. Keep the near arm lowered slightly forward of the body toward screen right and the far arm lowered slightly behind toward screen left, open empty hands, elbows almost straight. Distinct transparent gaps between forearms and trunk; both arms visible below shoulder attachments, far side somewhat darker. Only one full figure, entire head to toes with margins, no action pose. Approximate visible height 1400 px, lowest sole near y=1500, centered. Crisp high-detail dark-fantasy pixel art matching the hero, square pixel clusters, dark outlines and restrained stepped upper-left lighting. True transparent background, no cast shadow, backdrop, floor, text, label, or frame.
+
+**Правка якоря**
+
+Tiny local repair to image 1 only. Its far arm on SCREEN LEFT has a broken elbow joint: the sleeve cuff near x≈355,y≈520 is separated from the start of the dark-steel forearm. Draw the missing SHORT elbow connector at x≈330–365,y≈510–548, in the same charcoal fabric and steel and same crisp pixel clusters. Image 2 shows the original intact elbow. Far arm must be attached continuously from shoulder to fingertips. Every other pixel and shape, including BOTH separate steel boots on a shared line, position and spacing of legs, both red panels, right-facing profile and near arm, remains exactly as image 1. Keep alpha in all gaps outside the arm. Transparent 1024×1536.
+
+**Лист деталей**
+
+Rigging parts sheet for the EXACT same figure in image 1, still pure side profile facing screen RIGHT. Transparent PNG 2048×1536, same pixel scale as the anchor, same side orientation and lighting. EXACTLY 9 parts: 1 HEAD with short neck stub; 2 TORSO with fully drawn pelvis, neck and shoulders but NO separate limb pieces attached; 3 complete NEAR ARM vertical with rounded shoulder at top, whole hand at bottom; 4 complete darker FAR ARM vertical with whole hand; 5 complete NEAR LEG vertical from rounded full hip (including the hidden part under clothing) to right-facing flat sole; 6 complete darker FAR LEG likewise; extras: one FRONT red tabard flap and one distinct REAR red tabard flap, individually separate, plus one long straight black-steel sword with heavy cross-guard, tip up at far right. Closed hooded steel helm on head, crimson cowl on torso, intact dark breastplate and belt on torso, ridged pauldrons on the detached arms ONLY, no duplicate armor on chest. Whole armor legs with thigh, angular knee plates, greaves, dark sabatons. Separate empty gauntlets, no weapon attached. Lay out in two loose rows with each object isolated: top left-to-right head, torso and garment/accessory parts; bottom left-to-right near arm, far arm, near leg, far leg. Place the sword, if requested, isolated and complete at far right. Four stump caps, if requested, form a clear row to the right of the torso. Transparent gutters at least 80px. No other pieces, no overlapping. Arms and legs straight and vertical, all root joints rounded and whole. No backdrop, text, numbers as labels, frame, shadow or pose diagram. Retain high-detail crisp pixel clusters and dark fantasy shading from the anchor; image 2 only sets general game art style.
+
+**Правка листа**
+
+Precise edit of the same exact side-profile fallen knight parts sheet. Image 2 is the selected anchor, authoritative for cloth shapes. Keep the existing four complete vertical limbs, exact head, torso and separate black-steel sword, all in exactly their places. Fix only the cloth and extra objects in the top row: the first crimson panel must be one single narrow forward-hanging pointed flap (NOT a forked two-tail garment); the second crimson panel remains a distinct single rear flap, taper like the rear flap in image 2. Each is whole on its own and has one complete top attachment. Remove the four unrequested tiny metal cap objects between the cloth and sword. Exactly nine separate parts: head, torso, two full arms, two full legs, two individual cloth flaps, sword. True transparent alpha, unchanged crisp pixel-art style and geometry otherwise. No text.
+
+</details>
