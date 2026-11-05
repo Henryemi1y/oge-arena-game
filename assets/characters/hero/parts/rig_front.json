@@ -1,0 +1,179 @@
+{
+ "canvas": [
+  1024,
+  1536
+ ],
+ "joints": {
+  "neck": [
+   512,
+   290
+  ],
+  "shL": [
+   352,
+   385
+  ],
+  "shR": [
+   672,
+   385
+  ],
+  "elL": [
+   288,
+   562
+  ],
+  "elR": [
+   736,
+   562
+  ],
+  "wrL": [
+   246,
+   728
+  ],
+  "wrR": [
+   778,
+   728
+  ],
+  "haL": [
+   228,
+   852
+  ],
+  "haR": [
+   796,
+   852
+  ],
+  "hiL": [
+   445,
+   790
+  ],
+  "hiR": [
+   579,
+   790
+  ],
+  "knL": [
+   405,
+   1015
+  ],
+  "knR": [
+   619,
+   1015
+  ],
+  "anL": [
+   385,
+   1330
+  ],
+  "anR": [
+   639,
+   1330
+  ],
+  "toL": [
+   380,
+   1445
+  ],
+  "toR": [
+   644,
+   1445
+  ]
+ },
+ "order": [
+  "cape",
+  "thighL",
+  "thighR",
+  "shinL",
+  "shinR",
+  "torso",
+  "upperarmL",
+  "forearmL",
+  "upperarmR",
+  "forearmR",
+  "head"
+ ],
+ "parts": {
+  "cape": {
+   "file": "cape.png",
+   "pivot": [
+    512,
+    290
+   ],
+   "parent": null
+  },
+  "thighL": {
+   "file": "thighL.png",
+   "pivot": [
+    445,
+    790
+   ],
+   "parent": null
+  },
+  "thighR": {
+   "file": "thighR.png",
+   "pivot": [
+    579,
+    790
+   ],
+   "parent": null
+  },
+  "shinL": {
+   "file": "shinL.png",
+   "pivot": [
+    405,
+    1015
+   ],
+   "parent": "thighL"
+  },
+  "shinR": {
+   "file": "shinR.png",
+   "pivot": [
+    619,
+    1015
+   ],
+   "parent": "thighR"
+  },
+  "torso": {
+   "file": "torso.png",
+   "pivot": [
+    512,
+    290
+   ],
+   "parent": null
+  },
+  "upperarmL": {
+   "file": "upperarmL.png",
+   "pivot": [
+    352,
+    385
+   ],
+   "parent": null
+  },
+  "forearmL": {
+   "file": "forearmL.png",
+   "pivot": [
+    288,
+    562
+   ],
+   "parent": "upperarmL"
+  },
+  "upperarmR": {
+   "file": "upperarmR.png",
+   "pivot": [
+    672,
+    385
+   ],
+   "parent": null
+  },
+  "forearmR": {
+   "file": "forearmR.png",
+   "pivot": [
+    736,
+    562
+   ],
+   "parent": "upperarmR"
+  },
+  "head": {
+   "file": "head.png",
+   "pivot": [
+    512,
+    290
+   ],
+   "parent": null
+  }
+ }
+}

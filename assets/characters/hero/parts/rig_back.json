@@ -1,0 +1,170 @@
+{
+ "canvas": [
+  1024,
+  1536
+ ],
+ "joints": {
+  "neck": [
+   512,
+   290
+  ],
+  "shL": [
+   342,
+   382
+  ],
+  "shR": [
+   682,
+   382
+  ],
+  "elL": [
+   300,
+   565
+  ],
+  "elR": [
+   724,
+   565
+  ],
+  "wrL": [
+   248,
+   730
+  ],
+  "wrR": [
+   776,
+   730
+  ],
+  "haL": [
+   228,
+   852
+  ],
+  "haR": [
+   796,
+   852
+  ],
+  "hiL": [
+   445,
+   790
+  ],
+  "hiR": [
+   579,
+   790
+  ],
+  "knL": [
+   405,
+   1015
+  ],
+  "knR": [
+   619,
+   1015
+  ],
+  "anL": [
+   385,
+   1330
+  ],
+  "anR": [
+   639,
+   1330
+  ],
+  "toL": [
+   380,
+   1445
+  ],
+  "toR": [
+   644,
+   1445
+  ]
+ },
+ "order": [
+  "thighL",
+  "thighR",
+  "shinL",
+  "shinR",
+  "body",
+  "upperarmL",
+  "forearmL",
+  "upperarmR",
+  "forearmR",
+  "head"
+ ],
+ "parts": {
+  "thighL": {
+   "file": "thighL.png",
+   "pivot": [
+    445,
+    790
+   ],
+   "parent": null
+  },
+  "thighR": {
+   "file": "thighR.png",
+   "pivot": [
+    579,
+    790
+   ],
+   "parent": null
+  },
+  "shinL": {
+   "file": "shinL.png",
+   "pivot": [
+    405,
+    1015
+   ],
+   "parent": "thighL"
+  },
+  "shinR": {
+   "file": "shinR.png",
+   "pivot": [
+    619,
+    1015
+   ],
+   "parent": "thighR"
+  },
+  "body": {
+   "file": "body.png",
+   "pivot": [
+    512,
+    290
+   ],
+   "parent": null
+  },
+  "upperarmL": {
+   "file": "upperarmL.png",
+   "pivot": [
+    342,
+    382
+   ],
+   "parent": null
+  },
+  "forearmL": {
+   "file": "forearmL.png",
+   "pivot": [
+    300,
+    565
+   ],
+   "parent": "upperarmL"
+  },
+  "upperarmR": {
+   "file": "upperarmR.png",
+   "pivot": [
+    682,
+    382
+   ],
+   "parent": null
+  },
+  "forearmR": {
+   "file": "forearmR.png",
+   "pivot": [
+    724,
+    565
+   ],
+   "parent": "upperarmR"
+  },
+  "head": {
+   "file": "head.png",
+   "pivot": [
+    512,
+    290
+   ],
+   "parent": null
+  }
+ }
+}
