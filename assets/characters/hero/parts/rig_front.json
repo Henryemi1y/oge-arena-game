@@ -86,6 +86,32 @@
   "forearmR",
   "head"
  ],
+ "caps": {
+  "elL": {
+   "file": "cap_elL.png",
+   "r": 40.0,
+   "upper": "upperarmL",
+   "lower": "forearmL"
+  },
+  "elR": {
+   "file": "cap_elR.png",
+   "r": 40.2,
+   "upper": "upperarmR",
+   "lower": "forearmR"
+  },
+  "knL": {
+   "file": "cap_knL.png",
+   "r": 52.8,
+   "upper": "thighL",
+   "lower": "shinL"
+  },
+  "knR": {
+   "file": "cap_knR.png",
+   "r": 52.2,
+   "upper": "thighR",
+   "lower": "shinR"
+  }
+ },
  "parts": {
   "cape": {
    "file": "cape.png",

@@ -1,0 +1,108 @@
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Герой спереди и сзади</title>
+<style>
+:root{--bg:#0e1118;--panel:#161b26;--tx:#dfe5f0;--mut:#8c97ab;--ac:#5b8cff;--line:#2a3142}
+:root[data-theme="light"]{--bg:#eef1f6;--panel:#fff;--tx:#18202e;--mut:#5c677a;--ac:#2f62e0;--line:#d5dbe6}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--bg:#eef1f6;--panel:#fff;--tx:#18202e;--mut:#5c677a;--ac:#2f62e0;--line:#d5dbe6}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:14px/1.45 system-ui,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:14px 16px}h1{font-size:17px;margin:0 0 4px}.sub{color:var(--mut);margin:0 0 12px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+button{background:var(--panel);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:7px 12px;font:inherit;cursor:pointer}
+button.on{border-color:var(--ac);color:var(--ac)}label{color:var(--mut);display:flex;gap:6px;align-items:center}
+canvas{display:block;width:100%;max-width:1068px;background:#1a2030;border-radius:10px;image-rendering:pixelated}
+.m{font:12px ui-monospace,monospace;color:var(--mut);margin-top:8px;white-space:pre-wrap}
+</style></head><body><div class="wrap">
+<h1>Герой спереди и сзади: риг и движение</h1>
+<p class="sub">Детали нарезаны из видов спереди/сзади; руки поворачиваются в 3D у плеча и проецируются, ноги идут по IK, на сгибах — круглые шапки суставов, плащ качается мягкой деформацией.</p>
+<div class="row"><button data-v="front" class="on">Спереди</button><button data-v="back">Сзади</button><span style="width:10px"></span>
+<button data-m="idle" class="on">Стойка</button><button data-m="walk">Ходьба</button><button data-m="both">Оба вида</button>
+<label>скорость <input id="sp" type="range" min="0.3" max="1.6" step="0.05" value="1"></label><label><input id="jt" type="checkbox"> суставы</label><button id="ps">Пауза</button></div>
+<canvas id="c" width="1068" height="760"></canvas><div class="m" id="m"></div></div>
+<script>
+const D=__RIGDATA__;
+const IM={};let left=0;for(const v in D)for(const n in D[v].tex){left++;const i=new Image();i.onload=()=>{if(--left==0)requestAnimationFrame(loop)};i.src=D[v].tex[n].src;(IM[v]=IM[v]||{})[n]=i}
+const cv=document.getElementById('c'),ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;
+let view='front',mode='idle',paused=false,t=0,last=null;
+document.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{view=b.dataset.v;document.querySelectorAll('[data-v]').forEach(x=>x.classList.toggle('on',x==b))});
+document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{mode=b.dataset.m;document.querySelectorAll('[data-m]').forEach(x=>x.classList.toggle('on',x==b))});
+document.getElementById('ps').onclick=e=>{paused=!paused;e.target.textContent=paused?'Дальше':'Пауза'};
+const K=.34,sm=x=>{x=Math.min(1,Math.max(0,x));return x*x*(3-2*x)},lp=(a,b,k)=>a+(b-a)*k,TAU=Math.PI*2;
+const len=(a,b)=>Math.hypot(b[0]-a[0],b[1]-a[1]);
+// вектор кости: поворот в плоскости экрана (b) и наклон вперёд-назад (p) вокруг поперечной оси, затем проекция; sg=+1 лицом к камере
+function proj(r,b,p,sg){const c=Math.cos(b),s=Math.sin(b),x=c*r[0]-s*r[1],y=s*r[0]+c*r[1];return[x,y*Math.cos(p)+sg*K*y*Math.sin(p)]}
+// аффинное отображение отрезка покоя (pv→pv+r0) в новый (q→q+r1): вдоль кости растяжение, поперёк без изменений
+function aff(pv,r0,q,r1){const l0=Math.hypot(...r0),l1=Math.hypot(...r1),u0=[r0[0]/l0,r0[1]/l0],u1=[r1[0]/l1,r1[1]/l1],n0=[-u0[1],u0[0]],n1=[-u1[1],u1[0]],a=l1/l0;
+ const m00=u1[0]*a*u0[0]+n1[0]*n0[0],m01=u1[0]*a*u0[1]+n1[0]*n0[1],m10=u1[1]*a*u0[0]+n1[1]*n0[0],m11=u1[1]*a*u0[1]+n1[1]*n0[1];
+ return[m00,m10,m01,m11,q[0]-(m00*pv[0]+m01*pv[1]),q[1]-(m10*pv[0]+m11*pv[1])]}
+const rotM=(a,c)=>{const s=Math.sin(a),k=Math.cos(a);return[k,s,-s,k,c[0]-(k*c[0]-s*c[1]),c[1]-(s*c[0]+k*c[1])]};
+const mul=(A,B)=>[A[0]*B[0]+A[2]*B[1],A[1]*B[0]+A[3]*B[1],A[0]*B[2]+A[2]*B[3],A[1]*B[2]+A[3]*B[3],A[0]*B[4]+A[2]*B[5]+A[4],A[1]*B[4]+A[3]*B[5]+A[5]];
+const ap=(M,p)=>[M[0]*p[0]+M[2]*p[1]+M[4],M[1]*p[0]+M[3]*p[1]+M[5]];
+const ST={};
+function pose(v,t,walk,sp){const J=D[v].rig.joints,sg=v=='front'?1:-1,st=ST[v]=ST[v]||{F:0,sw:0,swv:0,py:0};
+ const L1={L:len(J.hiL,J.knL),R:len(J.hiR,J.knR)},L2={L:len(J.knL,J.anL),R:len(J.knR,J.anR)};
+ const g=walk,spd=sp*g;st.F+=spd*.95*(1/60);
+ // таз: в стойке — перенос веса с ноги на ногу (контрапост), в ходьбе — выше всего над опорной ногой
+ const ws=Math.sin(t*.55),F=st.F,Sz=230*g; // длина шага в 3D (по оси к камере)
+ const feet={},pel={x:lp(ws*14,0,g),y:0},legs={};
+ for(const [sd,o] of [['L',0],['R',.5]]){const u=((F+o)%1+1)%1,beta=.6;let z,y=0,lift=0;
+  if(u<beta){const w=u/beta;z=Sz/2*(1-2*w)}else{const q=(u-beta)/(1-beta),q5=q*q*q*(q*(q*6-15)+10);z=-Sz/2+Sz*q5;lift=Math.pow(Math.sin(Math.PI*q),2)*48*g}
+  feet[sd]={z,lift,u,stance:u<beta}}
+ // высота таза: опорная нога почти прямая
+ const Lm=Math.min(L1.L+L2.L,L1.R+L2.R)-3;let need=0;
+ for(const sd of 'LR'){const f=feet[sd];if(f.stance){const d=Math.hypot(f.z,Lm);need=Math.max(need,(Math.sqrt(Math.max(0,Lm*Lm-f.z*f.z))-Lm))}}
+ const idleDip=(1-g)*(3+2*Math.abs(ws));const pyT=(g>0?Math.min(0,-need*-1):0);
+ st.py=lp(st.py,-(need)*g-idleDip,.25);pel.y=-st.py;
+ for(const sd of 'LR'){const hi=J['hi'+sd],an=J['an'+sd],f=feet[sd];
+  // стопа в 3D относительно бедра: в стойке опирается на землю, свободная нога в покое чуть согнута
+  const free=(1-g)*sm((sd=='L'?-ws:ws)*1.4)*.9;
+  const fx=an[0]-hi[0]-pel.x*(1-g),fy=(an[1]-hi[1])-pel.y-f.lift-free*10,fz=f.z+free*14;
+  const vy=fy,dl=Math.hypot(fy,fz),bl=Math.atan2(-fx,Math.hypot(fy,fz)),b0=Math.atan2(-(an[0]-hi[0]),an[1]-hi[1]);
+  const l1=L1[sd],l2=L2[sd],d=Math.min(dl,l1+l2-.5),k=Math.PI-Math.acos(Math.max(-1,Math.min(1,(l1*l1+l2*l2-d*d)/(2*l1*l2)))),
+   al=Math.acos(Math.max(-1,Math.min(1,(l1*l1+d*d-l2*l2)/(2*l1*d)))),th=Math.atan2(fz,fy),p1=th+al,p2=p1-k;
+  legs[sd]={b:bl-b0,p1,p2,k,f}}
+ // руки: маятник против ног, локоть чуть согнут и сгибается при выносе вперёд
+ const arms={};for(const [sd,o] of [['L',.5],['R',0]]){const ph=Math.sin(TAU*(F+o)),sw=g*.42*ph,id=(1-g)*.04*Math.sin(t*1.1+(sd=='L'?0:1.3));
+  arms[sd]={b:(sd=='L'?1:-1)*(.035+.02*(1-g)),p:sw+id,e:.12+g*(.16+.22*Math.max(0,ph))}}
+ // корпус: дыхание, наклон к опорной ноге; плащ — пружина от бокового движения таза и шага
+ const roll=lp(ws*.012,.018*Math.sin(TAU*F),g),br=(1-g)*.006*Math.sin(t*1.7),swT=-(pel.x-(st.px??pel.x))*2.2+g*.9*Math.sin(TAU*F*2)*6;st.px=pel.x;
+ st.swv+=(swT*1.0-st.sw)*.08-st.swv*.12;st.sw+=st.swv;
+ return{J,sg,legs,arms,pel,roll,br,cape:st.sw+lp(ws*6,0,g),head:.02*Math.sin(t*.7)*(1-g)+g*.012*Math.sin(TAU*F*2)}}
+function drawView(v,P,ox,oy,S,showJ){const R=D[v].rig,T=D[v].tex,I=IM[v],J=P.J,sg=P.sg;
+ const base=[S,0,0,S,ox,oy],root=mul(base,[1,0,0,1,P.pel.x,P.pel.y]),hipC=[512,790];
+ const torso=mul(root,mul(rotM(P.roll,hipC),[1,0,0,1+P.br,0,-P.br*hipC[1]]));
+ const X={},jp=[];
+ // ноги: бедро от тазобедренного, голень от проекции колена
+ for(const sd of 'LR'){const L=P.legs[sd],hi=J['hi'+sd],kn=J['kn'+sd],an=J['an'+sd],r0=[kn[0]-hi[0],kn[1]-hi[1]],r1=proj(r0,L.b,L.p1,sg);
+  const hw=ap(mul(root,rotM(-P.roll*.6,hipC)),hi),Mt=mul([1,0,0,1,0,0],aff(hi,r0,[0,0],r1));
+  X['thigh'+sd]=mul([S,0,0,S,hw[0]-S*0,hw[1]-S*0],[1,0,0,1,0,0]);const knee=[r1[0],r1[1]];
+  X['thigh'+sd]=[S,0,0,S,hw[0],hw[1]];X['thigh'+sd]=mul(X['thigh'+sd],aff(hi,r0,[0,0],r1));
+  const s0=[an[0]-kn[0],an[1]-kn[1]],s1=proj(s0,L.b,L.p2,sg);X['shin'+sd]=mul([S,0,0,S,hw[0],hw[1]],aff(kn,s0,knee,s1));
+  X['cap_kn'+sd]=X['thigh'+sd];X['_k'+sd]=L.k;jp.push(hw,[hw[0]+S*knee[0],hw[1]+S*knee[1]],[hw[0]+S*(knee[0]+s1[0]),hw[1]+S*(knee[1]+s1[1])])}
+ for(const sd of 'LR'){const A=P.arms[sd],sh=J['sh'+sd],el=J['el'+sd],ha=J['ha'+sd],r0=[el[0]-sh[0],el[1]-sh[1]],r1=proj(r0,A.b,A.p,sg),sw=ap(torso,sh);
+  X['upperarm'+sd]=mul([S,0,0,S,sw[0],sw[1]],aff(sh,r0,[0,0],r1));const f0=[ha[0]-el[0],ha[1]-el[1]],f1=proj(f0,A.b,A.p+A.e,sg);
+  X['forearm'+sd]=mul([S,0,0,S,sw[0],sw[1]],aff(el,f0,r1,f1));X['cap_el'+sd]=X['upperarm'+sd];X['_e'+sd]=A.e;
+  jp.push(sw,[sw[0]+S*r1[0],sw[1]+S*r1[1]],[sw[0]+S*(r1[0]+f1[0]),sw[1]+S*(r1[1]+f1[1])])}
+ const head=mul(torso,rotM(P.head,J.neck));
+ const draw=(n,M,al=1)=>{const tx=T[n];if(!tx||al<=0)return;ctx.setTransform(M[0],M[1],M[2],M[3],M[4],M[5]);ctx.globalAlpha=al;ctx.drawImage(I[n],tx.x,tx.y);ctx.globalAlpha=1};
+ // мягкая деформация плаща: строки сдвигаются тем сильнее, чем ниже (у плеч — ноль, разрыва нет)
+ const soft=(n,M,y0,y1,amt)=>{const tx=T[n],im=I[n];ctx.setTransform(M[0],M[1],M[2],M[3],M[4],M[5]);const h=im.height;for(let y=0;y<h;y+=3){const wy=tx.y+y,w=sm((wy-y0)/(y1-y0)),hh=Math.min(4,h-y);ctx.drawImage(im,0,y,im.width,hh,tx.x+amt*w*w,wy,im.width,hh)}};
+ const leg=sd=>{draw('shin'+sd,X['shin'+sd]);draw('thigh'+sd,X['thigh'+sd]);draw('cap_kn'+sd,X['cap_kn'+sd],sm(X['_k'+sd]/.3))};
+ const arm=sd=>{draw('forearm'+sd,X['forearm'+sd]);draw('upperarm'+sd,X['upperarm'+sd]);draw('cap_el'+sd,X['cap_el'+sd],sm(X['_e'+sd]/.3))};
+ if(v=='front'){soft('cape',torso,420,1320,P.cape);leg('L');leg('R');draw('torso',torso);arm('L');arm('R');draw('head',head)}
+ else{leg('L');leg('R');soft('body',torso,720,1320,P.cape);arm('L');arm('R');draw('head',head)}
+ ctx.setTransform(1,0,0,1,0,0);
+ if(showJ){ctx.fillStyle='#ffd84a';for(const p of jp){ctx.beginPath();ctx.arc(p[0],p[1],3,0,TAU);ctx.fill()}}
+ return jp}
+function ground(ox,oy,S,sg,off){ctx.strokeStyle='rgba(140,160,200,.25)';ctx.lineWidth=1;for(let i=-4;i<6;i++){const y=oy+S*(1445+((i*60+off)%600+600)%600*K*.0+0)}
+ const gy=oy+S*1445;ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(ox+S*512,gy,S*230,S*28,0,0,TAU);ctx.fill();
+ for(let i=-3;i<5;i++){const y=gy+(((i*90+off*sg*K)%360)+360)%360*S*.35-60*S;ctx.strokeStyle='rgba(150,170,210,'+(.12+.1*Math.cos(i))+')';ctx.beginPath();ctx.moveTo(ox+S*150,y);ctx.lineTo(ox+S*874,y);ctx.stroke()}}
+const SL={};
+function loop(ts){const dt=last==null?1/60:Math.min(.05,(ts-last)/1000);last=ts;const sp=+document.getElementById('sp').value;if(!paused)t+=dt;
+ ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);
+ const vs=mode=='both'?['front','back']:[view],walk=mode=='idle'?0:1,S=mode=='both'?.46:.48,info=[];
+ vs.forEach((v,i)=>{const ox=(mode=='both'?i*534:(cv.width-1024*S)/2),oy=8;if(!paused||!SL[v])SL[v]=pose(v,t,walk,sp);const P=SL[v];
+  const sg=P.sg;ground(ox,oy,S,sg,ST[v].F*230*walk);drawView(v,P,ox,oy,S,document.getElementById('jt').checked);
+  info.push(`${v=='front'?'спереди':'сзади'}: колено L ${(P.legs.L.k*57.3).toFixed(0)}° R ${(P.legs.R.k*57.3).toFixed(0)}°, локоть L ${(P.arms.L.e*57.3).toFixed(0)}°, таз ${P.pel.y.toFixed(1)}`)});
+ document.getElementById('m').textContent=info.join('\n');requestAnimationFrame(loop)}
+window.__dbg={pose,drawView,D,ST,setT:x=>t=x};
+</script></body></html>
