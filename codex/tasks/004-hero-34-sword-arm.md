@@ -1,7 +1,7 @@
 ---
 id: 004
 title: Герой 3/4 — ближняя рука, сжимающая рукоять меча (кулак)
-status: pending
+status: cancelled
 created_by: claude
 ---
 
