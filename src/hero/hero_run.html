@@ -11,7 +11,7 @@ button{background:#1d2740;color:var(--fg);border:1px solid #2c3a5c;border-radius
 <div class="p"><h1>Критик движения</h1><div class="s" id="sc">…</div><div id="mt"></div>
 <label>Скорость: <span id="vv"></span> · <span id="gm"></span></label><input id="v" type="range" min="0" max="260" value="100">
 <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap"><button id="au">Авто-профиль: вкл</button><button id="ps">Пауза</button><button id="ba">Сверху (J)</button><button id="bb">Горизонтально (K)</button><button id="bc">Снизу вверх (L)</button><button id="bd">Рывок (Space)</button></div>
-<p style="color:var(--mut);font-size:12px;margin:10px 0 0">Управление: <b>A/D</b> или <b>←/→</b> — шаг влево/вправо, с зажатым <b>Shift</b> — бег, <b>Space</b> — рывок, <b>J/K/L</b> — удары. Красные точки — опора на земле. Бег включается выше 115% скорости шага.</p></div></div>
+<p style="color:var(--mut);font-size:12px;margin:10px 0 0">Управление: <b>A/D</b> или <b>←/→</b> — шаг влево/вправо, с зажатым <b>Shift</b> — бег, <b>Space</b> — рывок, <b>J/K/L</b> — удары, <b>ЛКМ</b> по сцене — три удара по очереди. Красные точки — опора на земле. Бег включается выше 115% скорости шага.</p></div></div>
 <script>
 const A=__A__,J=A.J,L1=J.leg.knee[1]-J.leg.hip[1],L2=J.leg.ankle[1]-J.leg.knee[1],SOLE=J.leg.H-J.leg.ankle[1],REACH=L1+L2+SOLE,SC=.3,GY=520,LMAX=(L1+L2)*.985,VB=REACH*.78,AX=J.leg.hip[0],HEEL=-66,BALL=117,SWH=800,O=24,YC=525,SL=200,PB=150,PF=215,YN=205,NP=[190,205];
 let BW=.56,LW0=.12,WLP=0,TRP=.3,WD=.34,HD=.03,AE=.65,KV=1,ER=1.6,F0=3,WP=.32,PHC=.28,PHM=.58,PHT=.02,SW=.72,RW=400,SR=1.2,WH=0,LP=0,AK=0,LF=.27,PFLOOR=40,DPK=.4,DTR=4,SKA=0,SKB=.5,SKW=20;const RH0=.05,RA=.016,LW=(L1+L2)-.4,LC=(L1+L2)-.08;
@@ -204,12 +204,15 @@ function start(){const res=critic();window.__crit=res;document.getElementById('m
  document.getElementById('au').onclick=e=>{auto=!auto;e.target.textContent='Авто-профиль: '+(auto?'вкл':'выкл')};document.getElementById('ps').onclick=e=>{pause=!pause;e.target.textContent=pause?'Продолжить':'Пауза'};
  const hit=k=>{if(st.atk<0){st.atk=0;st.ak=k;st.hd=0;st.bo=0}},dash=()=>{if(st.dsh<0)st.dsh=0};document.getElementById('ba').onclick=()=>hit(0);document.getElementById('bb').onclick=()=>hit(1);document.getElementById('bc').onclick=()=>hit(2);document.getElementById('bd').onclick=dash;
  const KY={};addEventListener('keydown',e=>{KY[e.code]=1;if(e.code=='KeyJ')hit(0);if(e.code=='KeyK')hit(1);if(e.code=='KeyL')hit(2);if(e.code=='Space'){dash();e.preventDefault()}if(e.code.startsWith('Arrow'))e.preventDefault();if(['KeyA','KeyD','ArrowLeft','ArrowRight'].includes(e.code)&&auto){auto=false;document.getElementById('au').textContent='Авто-профиль: выкл'}});addEventListener('keyup',e=>KY[e.code]=0);
+ // ЛКМ по сцене: три удара по очереди (сверху → горизонтальный → снизу вверх), потом заново; клик во время удара запоминается и срабатывает сразу после него
+ let CMB=0,CQ=0,CLAST=-9;const cbHit=()=>{if(st.atk<0){if(t0-CLAST>1.5)CMB=0;hit(CMB);CMB=(CMB+1)%3;CLAST=t0;CQ=0}else CQ=1};
+ document.getElementById('c').addEventListener('mousedown',e=>{if(e.button==0){e.preventDefault();cbHit()}});document.getElementById('c').addEventListener('contextmenu',e=>e.preventDefault());window.__cb=cbHit;
  let SV=0,KEYUSED=0;window.__KY=KY;vs.addEventListener('input',()=>KEYUSED=0);
  let last=0,t0=0;const prof=t=>{const u=t%22;return u<2?0:u<4?(u-2)/2:u<8?1:u<10?lp(1,2.3,(u-8)/2):u<14?2.3:u<16?lp(2.3,.4,(u-14)/2):u<18?lp(.4,0,(u-16)/2):0};
  function loop(ts){const dt=Math.min(.05,(ts-last)/1000||0);last=ts;if(!pause){t0+=dt;let k;
   const dr=(KY.KeyD||KY.ArrowRight?1:0)-(KY.KeyA||KY.ArrowLeft?1:0);
   if(auto){k=prof(t0);SV=k*FACE}else{const run=KY.ShiftLeft||KY.ShiftRight;if(dr)KEYUSED=1;const tg=dr?dr*(run?2.3:1):(KEYUSED?0:vs.value/100*FACE);let want=tg;if(SV*tg<0||(Math.abs(SV)<.04&&tg*FACE<0))want=0;
    SV+=cl(want-SV,-2.4*dt,2.4*dt);if(Math.abs(SV)<.04&&tg*FACE<0)FACE=-FACE;k=Math.abs(SV);if(KEYUSED)vs.value=k*100}
-  if(auto)vs.value=k*100;vv.textContent=(k*100|0)+'%';const f=frame(k*VB,dt);gm.textContent=f.D>.05?'рывок':f.AT>=0?'удар '+(f.ak+1):f.g>.5?'бег':f.m>.3?'шаг':'стойка';draw(f)}requestAnimationFrame(loop)}requestAnimationFrame(loop)}
+  if(auto)vs.value=k*100;vv.textContent=(k*100|0)+'%';const f=frame(k*VB,dt);if(CQ&&st.atk<0)cbHit();if(st.atk>=0)CLAST=t0;gm.textContent=f.D>.05?'рывок':f.AT>=0?'удар '+(f.ak+1):f.g>.5?'бег':f.m>.3?'шаг':'стойка';draw(f)}requestAnimationFrame(loop)}requestAnimationFrame(loop)}
 window.__fr=v=>frame(v*VB,1/60);window.__T={snap:(v)=>{const f=frame(v*VB,1/60);draw(f);return f.g},step:(v,s)=>{for(let i=0;i<s;i++)frame(v*VB,1/60)},hit:(k=0)=>{st.atk=0;st.ak=k;st.hd=0;st.bo=0},dash:()=>{st.dsh=0}};
 </script></body></html>
