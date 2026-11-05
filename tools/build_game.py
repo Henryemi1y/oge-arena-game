@@ -191,7 +191,12 @@ def main():
     js.insert(0, '// ===== walker.js (src/engine) =====\n' + open(os.path.join(R, 'src/engine/walker.js'), encoding='utf-8').read())
     tpl = open(os.path.join(G, 'index.tpl.html'), encoding='utf-8').read()
     html = tpl.replace('/*__ASSETS__*/', 'const ASSETS=' + json.dumps(A, separators=(',', ':')) + ';').replace('/*__CODE__*/', '\n'.join(js))
-    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(G, 'index.html')
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    if '--artifact' in sys.argv:  # вариант для публикации артефактом: без обёртки <html>/<head>/<body> (её добавляет площадка)
+        import re
+        html = re.sub(r'<!DOCTYPE html>\s*<html[^>]*>\s*<head>\s*<meta charset="utf-8">\s*<meta name="viewport"[^>]*>\s*', '', html, flags=re.I)
+        html = html.replace('</head>\n<body>', '').replace('</body></html>', '')
+    out = args[0] if args else os.path.join(G, 'index.html')
     open(out, 'w', encoding='utf-8').write(html)
     print('built', out, round(os.path.getsize(out) / 1e6, 2), 'MB')
 
