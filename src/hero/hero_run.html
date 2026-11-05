@@ -22,10 +22,11 @@ const sub=(im,x0,y0,x1,y1)=>{const c=cv(x1-x0,y1-y0);c.getContext('2d').drawImag
 const crop=(im,y0,y1)=>sub(im,0,y0,im.width,y1);
 function patch(im,cx,cy,r){const c=cv(2*r,2*r),x=c.getContext('2d');x.drawImage(im,cx-r,cy-r,2*r,2*r,0,0,2*r,2*r);x.globalCompositeOperation='destination-in';const g=x.createRadialGradient(r,r,r*.62,r,r,r);g.addColorStop(0,'#000');g.addColorStop(1,'rgba(0,0,0,0)');x.fillStyle=g;x.fillRect(0,0,2*r,2*r);return c}
 const dk=c=>{const d=cv(c.width,c.height),x=d.getContext('2d');x.drawImage(c,0,0);x.globalCompositeOperation='source-atop';x.fillStyle='rgba(2,4,14,.36)';x.fillRect(0,0,d.width,d.height);return d};
-let IMG;Promise.all(['body','cape','armN','armF','leg','sword','guard'].map(k=>ld(A.img[k]))).then(([body,cape,armN,armF,leg,sword,guard])=>{
+const ARMSPLIT={N:216,F:215},FOFF={};let IMG;Promise.all(['body','cape','armN','armF','leg','sword','guard'].map(k=>ld(A.img[k]))).then(([body,cape,armN,armF,leg,sword,guard])=>{
  const K=J.leg.knee[1],N=J.leg.ankle[1],P={body,cape,sword,guard,head:sub(body,0,0,body.width,YN+16),tt:sub(body,0,YN,body.width,YC+12),nc:patch(body,115,215,56),sb:sub(body,0,YC,SL+8,body.height),sf:sub(body,SL,YC,body.width,body.height)};
  Object.assign(P,{thigh:crop(leg,0,K+O),shin:crop(leg,K-O,N+O),foot:crop(leg,N-O,leg.height),kc:patch(leg,AX,K,66),ac:patch(leg,AX,N,54)});
- for(const[k,im]of[['N',armN],['F',armF]]){const E=J['arm'+k].el[1];P['upper'+k]=crop(im,0,E+O);P['fore'+k]=crop(im,E-O,im.height);P['ec'+k]=patch(im,J['arm'+k].el[0],E,50)}
+ // рука режется по верхнему краю наруча (конец бинта): манжета и весь наруч целиком едут с предплечьем; под сгибом — круглая подкладка из бинта
+ for(const[k,im]of[['N',armN],['F',armF]]){const E=J['arm'+k].el[1],Ys=ARMSPLIT[k];P['upper'+k]=crop(im,0,Ys+4);P['fore'+k]=crop(im,Ys-4,im.height);FOFF[k]=E-(Ys-4);P['ec'+k]=patch(im,J['arm'+k].el[0],Ys-30,34)}
  for(const k of['thigh','shin','foot','kc','ac','guard','upperN','foreN','ecN','upperF','foreF','ecF'])P[k+'D']=dk(P[k]);IMG=P;start()});
 // ---------------- походка / бег ----------------
 const st={X:0,F:.3,t:0,atk:-1,dsh:-1,Pa:0};
@@ -137,7 +138,7 @@ function frame(v0,dt){dt=cl(dt,1/240,.05);if(!Number.isFinite(st.Pf)||!Number.is
    const ph=st.bl,yv=Math.cos(ya),Lb=SWH*.82,sy_=Math.sin(ph),lim=(-10-fy)/Lb;let phc=ph;if(sy_>lim&&Math.hypot(Math.cos(ph)*yv,sy_)>.3){const a_=Math.asin(cl(lim,-1,1));phc=Math.cos(ph)>=0?a_:Math.PI-a_}
    w=cl(phc-rf,WMIN,WMAX);st.bl=rf+w}else st.bo=0}
   return{ru,rf,w,ya,ex,ey}});
- return{Pr,Praw,Pbob,Pcap,PN,m,g,D,hy,P,legs,lean,shx,shy,arm,v,cx,cy,ca:st.ca,sb:st.sb,sf:st.sf,hrot,hdy,ox,shk,AS,AT,ak:st.ak|0,hit1,LGw,X:st.X}}
+ return{Pr,Praw,Pbob,Pcap,PN,m,g,D,hy,P,legs,lean,shx,shy,arm,v,cx,cy,ca:Math.max(st.ca,lean+.06),sb:st.sb,sf:st.sf,hrot,hdy,ox,shk,AS,AT,ak:st.ak|0,hit1,LGw,X:st.X}}
 // ---------------- рисование ----------------
 const ctx=document.getElementById('c').getContext('2d');let GX=480,tips=[],hist=[],dust=[];
 function pc(img,x,y,px,py,r){ctx.save();ctx.translate(GX+x*SC,GY+y*SC);ctx.rotate(r);ctx.scale(SC,SC);ctx.drawImage(img,-px,-py);ctx.restore()}
@@ -148,8 +149,8 @@ function drawArm(a,f,near,rec,K,DK,mode='all'){const k=K||(near?'N':'F'),D=DK!=n
   if(rec){tips.push({x:fx+f.ox+Math.cos(ang)*SWH*.82*ln,y:fy+Math.sin(ang)*SWH*.82*ln,bx:fx+f.ox+Math.cos(ang)*SWH*.2*ln,by:fy+Math.sin(ang)*SWH*.2*ln,X:f.X,t:st.t});if(f.hit1)st.fl={x:fx+f.ox+Math.cos(ang)*SWH*.74*ln,y:fy+Math.sin(ang)*SWH*.74*ln,t:st.t}}
   ctx.save();ctx.translate(GX+fx*SC,GY+fy*SC);ctx.rotate(ang+Math.PI/2);ctx.scale(SC,SC*ln);ctx.drawImage(im,-w/2,-SWH*.82,w,SWH);ctx.restore()}
  if(mode=='sword')return;
- if(mode=='fist'){const dx=j.fist[0]-j.el[0],dy=j.fist[1]-j.el[1],fx=a.ex+dx*Math.cos(a.rf)-dy*Math.sin(a.rf),fy=a.ey+dx*Math.sin(a.rf)+dy*Math.cos(a.rf);ctx.save();ctx.beginPath();ctx.arc(GX+fx*SC,GY+fy*SC,62*SC,0,TAU);ctx.clip();pc(IMG['fore'+k+D],a.ex,a.ey,j.el[0],O,a.rf);ctx.restore();return}
- pc(IMG['fore'+k+D],a.ex,a.ey,j.el[0],O,a.rf);pc(IMG['upper'+k+D],f.shx,f.hy+f.shy,j.sh[0],j.sh[1],a.ru);pc(IMG['ec'+k+D],a.ex,a.ey,50,50,(a.ru+a.rf)/2)}
+ if(mode=='fist'){const dx=j.fist[0]-j.el[0],dy=j.fist[1]-j.el[1],fx=a.ex+dx*Math.cos(a.rf)-dy*Math.sin(a.rf),fy=a.ey+dx*Math.sin(a.rf)+dy*Math.cos(a.rf);ctx.save();ctx.beginPath();ctx.arc(GX+fx*SC,GY+fy*SC,62*SC,0,TAU);ctx.clip();pc(IMG['fore'+k+D],a.ex,a.ey,j.el[0],FOFF[k],a.rf);ctx.restore();return}
+ pc(IMG['upper'+k+D],f.shx,f.hy+f.shy,j.sh[0],j.sh[1],a.ru);pc(IMG['ec'+k+D],a.ex,a.ey,34,34,a.ru);pc(IMG['fore'+k+D],a.ex,a.ey,j.el[0],FOFF[k],a.rf)}
 function drawCape(f){const c=IMG.cape,w=c.width,h=c.height,n=26,sh=h/n,top=J.cape.top,sp=cl(f.v/VB,0,2.6);ctx.save();ctx.translate(GX+f.cx*SC,GY+f.cy*SC);ctx.rotate(f.ca);ctx.scale(SC,SC);
  for(let i=0;i<n;i++){const u=i/n,dx=Math.sin(st.t*7+u*6)*(6+30*sp)*u*u;ctx.drawImage(c,0,i*sh,w,sh+1,-top[0]+dx,-top[1]+i*sh,w,sh+1)}ctx.restore()}
 function drawChar(f,rec){const far=f.legs[1],near=f.legs[0],hx=J.body.hip[0],hy_=J.body.hip[1];ctx.save();ctx.translate(f.ox*SC,0);
