@@ -17,13 +17,14 @@ const Soul = {
     UI.banner('Печать монолита', 'Реши задачу — монолит вернёт силы и откроет ворота', '#bfefff', 3.2);
   },
   start(o) {
+    Input.clearPresses(); Hero.H.qq = [];
     const p = this.prob = Problems.next(Game.level), s = this.ansStr(p.a), pos = o.pos;
     Object.assign(this, { mode: o.mode, part: o.part || null, B: o.B || null, last: o.last, slots: Math.max(4, s.length), confirm: 0, on: true, ph: 'out', t: 0, T: this.TMAX, carried: [], placed: [], msg: null, res: null, used: 0 });
     // осколки: цифры ответа + приманки (соседние цифры — типичные ошибки)
     const ds = [...s], dec = [], nDec = cl(8 - ds.length, 3, 5);
     for (let i = 0; i < nDec; i++) { const base = ds.filter(c => c !== '−'); let d = base.length && Math.random() < .6 ? (+pick(base) + pick([-1, 1, 2, -2]) + 10) % 10 : irnd(0, 9); dec.push('' + d) }
     if (p.a > 0 && Math.random() < .5) dec.push('−'); // минус-приманка, если ответ положительный
-    const all = shuffle([...ds, ...dec]), M = World.monolith.x, spots = [], spread = o.spread || 950;
+    const all = shuffle([...ds, ...dec]), M = World.monolith.x, spots = [], spread = o.spread || 640;
     this.shards = all.map(d => {
       let tx, tz, tries = 0;
       do { tx = cl(pos.x + rnd(-spread, spread), W.XMIN + 60, W.XMAX - 60); tz = rnd(.12, .95); tries++ } while (tries < 60 && (Math.abs(tx - M) < 180 || spots.some(q => fdist(q[0], q[1], tx, tz) < 130)));
@@ -58,7 +59,7 @@ const Soul = {
     else if (this.ph === 'return') {
       const k = sm(this.t / .9); this.x = lp(this.fx, H.x, k); this.z = lp(this.fz, H.z, k); this.h = lp(this.fh, Hero.height() * .55, k); this.alpha = .92 * (1 - k * .8);
       if (this.t >= .9) {
-        this.on = false; this.ph = 'off'; H.soul = false; H.inv = 1.2; Snd.setMode(Boss.b ? 'boss' : 'wave'); this.shards = []; this.placed = []; this.carried = []; FX.flash(H.x, H.z, Hero.height() * .5, 120, '140,240,255', .3);
+        Input.clearPresses(); H.qq = []; this.on = false; this.ph = 'off'; H.soul = false; H.inv = 1.2; Snd.setMode(Boss.b ? 'boss' : 'wave'); this.shards = []; this.placed = []; this.carried = []; FX.flash(H.x, H.z, Hero.height() * .5, 120, '140,240,255', .3);
         if (this.mode === 'limb') Boss.limbResult(this.part, this.res); else Game.sealDone(this.res);
       }
     }

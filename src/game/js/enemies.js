@@ -71,7 +71,7 @@ const Enemies = {
         e.bsT = Math.max(0, (e.bsT || 0) - dt); if (!T.ranged && adx < 66 * (e.R.size || 1) && Math.abs(dz) < .1 && !e.kbv && !e.bsT) { e.kbv = (Math.sign(e.x - h.x) || -e.face) * 300; e.bsT = .8 }
         const inRange = T.ranged ? adx > 110 && adx < T.range : T.charge ? adx < T.range && adx > 150 && Math.abs(dz) < .14 : adx < T.range && Math.abs(dz) < .1;
         const busy = this.list.filter(o => o !== e && (o.st === 'wind' || o.st === 'strike')).length;
-        if (target && e.cd <= 0 && inRange && facing && busy < 2 && (e.slot || 0) < 2 && Math.abs(e.c.v) < e.R.L1 * 3) { e.st = 'wind'; e.t = 0; e.aim = { x: h.x, z: h.z }; if (T.charge) Snd.whoosh() }
+        if (target && e.cd <= 0 && inRange && facing && busy < 2 && (e.slot || 0) < 2 && Math.abs(e.c.v) < e.R.L1 * 3) { e.st = 'wind'; e.t = 0; e.aim = { x: h.x, z: h.z }; if (T.charge) Snd.whoosh(); else Snd.tell(); if (e.G) { const hp = rigToWorld(e, e.G.arms[0].hand); FX.flash(hp.x, e.z, zy(e.z) - hp.y, 34, '255,236,190', .14) } }
         break;
       }
       case 'wind': {
@@ -109,7 +109,7 @@ const Enemies = {
     limitArms(e, dt, e.st === 'strike' ? .45 : .3);
     e.hx = e.lunge * (e.R.L1 + e.R.L2) * .4; if (e.hx) po.legs = po.legs.map(l => ({ ...l, ...Walker.ik2(l.ax - e.hx, l.ay, e.R.L1, e.R.L2, e.c.g.digi ? -1 : 1) }));
     if (e.st === 'hurt') po.lean -= .25 * (1 - sm(e.t / .32));
-    if (e.st === 'stun') { const k = 1 - sm(Math.max(0, e.t - .55) / .55); po.lean -= .4 * k; po.arms.forEach((a, i) => { a.ru = lp(a.ru, i ? -1.9 : -2.3, k); a.rf = lp(a.rf, i ? -2.1 : -2.6, k) }) }
+    if (e.st === 'stun') { const k = 1 - sm(Math.max(0, e.t - .55) / .55); po.lean -= .4 * k; po.arms.forEach((a, i) => { a.ru = lp(a.ru, i ? .55 : .85, k); a.rf = lp(a.rf, i ? .15 : .35, k) }) }
     e.G = rigGeom(e);
   },
   // удар достигает цели: точка оружия (кисть/клинок) в момент удара проверяется по телу героя
@@ -161,7 +161,9 @@ const Enemies = {
     e.hp -= dmg; e.flash = 1; Snd.hit(); FX.sparks(at[0], e.z, zy(e.z) - at[1], 9, '120,30,40', 280); FX.flash(at[0], e.z, zy(e.z) - at[1], 46, '200,80,80', .12); Game.hitStop(.05); Cam.kick(3);
     e.kbv = Math.sign(e.x - Hero.H.x) * (e.T.poise ? 30 : 120);
     if (e.hp <= 0) return this.kill(e);
-    if (!e.T.poise || (e.st === 'move' || e.st === 'wind') && Math.random() > e.T.poise) { if (e.st !== 'strike' || !e.T.charge) { e.st = 'hurt'; e.t = 0; e.flaskOut = 0 } }
+    // замах сбивается только в начале (гуль, доктор — первая половина, рыцарь — первые 30 %); сам удар не сбивается
+    const lateWind = e.st === 'wind' && e.t > e.T.wind * (e.type === 'knight' ? .3 : .5);
+    if (e.st !== 'strike' && e.st !== 'stun' && !lateWind && (!e.T.poise || (e.st === 'move' || e.st === 'wind') && Math.random() > e.T.poise)) { e.st = 'hurt'; e.t = 0; e.flaskOut = 0 }
   },
   // удар врага отбит парированием
   parried(e) { e.st = 'stun'; e.t = 0; e.done = 1; e.flaskOut = 0; e.dy = 0; e.kbv = Math.sign(e.x - Hero.H.x) * (e.T.poise ? 160 : 260); Game.score += 15 },

@@ -37,7 +37,7 @@ const Problems = (() => {
     order() { const a = irnd(2, 9), b = irnd(2, 12), c = nz(-9, 9); return { t: `${a * b} : ${a}${sgn(c)} · 2`, c: 'Вычислите', a: b + 2 * c, k: 'Порядок действий', s: `сначала : и ·:  ${a * b} : ${a} = ${b},  ${Math.abs(c)} · 2 = ${Math.abs(2 * c)};  ${b}${sgn(2 * c)} = ${num(b + 2 * c)}` } },
     negMul() { const a = irnd(2, 7), b = irnd(1, 6), c = irnd(b + 1, 12); return { t: `${M}${a} · (${b} ${M} ${c})`, c: 'Вычислите', a: -a * (b - c), k: 'Порядок действий', s: `${b} ${M} ${c} = ${num(b - c)};  ${M}${a} · (${num(b - c)}) = ${num(-a * (b - c))}` } },
     system() { const x = irnd(-3, 12), y = nz(-3, 9); return { t: `x + y = ${num(x + y)};  x ${M} y = ${num(x - y)}`, c: 'Найдите x', a: x, k: 'Системы уравнений', s: `сложим: 2x = ${num(2 * x)}  →  x = ${num(x)}` } },
-    progression() { const a1 = irnd(-5, 9), d = nz(-4, 6), n = irnd(4, 9), an = a1 + (n - 1) * d; return { t: `a${SUB(1)} = ${num(a1)},  d = ${num(d)}`, c: `Найдите a${SUB(n)}`, a: an, k: 'Прогрессии', s: `a${SUB(n)} = a${SUB(1)} + ${n - 1}d = ${num(a1)} + ${n - 1} · ${par(d)} = ${num(an)}` } },
+    progression() { const a1 = irnd(-5, 9), d = nz(-4, 6), n = irnd(4, 9), an = a1 + (n - 1) * d; return { t: `a${SUB(1)} = ${num(a1)},  d = ${num(d)}`, c: `Арифметическая прогрессия: найдите a${SUB(n)}`, a: an, k: 'Прогрессии', s: `a${SUB(n)} = a${SUB(1)} + ${n - 1}d = ${num(a1)} + ${n - 1} · ${par(d)} = ${num(an)}` } },
   };
   function quad(big) {
     let p, q; do { p = irnd(-8, 9); q = irnd(-8, 9) } while (p === q || p === -q || !p || !q);
@@ -53,7 +53,9 @@ const Problems = (() => {
     ['|x + 4| = 6', 'Меньший корень', -10, 'x + 4 = 6 или x + 4 = −6  →  x = 2 или x = −10'], ['(2⁵ − 2³) : 3', 'Вычислите', 8, '(32 − 8) : 3 = 24 : 3 = 8'], ['0,25 · 64 − 1,5 · 6', 'Вычислите', 7, '16 − 9 = 7'],
     ['6 − 3(x − 2) = 0', 'Найдите x', 4, '6 − 3x + 6 = 0  →  3x = 12  →  x = 4'], ['x² = 6x', 'Ненулевой корень', 6, 'x(x − 6) = 0  →  x = 0 или x = 6'], ['(√13 − 3)(√13 + 3)', 'Вычислите', 4, '(√13)² − 3² = 13 − 9 = 4'],
     ['1,2 · 15 − 2,5 · 4', 'Вычислите', 8, '18 − 10 = 8'], ['2x + 7 = −x − 8', 'Найдите x', -5, '3x = −15  →  x = −5']]
-    .map(([t, c, a, s]) => ({ t, c, a, s, k: 'Разное' }));
+    .map(([t, c, a, s]) => ({ t, c, a, s, k: topicOf(t, c) }));
+  // тема задачи из банка — по её записи (для статистики по темам)
+  function topicOf(t, c) { return /%/.test(t) ? 'Проценты' : /\|/.test(t) ? 'Модуль' : /x²|корень/.test(t + c) ? 'Квадратные уравнения' : /√/.test(t) ? 'Корни' : /[²³⁴⁵]/.test(t) ? 'Степени' : /\d,\d/.test(t) ? 'Десятичные дроби' : /x/.test(t) ? 'Линейные уравнения' : 'Вычисления' }
   const POOL = [
     ['linear', 'linear3', 'fracLinear', 'percent', 'powers', 'roots', 'order', 'fracOf', 'absVal', 'negMul', 'roots3', 'discount', 'decimals', 'FIX'],
     ['linear2', 'quadBig', 'quadSmall', 'quadPure', 'system', 'absEq', 'fractions', 'negPow', 'roots2', 'progression', 'proportion', 'powRule', 'decimals', 'FIX'],

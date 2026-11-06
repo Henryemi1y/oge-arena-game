@@ -46,6 +46,7 @@ const Snd = (() => {
     // парирование: звонкий удар стали; блок — глуше; подъём меча — короткий шорох
     parry() { tone(2400, 1700, 'triangle', .32, .2); tone(3600, 2900, 'sine', .22, .09); noise(.07, 'highpass', 4200, 3000, .8, .26); tone(180, 90, 'sine', .14, .3) },
     block() { tone(900, 520, 'triangle', .16, .16); noise(.08, 'bandpass', 1500, 900, 1.2, .24); tone(120, 60, 'sine', .14, .28) },
+    tell() { noise(.08, 'bandpass', 3200, 2400, 2.2, .07, { a: .005 }); tone(1300, 1500, 'sine', .07, .035) },
     guard() { noise(.09, 'bandpass', 2200, 1400, 1.4, .08, { a: .01 }) },
     dash() { noise(.25, 'bandpass', 1300, 380, 1.1, .2, { a: .02 }) },
     roar() { if (!ac) return; tone(68, 52, 'sawtooth', 1.6, .2, { a: .3 }); tone(71, 50, 'sawtooth', 1.6, .2, { a: .3, det: 20 }); noise(1.6, 'lowpass', 300, 1100, 2, .25, { a: .4 }); S.quake(.8) },

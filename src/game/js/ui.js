@@ -11,7 +11,7 @@ const UI = {
   text(s, x, y, size, col = '#dfe7f5', font = FONT_UI, align = 'left', weight = 600) { ctx.font = `${weight} ${size}px ${font}`; ctx.textAlign = align; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = 'rgba(0,0,0,.65)'; ctx.fillText(s, x + 1, y + 2); ctx.fillStyle = col; ctx.fillText(s, x, y) },
   hud() {
     // над героем: «Отбито!» после парирования, «Блок» — если поздно
-    { const Hh = Hero.H, par = Hh.parT > 0; if (!Hh.soul && (par || Hh.blkT > 0)) { const a = Math.min(1, (par ? Hh.parT : Hh.blkT) * 2.5), y = zy(Hh.z) - Hero.height() - 30 - (1 - a) * 18; ctx.globalAlpha = a; this.text(par ? 'Отбито!' : 'Блок', sx(Hh.x), y, par ? 26 : 20, par ? '#ffe09a' : '#d8c8b0', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1 } }
+    { const Hh = Hero.H, par = Hh.parT > 0; if (!Hh.soul && (par || Hh.blkT > 0)) { const a = Math.min(1, (par ? Hh.parT : Hh.blkT) * 2.5), y = zy(Hh.z) - Hero.height() * .78 - (1 - a) * 16; ctx.globalAlpha = a; this.text(par ? 'Отбито!' : 'Рано — блок', sx(Hh.x) + Hero.FACE * 92, y, par ? 26 : 20, par ? '#ffe09a' : '#d8c8b0', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1 } }
     const H = Hero.H, G = Game;
     // здоровье
     this.panel(16, 14, 300, 56); this.text('Здоровье', 28, 36, 18, '#aeb9cf'); this.text(`${Math.ceil(H.hp)}`, 304, 36, 18, '#f1d7d2', FONT_UI, 'right');
@@ -82,7 +82,7 @@ const UI = {
     else { ctx.globalAlpha = .55 + .45 * Math.sin(t * 3.2); this.text('← / → — сложность · Enter — начать', VW / 2, VH - 32, 24, '#f3e7c4', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1 }
   },
   controls(y) {
-    const lines = [['A / D, ← / →', 'шаг влево и вправо'], ['Shift', 'бег'], ['W / S, ↑ / ↓', 'вглубь и ближе'], ['Space', 'рывок (уворот)'], ['ЛКМ', 'серия из трёх ударов'], ['J / K / L', 'удар сверху, вбок, снизу'], ['F · ПКМ', 'парировать (точно в момент удара)'], ['E · Q · R', 'душой: подобрать / вернуть / порядок'], ['Enter · M · − / +', 'пауза · звук · громкость']];
+    const lines = [['A / D, ← / →', 'шаг влево и вправо'], ['Shift', 'бег'], ['W / S, ↑ / ↓', 'вглубь и ближе'], ['Space', 'рывок (уворот)'], ['ЛКМ', 'серия из трёх ударов'], ['J / K / L', 'удар сверху, вбок, снизу'], ['F · ПКМ', 'парировать: нажми чуть раньше удара'], ['E · Q · R', 'душой: подобрать / вернуть / порядок'], ['Enter · M · − / +', 'пауза · звук · громкость']];
     this.panel(VW / 2 - 270, y, 540, lines.length * 25 + 20, .6);
     lines.forEach(([k, v], i) => { this.text(k, VW / 2 - 16, y + 28 + i * 25, 17, '#ffd98a', FONT_UI, 'right', 700); this.text(v, VW / 2 + 4, y + 28 + i * 25, 17, '#d5ddec', FONT_UI, 'left', 500) });
   },

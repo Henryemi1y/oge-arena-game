@@ -5,15 +5,15 @@
 const LIMBS = ['armN', 'armF', 'legN', 'legF'];
 const LIMB_NAME = { armN: 'Ближняя рука', armF: 'Дальняя рука', legN: 'Ближняя нога', legF: 'Дальняя нога' };
 const BOSSDEF = {
-  guardian: { hp: { armN: 95, armF: 95, legN: 105, legF: 105 }, atks: ['slam', 'sweep', 'stomp', 'wave'], cd: [2.2, 3.2], speedK: 1 },
-  executioner: { hp: { armN: 105, armF: 105, legN: 115, legF: 115 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [1.3, 2.1], speedK: 1.15 },
+  guardian: { hp: { armN: 190, armF: 190, legN: 210, legF: 210 }, atks: ['slam', 'sweep', 'stomp', 'wave'], cd: [2.2, 3.2], speedK: 1 },
+  executioner: { hp: { armN: 210, armF: 210, legN: 230, legF: 230 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [1.3, 2.1], speedK: 1.15 },
 };
 // ключи атак: wk — поза замаха; hit — высота цели над полом ('g' — пол, 'c' — грудь героя); D — желаемая дальность (доля длины руки)
 const BATK = {
   slam: { arm: 1, wind: .95, strike: .24, hold: .8, rec: .6, dmg: 16, th: .82, r: 78, wk: { ru: -3.35, flex: .7, crouch: .05, lean: -.2 }, D: .62 },
   sweep: { arm: 1, wind: .7, strike: .2, hold: .3, rec: .55, dmg: 12, th: .42, r: 72, wk: { ru: 1.35, flex: .3, crouch: .06, lean: -.14 }, D: .72 },
   wave: { arm: 1, wind: .8, strike: .2, hold: .55, rec: .55, dmg: 10, th: 0, r: 60, wk: { ru: -3.2, flex: .6, crouch: .02, lean: -.15 }, D: .5, far: 1 },
-  chop: { arm: 1, axe: 1, wind: 1.0, strike: .2, hold: 1.1, rec: .7, dmg: 20, th: 0, r: 80, wk: { ru: -3.5, flex: .9, crouch: 0, lean: -.22, axeC: 2.3 }, axeHit: 1.35, D: .62 },
+  chop: { arm: 1, axe: 1, wind: 1.0, strike: .2, hold: 1.1, rec: .7, dmg: 20, th: 0, r: 80, wk: { ru: -3.15, flex: 1.0, crouch: 0, lean: -.22, axeC: 2.75 }, axeHit: 1.35, D: .62 },
   cleave: { arm: 1, axe: 1, wind: .75, strike: .22, hold: .16, rec: .7, dmg: 14, th: .45, r: 80, wk: { ru: 1.2, flex: .5, crouch: .03, lean: -.12, axeC: .9 }, axeHit: 1.55, D: .78 },
   stomp: { leg: 1, wind: .85, strike: .15, hold: .35, rec: .5, dmg: 13, radius: 200 },
 };
@@ -85,7 +85,8 @@ const Boss = {
   update(dt) {
     const B = this.b; if (!B) return; B.t += dt; const h = Hero.H, L = this.L(B);
     for (const l of LIMBS) { B.flash[l] = Math.max(0, (B.flash[l] || 0) - dt * 5); const lm = B.limbs[l]; if (lm.regrow > 0) lm.regrow = Math.max(0, lm.regrow - dt / 1.1) }
-    B.weaponArm = B.limbs.armN.alive ? 0 : 1;
+    B.weaponArm = B.limbs.armN.alive ? 0 : 1; B.open = Math.max(0, (B.open || 0) - dt);
+    if (B.open > 0 && Math.random() < dt * 6) FX.sparks(B.x + rnd(-40, 40), B.z, this.L(B) * 2.6 * this.s(B), 2, '255,214,120', 60);
     const nLeg = this.legsAlive(B), gait = nLeg === 2 ? 'walk' : nLeg === 1 ? 'hop' : 'sit';
     // смена походки: старые точки стоп (они остались там, где босс стоял до прыжков) сбрасываются под тело
     if (gait !== B.gait) { B.fs = [{}, {}]; B.c.feet.forEach(f => { f.ax = null; f.st = true; f.stInit = 0 }); B.c.moving = false } B.gait = gait;
@@ -247,8 +248,8 @@ const Boss = {
   // герой отбил удар руки: рука отскакивает и трескается, следующий удар — не сразу
   parried(B, src) {
     const part = src.ai ? 'armF' : 'armN', lm = B.limbs[part]; Snd.stoneHit(); Cam.kick(10); FX.chips(src.P.x, B.z, zy(B.z) - src.P.y, 10, 380);
-    B.cd = Math.max(B.cd, 1.4); if (B.atk) { B.atk.ph = 'rec'; B.atk.t = 0 }
-    if (lm && lm.alive) { lm.hp -= 22; B.flash[part] = 1; Game.stats.hits++; if (lm.hp <= 0) this.breakLimb(B, part) }
+    B.cd = Math.max(B.cd, 2.2); B.open = 1.6; if (B.atk) { B.atk.ph = 'rec'; B.atk.t = 0 }
+    if (lm && lm.alive) { lm.hp -= 40; B.flash[part] = 1; Game.stats.hits++; if (lm.hp <= 0) this.breakLimb(B, part) }
   },
   effPoint(B, G, ai) { if (B.R.axe && B.weaponArm === ai && G.weapon) return rigToWorld(B, G.weapon.tip); return rigToWorld(B, G.arms[ai].hand) },
   // волна по полу: камни выталкивает из пола, проходит по прямой
@@ -279,7 +280,8 @@ const Boss = {
     return best;
   },
   hitLimb(part, b, at, real = true) {
-    const B = this.b, lm = B.limbs[part], dmg = [12, 10, 11][b.ak] * (b.ak === 2 && Hero.H.combo.n === 0 ? 1.3 : 1);
+    const B = this.b, lm = B.limbs[part], dmg = [12, 10, 11][b.ak] * (b.ak === 2 && Hero.H.combo.n === 0 ? 1.3 : 1) * (B.open > 0 ? 1.5 : 1);
+    if (B.open > 0 && real) FX.sparks(at[0], B.z, zy(B.z) - at[1], 8, '255,214,120', 320);
     Snd.stoneHit(); FX.chips(at[0], B.z, zy(B.z) - at[1], 7, 320); FX.sparks(at[0], B.z, zy(B.z) - at[1], 6, '230,230,255', 260);
     if (!real) { Critic.fake++; return } // душа вне тела: тело дерётся только для вида (без стоп-кадра и тряски — душа не дёргается)
     Cam.kick(4); Game.hitStop(.06);
