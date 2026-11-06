@@ -2,10 +2,10 @@
 const cvs = document.getElementById('game'); let ctx = cvs.getContext('2d');
 const PHASES = [
   { type: 'wave', name: 'Волна 1', spawn: { ghoul: 4 } },
-  { type: 'wave', name: 'Волна 2', spawn: { ghoul: 3, knight: 1, doctor: 1 } },
+  { type: 'wave', name: 'Волна 2', spawn: { ghoul: 4, knight: 1, doctor: 1 } },
   { type: 'boss', id: 'guardian', level: 0 },
   { type: 'wave', name: 'Волна 3', spawn: { goatman: 1, knight: 2, doctor: 1, ghoul: 2 } },
-  { type: 'wave', name: 'Волна 4', spawn: { goatman: 2, doctor: 2, ghoul: 3, knight: 1 } },
+  { type: 'wave', name: 'Волна 4', spawn: { goatman: 2, doctor: 2, ghoul: 3, knight: 2 } },
   { type: 'boss', id: 'executioner', level: 1 },
 ];
 const Game = {
@@ -30,8 +30,8 @@ const Game = {
     this.pi++; if (this.pi >= PHASES.length) { this.scene = 'win'; Snd.setMode('victory'); Snd.correct(); return }
     const P = this.phase = PHASES[this.pi]; if (!retry && this.pi) this.heal(40);
     this.check = { pi: this.pi, score: this.score, level: P.level ?? this.level, stats: JSON.parse(JSON.stringify(this.stats)), time: this.time };
-    if (P.type === 'wave') { this.queue = shuffle(Object.entries(P.spawn).flatMap(([k, n]) => Array(n).fill(k))); this.spawnT = 1.6; UI.banner(P.name, 'Враги выходят из ворот'); Snd.setMode('wave') }
-    else { this.level = P.level; this.queue = []; this.bossT = 1.2; UI.banner(DRESS[P.id].name, 'Разбей конечности — собери ответ из осколков', '#f0e2c0', 3.2); Snd.setMode('boss') }
+    if (P.type === 'wave') { this.queue = shuffle(Object.entries(P.spawn).flatMap(([k, n]) => Array(n).fill(k))); this.spawnT = 1.6; UI.banner(P.name, this.pi < 2 ? 'F или ПКМ в момент удара — отбить и оглушить врага' : 'Враги выходят из ворот', undefined, this.pi < 2 ? 3.2 : undefined); Snd.setMode('wave') }
+    else { this.level = P.level; this.queue = []; this.bossT = 1.2; UI.banner(DRESS[P.id].name, this.level ? 'Отбитый удар трескает руку босса · волну по земле не отбить' : 'Разбей конечности — собери ответ из осколков', '#f0e2c0', 3.2); Snd.setMode('boss') }
   },
   bossDown(id) { this.score += 500; UI.banner(DRESS[id].name + ' повержен', '', '#bfefff', 2.6); this.nextT = 3 },
   // волна отбита: печать монолита — задача без боя, верный ответ возвращает силы
@@ -63,7 +63,7 @@ const Game = {
     // герой: игрок или (в форме души) автопилот тела
     const H = Hero.H; let inp;
     if (H.soul) inp = this.bodyAI();
-    else { const a = Input.axis(); inp = { x: a.x, z: a.z, run: a.run, dash: Input.hit('Space'), combo: Input.hit('Mouse0'), atk: Input.hit('KeyJ') ? 0 : Input.hit('KeyK') ? 1 : Input.hit('KeyL') ? 2 : -1 } }
+    else { const a = Input.axis(); inp = { x: a.x, z: a.z, run: a.run, dash: Input.hit('Space'), parry: Input.hit('KeyF') || Input.hit('Mouse2'), combo: Input.hit('Mouse0'), atk: Input.hit('KeyJ') ? 0 : Input.hit('KeyK') ? 1 : Input.hit('KeyL') ? 2 : -1 } }
     if (H.dead) inp = { x: 0, z: 0, atk: -1 };
     if (!this.deadT) Hero.update(wdt, inp);
     const b = H.blade; if (b && !H.dead) { Enemies.bladeHits(b); const r = Boss.bladeHits(b); if (r && r.part) Boss.hitLimb(r.part, b, r.p, !H.soul) }
@@ -107,7 +107,7 @@ function fit() {
   cvs.style.width = cw + 'px'; cvs.style.height = ch + 'px'; cvs.width = Math.floor(cw * dpr); cvs.height = Math.floor(ch * dpr); Game.k = cvs.width / VW;
 }
 addEventListener('resize', fit); fit();
-cvs.addEventListener('mousedown', e => { if (e.button === 0) { Input.p.Mouse0 = 1; Snd.init() } e.preventDefault() });
+cvs.addEventListener('mousedown', e => { if (e.button === 0) { Input.p.Mouse0 = 1; Snd.init() } if (e.button === 2) { Input.p.Mouse2 = 1; Snd.init() } e.preventDefault() });
 cvs.addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('keydown', () => Snd.init(), { once: false });
 // окно потеряло фокус — пауза (иначе бой идёт без игрока)
@@ -123,7 +123,7 @@ function frameBody(ts) {
   if (!Game.test) { acc += dt; let n = 0; while (acc >= DT && n < 5) { Game.step(DT); acc -= DT; n++ } if (n === 5) acc = 0 }
   ctx = cvs.getContext('2d'); ctx.setTransform(Game.k, 0, 0, Game.k, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'low'; // все картинки заранее уменьшены почти до экранного размера — билинейной выборки хватает
   ctx.fillStyle = '#05060c'; ctx.fillRect(0, 0, VW, VH);
-  if (Game.scene !== 'load' || IM.bg_far) Game.render(); else { ctx.fillStyle = '#9fb0c8'; ctx.font = `600 22px ${FONT_UI}`; ctx.textAlign = 'center'; ctx.fillText(`Загрузка… ${Math.round(Game.loadK * 100)}%`, VW / 2, VH / 2) }
+  if (Game.scene !== 'load' || Game.loadK >= 1) Game.render(); else { ctx.fillStyle = '#9fb0c8'; ctx.font = `600 22px ${FONT_UI}`; ctx.textAlign = 'center'; ctx.fillText(`Загрузка… ${Math.round(Game.loadK * 100)}%`, VW / 2, VH / 2) }
 }
 (async () => {
   requestAnimationFrame(frame);

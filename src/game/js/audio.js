@@ -43,6 +43,10 @@ const Snd = (() => {
     death() { noise(.45, 'lowpass', 600, 120, .8, .35); tone(95, 38, 'sine', .45, .35) },
     flask() { noise(.18, 'bandpass', 700, 1800, 1.4, .08, { a: .02 }) },
     glass() { if (!ac) return; const t = now(); for (let i = 0; i < 5; i++) noise(.03, 'bandpass', 4500 + Math.random() * 3000, 4000, 4, .14, { t: t + i * .025 }); tone(2600, 2500, 'triangle', .4, .07, { verb: .5 }); noise(.6, 'lowpass', 900, 300, .7, .1, { t: t + .05 }) },
+    // парирование: звонкий удар стали; блок — глуше; подъём меча — короткий шорох
+    parry() { tone(2400, 1700, 'triangle', .32, .2); tone(3600, 2900, 'sine', .22, .09); noise(.07, 'highpass', 4200, 3000, .8, .26); tone(180, 90, 'sine', .14, .3) },
+    block() { tone(900, 520, 'triangle', .16, .16); noise(.08, 'bandpass', 1500, 900, 1.2, .24); tone(120, 60, 'sine', .14, .28) },
+    guard() { noise(.09, 'bandpass', 2200, 1400, 1.4, .08, { a: .01 }) },
     dash() { noise(.25, 'bandpass', 1300, 380, 1.1, .2, { a: .02 }) },
     roar() { if (!ac) return; tone(68, 52, 'sawtooth', 1.6, .2, { a: .3 }); tone(71, 50, 'sawtooth', 1.6, .2, { a: .3, det: 20 }); noise(1.6, 'lowpass', 300, 1100, 2, .25, { a: .4 }); S.quake(.8) },
     gate() { tone(90, 66, 'sawtooth', .9, .06, { a: .1 }); noise(.9, 'lowpass', 220, 90, .7, .22) },

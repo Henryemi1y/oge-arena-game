@@ -8,13 +8,13 @@ function segDist(p1, p2, q1, q2) { // расстояние между отрез
   const P = [p1[0] + d1[0] * s, p1[1] + d1[1] * s], Q = [q1[0] + d2[0] * t, q1[1] + d2[1] * t]; return { d: Math.hypot(P[0] - Q[0], P[1] - Q[1]), p: P };
 }
 const ETYPES = {
-  ghoul: { hp: 30, dmg: 5, range: 118, wind: .38, strike: .12, rec: .45, cd: [1.3, 2.2], score: 10, pois: 0,
+  ghoul: { hp: 30, dmg: 6, range: 118, wind: .38, strike: .12, rec: .45, cd: [1.1, 1.9], score: 10, pois: 0,
     wp: { ru: 1.0, rf: .5, lean: .12, far: -.6, crouch: .1 }, sp: { ru: -1.85, rf: -2.25, lean: .38, far: .9, lunge: .3, crouch: .06 } },
-  knight: { hp: 70, dmg: 10, range: 168, wind: .7, strike: .15, rec: .7, cd: [1.8, 2.7], score: 25, poise: .5,
+  knight: { hp: 70, dmg: 12, range: 168, wind: .7, strike: .15, rec: .7, cd: [1.6, 2.4], score: 25, poise: .5,
     wp: { ru: -2.75, rf: -3.35, lean: -.1, far: .3, crouch: .03 }, sp: { ru: -1.05, rf: -1.3, lean: .22, far: -.3, lunge: .14, crouch: .08 } },
-  doctor: { hp: 30, dmg: 7, range: 520, wind: .6, strike: .12, rec: .55, cd: [2.4, 3.4], score: 20, ranged: 1,
+  doctor: { hp: 30, dmg: 8, range: 520, wind: .6, strike: .12, rec: .55, cd: [2.1, 3.0], score: 20, ranged: 1,
     wp: { ru: 1.35, rf: 2.3, lean: -.14, far: -.4, crouch: .04 }, sp: { ru: -2.4, rf: -2.7, lean: .2, far: .4, lunge: .06, crouch: .03 } },
-  goatman: { hp: 100, dmg: 14, range: 440, wind: .85, strike: 0, rec: 1.1, cd: [3.0, 4.2], score: 35, poise: 1, charge: 1,
+  goatman: { hp: 100, dmg: 16, range: 440, wind: .85, strike: 0, rec: 1.1, cd: [2.6, 3.7], score: 35, poise: 1, charge: 1,
     wp: { ru: .75, rf: .4, lean: .5, far: .75 }, sp: { ru: .5, rf: .2, lean: .55, far: .5, lunge: 0 } },
 };
 const Enemies = {
@@ -83,16 +83,20 @@ const Enemies = {
       case 'strike': {
         if (T.charge) { // таран: бег по прямой через точку, где был герой
           this.move(e, dt, e.chEnd, e.chZ, { run: true, runK: 2.6, accK: 3, lean: .35 }); ov = { k: 'sp', from: 'wp', w: sm(Math.min(1, e.t / .12)) };
-          if (!e.done && Math.abs(h.x - e.x) < 70 && Math.abs(h.z - e.z) < .11 && Hero.damage(T.dmg, e.x, 2.2)) { e.done = 1; FX.flash(h.x, h.z, 100, 80, '255,150,120') }
-          if (Math.sign(e.chEnd - e.x) !== e.chDir || e.t > 1.6 || e.x <= W.XMIN || e.x >= W.XMAX) { e.st = 'rec'; e.t = 0; Cam.kick(4); FX.dust(e.x, e.z, 8, .6) }
+          if (!e.done && Math.abs(h.x - e.x) < 70 && Math.abs(h.z - e.z) < .11) { const r = Hero.damage(T.dmg, e.x, 2.2, { e }); if (r) e.done = 1; if (r === true) FX.flash(h.x, h.z, 100, 80, '255,150,120') }
+          if (e.st === 'strike' && (Math.sign(e.chEnd - e.x) !== e.chDir || e.t > 1.6 || e.x <= W.XMIN || e.x >= W.XMAX)) { e.st = 'rec'; e.t = 0; Cam.kick(4); FX.dust(e.x, e.z, 8, .6) }
           break;
         }
         this.move(e, dt, e.x, e.z, { hold: true, crouch: lp(T.wp.crouch || 0, T.sp.crouch || 0, sm(e.t / T.strike)) }); ov = { k: 'sp', from: 'wp', w: sm(e.t / T.strike) };
         if (e.t >= T.strike && !e.done) { e.done = 1; this.release(e) }
-        if (e.t >= T.strike) { e.st = 'rec'; e.t = 0 }
+        if (e.t >= T.strike && e.st === 'strike') { e.st = 'rec'; e.t = 0 }
         break;
       }
       case 'rec': { this.move(e, dt, e.x, e.z, { hold: true, crouch: (T.sp.crouch || 0) * (1 - sm(e.t / T.rec)) }); ov = { k: 'sp', w: 1 - sm(e.t / T.rec) }; if (e.t >= T.rec) { e.st = 'move'; e.t = 0; e.cd = rnd(...T.cd); e.flaskOut = 0 } break }
+      case 'stun': { // удар отбит: враг отшатнулся и открыт для ответного удара
+        this.move(e, dt, e.x, e.z, { hold: true, crouch: .12 * (1 - sm(e.t / 1.1)) }); e.stunFx = (e.stunFx || 0) + dt;
+        if (e.stunFx > .22) { e.stunFx = 0; FX.sparks(e.x + rnd(-14, 14), e.z, e.R.size * 205 * zs(e.z), 2, '255,214,120', 50) }
+        if (e.t > 1.1) { e.st = 'move'; e.t = 0; e.cd = rnd(.4, .9) } break }
       case 'hurt': { this.move(e, dt, e.x, e.z, { hold: true }); if (e.t > .32) { e.st = 'move'; e.t = 0 } break }
       case 'dying': { this.move(e, dt, e.x, e.z, { hold: true, crouch: .3 * sm(e.t / .38) }); e.pose.lean -= .55 * sm(e.t / .38); e.pose.arms.forEach((a, i) => { a.ru = lp(a.ru, i ? .9 : .6, sm(e.t / .38)); a.rf = a.ru - .4 }); if (e.t > .38) { e.G = rigGeom(e); this.ash(e) } break }
       case 'dead': break;
@@ -105,6 +109,7 @@ const Enemies = {
     limitArms(e, dt, e.st === 'strike' ? .45 : .3);
     e.hx = e.lunge * (e.R.L1 + e.R.L2) * .4; if (e.hx) po.legs = po.legs.map(l => ({ ...l, ...Walker.ik2(l.ax - e.hx, l.ay, e.R.L1, e.R.L2, e.c.g.digi ? -1 : 1) }));
     if (e.st === 'hurt') po.lean -= .25 * (1 - sm(e.t / .32));
+    if (e.st === 'stun') { const k = 1 - sm(Math.max(0, e.t - .55) / .55); po.lean -= .4 * k; po.arms.forEach((a, i) => { a.ru = lp(a.ru, i ? -1.9 : -2.3, k); a.rf = lp(a.rf, i ? -2.1 : -2.6, k) }) }
     e.G = rigGeom(e);
   },
   // удар достигает цели: точка оружия (кисть/клинок) в момент удара проверяется по телу героя
@@ -120,13 +125,14 @@ const Enemies = {
     const hd = rigToWorld(e, G.arms[0].hand, xf), el = rigToWorld(e, G.arms[0].el, xf); pts.push([el, hd]);
     if (Math.abs(h.z - e.z) > .12 || h.soul) return;
     const hx = h.x, body = [[hx, zy(h.z) - 10], [hx, zy(h.z) - Hero.height() * .92]], R = 34 * zs(h.z);
-    for (const [a, b] of pts) { const r = segDist([a.x, a.y], [b.x, b.y], body[0], body[1]); if (r.d < R) { if (Hero.damage(T.dmg, e.x, 1)) FX.sparks(r.p[0], h.z, zy(h.z) - r.p[1], 10, '255,120,100', 300); break } }
+    for (const [a, b] of pts) { const r = segDist([a.x, a.y], [b.x, b.y], body[0], body[1]); if (r.d < R) { if (Hero.damage(T.dmg, e.x, 1, { e }) === true) FX.sparks(r.p[0], h.z, zy(h.z) - r.p[1], 10, '255,120,100', 300); break } }
   },
   updProj(dt) {
     const h = Hero.H;
     for (const p of this.proj) { p.t += dt; p.x += p.vx * dt; p.z += p.vz * dt; p.h += p.vh * dt; p.vh -= p.g * dt; p.r += dt * 14;
-      if (p.t >= p.tt) { p.dead = 1; Snd.glass(); FX.poison(p.x, p.z); FX.sparks(p.x, p.z, 6, 8, '150,230,120', 200); this.clouds.push({ x: p.x, z: p.z, t: 0, life: 2.6 });
-        if (fdist(h.x, h.z, p.x, p.z) < 58 && !h.soul) Hero.damage(ETYPES.doctor.dmg, p.x, .6) } }
+      if (p.t >= p.tt) { p.dead = 1; Snd.glass(); const near = fdist(h.x, h.z, p.x, p.z) < 58 && !h.soul, r = near ? Hero.damage(ETYPES.doctor.dmg, p.x, .6, { proj: p, fx: p.x - Math.sign(p.vx || 1) * 90 }) : false;
+        if (r === 'parry') { FX.sparks(p.x, p.z, 60, 10, '150,230,120', 300); continue }
+        FX.poison(p.x, p.z); FX.sparks(p.x, p.z, 6, 8, '150,230,120', 200); this.clouds.push({ x: p.x, z: p.z, t: 0, life: 2.6 }) } }
     this.proj = this.proj.filter(p => !p.dead);
     // облако держится ~50 клубами, а не сотнями
     for (const c of this.clouds) { c.t += dt; if (Math.random() < dt * 9) FX.poison(c.x + rnd(-20, 20), c.z, 3); if (fdist(h.x, h.z, c.x, c.z) < 55 && c.t > .3 && !h.soul && Math.random() < dt * 2.5) Hero.damage(2, c.x, .1) }
@@ -150,12 +156,16 @@ const Enemies = {
     return any;
   },
   damage(e, b, at) {
-    Hero.H.hitSet.add(e); const dmg = [14, 12, 13][b.ak] * (Hero.H.combo.n === 0 && b.ak === 2 ? 1.3 : 1);
+    const rip = e.st === 'stun'; Hero.H.hitSet.add(e); const dmg = [14, 12, 13][b.ak] * (Hero.H.combo.n === 0 && b.ak === 2 ? 1.3 : 1) * (rip ? 1.8 : 1);
+    if (rip) { FX.sparks(at[0], e.z, zy(e.z) - at[1], 12, '255,214,120', 360); Game.score += 10 }
     e.hp -= dmg; e.flash = 1; Snd.hit(); FX.sparks(at[0], e.z, zy(e.z) - at[1], 9, '120,30,40', 280); FX.flash(at[0], e.z, zy(e.z) - at[1], 46, '200,80,80', .12); Game.hitStop(.05); Cam.kick(3);
     e.kbv = Math.sign(e.x - Hero.H.x) * (e.T.poise ? 30 : 120);
     if (e.hp <= 0) return this.kill(e);
     if (!e.T.poise || (e.st === 'move' || e.st === 'wind') && Math.random() > e.T.poise) { if (e.st !== 'strike' || !e.T.charge) { e.st = 'hurt'; e.t = 0; e.flaskOut = 0 } }
   },
+  // удар врага отбит парированием
+  parried(e) { e.st = 'stun'; e.t = 0; e.done = 1; e.flaskOut = 0; e.dy = 0; e.kbv = Math.sign(e.x - Hero.H.x) * (e.T.poise ? 160 : 260); Game.score += 15 },
+  deflect(p) { p.dead = 1 },
   kill(e) { e.st = 'dying'; e.t = 0; e.kbv *= .5; Game.score += e.T.score; Snd.death() },
   ash(e) {
     // персонаж рассыпается пеплом: рисуем его во внеэкранный холст и режем на куски

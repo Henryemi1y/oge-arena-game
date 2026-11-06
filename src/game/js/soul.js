@@ -92,7 +92,7 @@ const Soul = {
     if (ok) {
       Snd.correct(); Game.stats.solved++; FX.flash(World.monolith.x, World.monolith.z, 220, 200, '120,230,255', .6); for (const s of this.placed) s.gone = 1;
       // награда: здоровье за верный ответ, больше — за быстрый
-      const heal = 30 + (fast ? 20 : 0); Game.heal(heal); Game.score += 100 + (fast ? 100 : 0); this.msg.heal = Game.healAmt;
+      const heal = 24 + (fast ? 16 : 0); Game.heal(heal); Game.score += 100 + (fast ? 100 : 0); this.msg.heal = Game.healAmt;
     } else {
       Snd.wrong(); FX.flash(World.monolith.x, World.monolith.z, 220, 200, '255,90,70', .6); Cam.kick(6);
       const B = this.B, G = B && B.G; let tx = World.monolith.x, th = 300, tz = World.monolith.z;

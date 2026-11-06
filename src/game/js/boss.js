@@ -5,17 +5,17 @@
 const LIMBS = ['armN', 'armF', 'legN', 'legF'];
 const LIMB_NAME = { armN: 'Ближняя рука', armF: 'Дальняя рука', legN: 'Ближняя нога', legF: 'Дальняя нога' };
 const BOSSDEF = {
-  guardian: { hp: { armN: 95, armF: 95, legN: 105, legF: 105 }, atks: ['slam', 'sweep', 'stomp', 'wave'], cd: [2.6, 3.6], speedK: 1 },
-  executioner: { hp: { armN: 105, armF: 105, legN: 115, legF: 115 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [1.5, 2.4], speedK: 1.15 },
+  guardian: { hp: { armN: 95, armF: 95, legN: 105, legF: 105 }, atks: ['slam', 'sweep', 'stomp', 'wave'], cd: [2.2, 3.2], speedK: 1 },
+  executioner: { hp: { armN: 105, armF: 105, legN: 115, legF: 115 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [1.3, 2.1], speedK: 1.15 },
 };
 // ключи атак: wk — поза замаха; hit — высота цели над полом ('g' — пол, 'c' — грудь героя); D — желаемая дальность (доля длины руки)
 const BATK = {
-  slam: { arm: 1, wind: .95, strike: .24, hold: .8, rec: .6, dmg: 14, th: .82, r: 78, wk: { ru: -3.35, flex: .7, crouch: .05, lean: -.2 }, D: .62 },
-  sweep: { arm: 1, wind: .7, strike: .2, hold: .3, rec: .55, dmg: 10, th: .42, r: 72, wk: { ru: 1.35, flex: .3, crouch: .06, lean: -.14 }, D: .72 },
-  wave: { arm: 1, wind: .8, strike: .2, hold: .55, rec: .55, dmg: 9, th: 0, r: 60, wk: { ru: -3.2, flex: .6, crouch: .02, lean: -.15 }, D: .5, far: 1 },
-  chop: { arm: 1, axe: 1, wind: 1.0, strike: .2, hold: 1.1, rec: .7, dmg: 18, th: 0, r: 80, wk: { ru: -3.5, flex: .9, crouch: 0, lean: -.22, axeC: 2.3 }, axeHit: 1.35, D: .62 },
-  cleave: { arm: 1, axe: 1, wind: .75, strike: .22, hold: .16, rec: .7, dmg: 12, th: .45, r: 80, wk: { ru: 1.2, flex: .5, crouch: .03, lean: -.12, axeC: .9 }, axeHit: 1.55, D: .78 },
-  stomp: { leg: 1, wind: .85, strike: .15, hold: .35, rec: .5, dmg: 12, radius: 200 },
+  slam: { arm: 1, wind: .95, strike: .24, hold: .8, rec: .6, dmg: 16, th: .82, r: 78, wk: { ru: -3.35, flex: .7, crouch: .05, lean: -.2 }, D: .62 },
+  sweep: { arm: 1, wind: .7, strike: .2, hold: .3, rec: .55, dmg: 12, th: .42, r: 72, wk: { ru: 1.35, flex: .3, crouch: .06, lean: -.14 }, D: .72 },
+  wave: { arm: 1, wind: .8, strike: .2, hold: .55, rec: .55, dmg: 10, th: 0, r: 60, wk: { ru: -3.2, flex: .6, crouch: .02, lean: -.15 }, D: .5, far: 1 },
+  chop: { arm: 1, axe: 1, wind: 1.0, strike: .2, hold: 1.1, rec: .7, dmg: 20, th: 0, r: 80, wk: { ru: -3.5, flex: .9, crouch: 0, lean: -.22, axeC: 2.3 }, axeHit: 1.35, D: .62 },
+  cleave: { arm: 1, axe: 1, wind: .75, strike: .22, hold: .16, rec: .7, dmg: 14, th: .45, r: 80, wk: { ru: 1.2, flex: .5, crouch: .03, lean: -.12, axeC: .9 }, axeHit: 1.55, D: .78 },
+  stomp: { leg: 1, wind: .85, strike: .15, hold: .35, rec: .5, dmg: 13, radius: 200 },
 };
 const Boss = {
   b: null, waves: [],
@@ -200,7 +200,7 @@ const Boss = {
       hp.u += dt / 1.25; const u = hp.u;
       if (u < .35) { const e = sm(u / .35); hipH = lp(L * .88, L * .7, e); lean = .05 + .2 * e }
       else if (u < .7) { const q = (u - .35) / .35, e = sm(q); B.x = hp.x0 + hp.dir * len * e; B.z = cl(hp.z0 + hp.dz * e, .1, .96); hipH = L * .7 + L * .32 * Math.sin(PI * q); lift = L * .2 * Math.sin(PI * q); fx = lp(hp.fx, hp.x0 + hp.dir * len, e); lean = .25 - .15 * q }
-      else { if (!hp.landed) { hp.landed = 1; hp.fx = B.x; this.stepFx(B, li); Cam.kick(16); FX.ring(B.x, B.z, 260, .6); if (fdist(Hero.H.x, Hero.H.z, B.x, B.z) < 100) Hero.damage(7, B.x, 1.5) } fx = hp.fx; hipH = lp(L * .66, L * .88, sm((u - .7) / .3)); lean = .1 * (1 - (u - .7) / .3) }
+      else { if (!hp.landed) { hp.landed = 1; hp.fx = B.x; this.stepFx(B, li); Cam.kick(16); FX.ring(B.x, B.z, 260, .6); if (fdist(Hero.H.x, Hero.H.z, B.x, B.z) < 100) Hero.damage(9, B.x, 1.5) } fx = hp.fx; hipH = lp(L * .66, L * .88, sm((u - .7) / .3)); lean = .1 * (1 - (u - .7) / .3) }
       if (u >= 1) { hp.on = 0; hp.landed = 0; hp.fx = B.x; hp.rest = 1.1 }
     } else hp.fx = lp(hp.fx, B.x, 0); // опорная стопа стоит
     if (!hp.on) hp.fx = hp.fx ?? B.x;
@@ -241,8 +241,14 @@ const Boss = {
     k.err = Math.hypot(P.x - T.x, P.y - T.y); B.lastImpact = { err: k.err, P, T, key: A.key || '', z: B.z }; Critic.impacts.push({ id: B.id, key: A.key, err: +k.err.toFixed(2), gait: B.gait, t: Game.time });
     if (!A.th) { Cam.kick(A.axe ? 18 : 15); FX.crack(k.T.x, B.z, A.axe ? 1.2 : 1); FX.dust(k.T.x, B.z, 12, 1); FX.chips(k.T.x, B.z, 4, 14, 420); FX.ring(k.T.x, B.z, 180, .5); Snd.quake(.8); Snd.stoneHit();
       if (A.far) this.waves.push({ x: k.T.x, z: B.z, dir: B.face, v: 560, t: 0, life: 1.9, hit: 0, acc: 0 });
-      else if (fdist(h.x, h.z, k.T.x, B.z) < A.r * zs(B.z)) Hero.damage(A.dmg, B.x, 1.6) }
-    else { Cam.kick(10); Snd.stoneHit(); Snd.quake(.4); FX.dust(k.T.x, B.z, 6, .6); FX.ring(k.T.x, B.z, 110, .35, '255,220,180', 3); if (Math.abs(h.x - k.T.x) < A.r && Math.abs(h.z - B.z) < .13) Hero.damage(A.dmg, B.x, 2) }
+      else if (fdist(h.x, h.z, k.T.x, B.z) < A.r * zs(B.z)) Hero.damage(A.dmg, B.x, 1.6, { boss: B, ai, P, fx: B.x }) }
+    else { Cam.kick(10); Snd.stoneHit(); Snd.quake(.4); FX.dust(k.T.x, B.z, 6, .6); FX.ring(k.T.x, B.z, 110, .35, '255,220,180', 3); if (Math.abs(h.x - k.T.x) < A.r && Math.abs(h.z - B.z) < .13) Hero.damage(A.dmg, B.x, 2, { boss: B, ai, P, fx: B.x }) }
+  },
+  // герой отбил удар руки: рука отскакивает и трескается, следующий удар — не сразу
+  parried(B, src) {
+    const part = src.ai ? 'armF' : 'armN', lm = B.limbs[part]; Snd.stoneHit(); Cam.kick(10); FX.chips(src.P.x, B.z, zy(B.z) - src.P.y, 10, 380);
+    B.cd = Math.max(B.cd, 1.4); if (B.atk) { B.atk.ph = 'rec'; B.atk.t = 0 }
+    if (lm && lm.alive) { lm.hp -= 22; B.flash[part] = 1; Game.stats.hits++; if (lm.hp <= 0) this.breakLimb(B, part) }
   },
   effPoint(B, G, ai) { if (B.R.axe && B.weaponArm === ai && G.weapon) return rigToWorld(B, G.weapon.tip); return rigToWorld(B, G.arms[ai].hand) },
   // волна по полу: камни выталкивает из пола, проходит по прямой
