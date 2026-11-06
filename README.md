@@ -7,6 +7,15 @@
 
 Подробнее: [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md), стиль: [docs/ART_STYLE.md](docs/ART_STYLE.md).
 
+## Игра
+
+Собранная игра — один файл [`src/game/index.html`](src/game/index.html) (открывается в браузере без сервера).
+Исходники — модули `src/game/js/*.js` + шаблон `src/game/index.tpl.html`, сборка: `python3 tools/build_game.py`
+(режет листы Codex, кодирует картинки в WebP и вшивает их в страницу). Проверка: `node tools/qa_game.js <папка> critic strikes soul flow`.
+
+Управление: A/D или ←/→ — шаг, Shift — бег, W/S или ↑/↓ — вглубь/ближе, Space — рывок, F или ПКМ — парирование (в момент удара: враг оглушён, ответный удар сильнее; рука босса трескается; поздно — блок, урон втрое меньше; волну и топот не отбить), ЛКМ — серия из трёх ударов
+(J/K/L — по отдельности), E — подобрать/положить осколок, Q — вернуть последний, Enter — старт/пауза, M — звук.
+
 ## Как здесь работают Claude и Codex
 
 Репозиторий — общее рабочее место. Claude пишет **задачи-промпты** в `codex/tasks/`, Codex выполняет их
@@ -26,7 +35,9 @@ assets/environment/  assets/ui/            арена, интерфейс
 assets/audio/{music,sfx}/                  музыка и звуки
 assets/_test/                              проверочные задачи (можно удалять)
 src/hero/                      тестовая страница героя (hero_run.html + данные спрайтов hero_side4.json)
-src/arena/                     сама игра (arena.html)
+src/game/                      игра «Арена осколков»: js/ (модули), index.tpl.html, index.html (сборка)
+src/engine/walker.js           походки врагов и боссов (общая механика шага)
+src/arena/                     прежняя версия игры (arena.html, банк задач Q)
 tools/                         скрипты сборки и «критик» анимации (Playwright)
 ```
 
