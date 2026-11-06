@@ -33,7 +33,9 @@ const Enemies = {
     let dir = 0; if (d > (opt.tol ?? 10)) dir = Math.abs(dxp) > 12 ? Math.sign(dxp) : e.face; if (opt.dir !== undefined) dir = opt.dir;
     const x0 = c.x; e.pose = Walker.update(c, dt, { dir: opt.hold ? 0 : dir, run: opt.run, speedK: opt.speedK, hold: opt.hold, runK: opt.runK, accK: opt.accK, lean: opt.lean, crouch: opt.crouch });
     e.face = c.face; const p = Math.abs(c.x - x0), s = e.R.scale * zs(e.z);
-    if (p > 0) { const n = Math.hypot(Math.abs(dxp), dzp) || 1, ax = d > 1 ? Math.abs(dxp) / n : 1, az = d > 1 ? dzp / n : 0; e.x += p * s * e.face * ax; e.z = cl(e.z + p * s * az / ZPX, 0, 1) }
+    // торможение у цели — по прежнему направлению (иначе тело уезжает вбок от стоящих стоп)
+    let mdir = null; if (p > 0) { let ax, az; if (d > 6) { const n = Math.hypot(Math.abs(dxp), dzp); ax = Math.abs(dxp) / n; az = dzp / n; e.mv = { ax, az } } else ({ ax, az } = e.mv || { ax: 1, az: 0 }); e.x += p * s * e.face * ax; e.z = cl(e.z + p * s * az / ZPX, 0, 1); mdir = { x: e.face * ax, z: az } }
+    depthLegs(e, mdir);
     for (const ev of c.events) { const R = e.R; if (c.g.heavy > .2) { Snd.step(ev.power * .5, 0); FX.dust(e.x, e.z, 2 + 4 * c.g.dust, .2 + .4 * c.g.dust) } }
     // одежда — пружина от скорости
     e.clothv += ((-c.v * .0012 - e.cloth) * 60 - e.clothv * 8) * dt; e.cloth += e.clothv * dt;
@@ -49,7 +51,8 @@ const Enemies = {
   },
   think(e, dt) {
     const h = Hero.H, T = e.T; e.t += dt; e.flash = Math.max(0, e.flash - dt * 5); e.cd -= dt;
-    if (e.kbv) { e.x += e.kbv * dt; e.kbv *= Math.exp(-dt * 10); if (Math.abs(e.kbv) < 2) e.kbv = 0 }
+    // отброс — короткий подскок назад (ноги в воздухе), а не скольжение по полу
+    if (e.kbv) { e.x += e.kbv * dt; e.kbv *= Math.exp(-dt * 10); e.dy = -Math.min(16, Math.abs(e.kbv) * .09); if (Math.abs(e.kbv) < 14) { e.kbv = 0; e.dy = 0 } }
     e.x = cl(e.x, W.GL, W.GR);
     const toH = h.x - e.x, adx = Math.abs(toH), dz = h.z - e.z, facing = Math.sign(toH) === e.face, target = h.soul ? null : h;
     let ov = null; // переопределение позы рук: {w, ...ключ}

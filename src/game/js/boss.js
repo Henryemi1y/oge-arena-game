@@ -161,7 +161,8 @@ const Boss = {
     const c = B.c, L = this.L(B), s = this.s(B);
     if (B.gait === 'walk') {
       const x0 = c.x; B.pose = Walker.update(c, dt, { dir: ctl.hold ? 0 : ctl.dir, hold: ctl.hold, crouch: ctl.crouch, speedK: B.D.speedK * (B.st === 'enter' ? .8 : 1) }); B.face = c.face;
-      const p = Math.abs(c.x - x0); if (p > 0) { const dxp = ctl.tx - B.x, dzp = (ctl.tz - B.z) * ZPX, n = Math.hypot(dxp, dzp) || 1; B.x += p * s * B.face * (n > 1 ? Math.abs(dxp) / n : 1); B.z = cl(B.z + p * s * (n > 1 ? dzp / n : 0) / ZPX, .1, .96) }
+      const p = Math.abs(c.x - x0); let dir = null; if (p > 0) { const dxp = ctl.tx - B.x, dzp = (ctl.tz - B.z) * ZPX, n = Math.hypot(dxp, dzp); if (n > 6) B.mv = { ax: Math.abs(dxp) / n, az: dzp / n }; const { ax, az } = B.mv || { ax: 1, az: 0 }; B.x += p * s * B.face * ax; B.z = cl(B.z + p * s * az / ZPX, .1, .96); dir = { x: B.face * ax, z: az } }
+      depthLegs(B, dir);
       for (const ev of c.events) this.stepFx(B, ev.foot);
     } else if (B.gait === 'hop') this.hopStep(B, dt, ctl);
     else this.sitStep(B, dt, ctl);
@@ -299,8 +300,7 @@ const Boss = {
     for (const w of this.waves) list.push({ z: w.z, draw: () => { const x = sx(w.x), y = zy(w.z), k = 1 - w.t / w.life; ctx.fillStyle = `rgba(90,96,112,${k})`; for (let i = 0; i < 4; i++) { const xx = x - w.dir * i * 22, hh = (30 - i * 6) * (1 + .2 * Math.sin(w.t * 30 + i)); ctx.beginPath(); ctx.moveTo(xx - 12, y); ctx.lineTo(xx - 3, y - hh); ctx.lineTo(xx + 4, y - hh * .7); ctx.lineTo(xx + 12, y); ctx.fill() } } });
   },
   draw(B) {
-    if (B.gone) return; ctx.save(); ctx.globalAlpha = B.alpha; drawRig(B);
-    for (const l of LIMBS) { const lm = B.limbs[l]; if (!lm.alive) continue; const a = Math.max(B.flash[l] || 0, lm.regrow); if (a > 0) { ctx.globalAlpha = a * .7 * B.alpha; drawRig(B, { v: 'W', only: l }) } }
+    if (B.gone) return; ctx.save(); ctx.globalAlpha = B.alpha; const flash = {}; for (const l of LIMBS) { const lm = B.limbs[l]; if (lm.alive) flash[l] = Math.max(B.flash[l] || 0, lm.regrow) * .7 } drawRig(B, { flash });
     ctx.restore();
     // светящиеся трещины на культях
     for (const l of LIMBS) if (!B.limbs[l].alive && Math.random() < .25) { const G = B.G, p = l.startsWith('arm') ? G.arms[l === 'armN' ? 0 : 1].sh : G.legs[l === 'legN' ? 0 : 1].hip, q = rigToWorld(B, p); FX.chips(q.x, B.z, zy(B.z) - q.y + 10, 1, 60) }

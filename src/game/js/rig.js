@@ -73,11 +73,13 @@ function drawRig(ch, opt = {}) {
   const G = ch.G || rigGeom(ch), Rt = G.Rt, tw = I.torso.width, th = I.torso.height;
   const xf = rigXf(ch); ctx.save(); ctx.translate(xf.X, xf.Y); ctx.scale(xf.f * xf.s, xf.s);
   const want = n => !only || only === n;
+  // вспышка попадания по конечности — в её собственном слое (дальняя не перекрывает ближнюю)
+  const lit = (part, fn) => { fn(v); const a = opt.flash && opt.flash[part]; if (a > 0 && v !== 'W') { ctx.save(); ctx.globalAlpha *= a; fn('W'); ctx.restore() } };
   // дальняя рука, дальняя нога, задняя пола
-  if (want('armF')) { if (miss.armF) { if (!only) rigStump(ch, G, 'stumpShF', v) } else { if (G.weapon && G.weapon.arm === 1) rigWeapon(ch, G, v); rigArm(ch, G, 1, v) } }
-  if (want('legF')) { if (miss.legF) { if (!only) rigStump(ch, G, 'stumpHipF', v) } else rigLeg(ch, G, 1, v) }
+  if (want('armF')) { if (miss.armF) { if (!only) rigStump(ch, G, 'stumpShF', v) } else { if (G.weapon && G.weapon.arm === 1) rigWeapon(ch, G, v); lit('armF', w => rigArm(ch, G, 1, w)) } }
+  if (want('legF')) { if (miss.legF) { if (!only) rigStump(ch, G, 'stumpHipF', v) } else lit('legF', w => rigLeg(ch, G, 1, w)) }
   if (!only && R.clothB) rigPiece(rimg(I, 'clothB', v), P.clothB.top, Rt([R.clothB[0] * tw, R.clothB[1] * th]), lean * .4 + (ch.cloth || 0) * 1.2);
-  if (want('legN')) { if (miss.legN) { if (!only) rigStump(ch, G, 'stumpHipN', v) } else rigLeg(ch, G, 0, v) }
+  if (want('legN')) { if (miss.legN) { if (!only) rigStump(ch, G, 'stumpHipN', v) } else lit('legN', w => rigLeg(ch, G, 0, w)) }
   if (!only) {
     rigPiece(rimg(I, 'torso', v), t.hip, [0, 0], lean);
     if (R.cloth) for (const [fx, fy, name] of R.cloth) rigPiece(rimg(I, name, v), P[name].top, Rt([fx * tw, fy * th]), lean * .4 + (ch.cloth || 0));
@@ -89,12 +91,32 @@ function drawRig(ch, opt = {}) {
     else {
       if (R.flask && !ch.flaskOut && !only) rigPiece(rimg(I, 'flask', v), P.flask.grip, G.arms[0].hand, -.3);
       if (G.weapon && G.weapon.arm === 0) rigWeapon(ch, G, v);
-      rigArm(ch, G, 0, v);
+      lit('armN', w => rigArm(ch, G, 0, w));
     }
   }
   if (opt.joints) { ctx.fillStyle = '#ffd84a'; for (const l of G.legs) for (const p of [l.hip, l.kn, l.an]) { ctx.beginPath(); ctx.arc(p[0], p[1], 4 / xf.s, 0, TAU); ctx.fill() } }
   ctx.restore();
   return G;
+}
+// Мир 2,5D: у каждой стопы своя точка на полу (x и глубина). walker.js считает шаг вдоль пути; здесь смещение стопы
+// раскладывается по направлению движения: опорная стопа держит точку, переносимая плавно приходит в точку постановки.
+// Нога тянется к стопе той же IK; таз опускается, если стопа ближе к зрителю и иначе не достать.
+function depthLegs(ch, dir) {
+  const po = ch.pose, R = ch.R, s = R.scale * zs(ch.z) * (ch.sMul || 1), L = R.L1 + R.L2, g = ch.c.g, fs = ch.fs || (ch.fs = [{}, {}]);
+  if (dir) ch.lastDir = dir; dir = ch.lastDir || { x: ch.face, z: 0 };
+  const lx = [], dy = [];
+  po.legs.forEach((l, i) => {
+    const F = fs[i], rel = l.fx ?? l.ax, ex = ch.x + rel * s * dir.x, ez = ch.z + rel * s * dir.z / ZPX;
+    // в подскоке (отброс от удара) стопы в воздухе и едут с телом; встают на новое место при приземлении
+    if (l.st && !(ch.dy < -.5)) { if (!F.st || F.x == null) { F.x = ex; F.z = ez } F.px = F.x; F.pz = F.z }
+    else if (l.st) { F.x = F.px = ex; F.z = F.pz = ez; F.st = false; lx[i] = (ex - ch.x) * ch.face / s; dy[i] = (ez - ch.z) * ZPX / s; return }
+    else { if (F.st) { F.cx = (F.x ?? ex) - ex; F.cz = (F.z ?? ez) - ez } const q = cl(((l.u ?? 1) - g.beta) / (1 - g.beta), 0, 1), k = 1 - sm(q); F.px = ex + (F.cx || 0) * k; F.pz = ez + (F.cz || 0) * k }
+    F.st = l.st; lx[i] = (F.px - ch.x) * ch.face / s; dy[i] = (F.pz - ch.z) * ZPX / s;
+  });
+  const Lmax = L * .985, cap = po.legs.map((l, i) => l.lift - dy[i] + Math.sqrt(Math.max(0, Lmax * Lmax - lx[i] * lx[i]))), sk = 30 / L;
+  const smin = a => { const mn = Math.min(...a); return mn - Math.log(a.reduce((q, v) => q + Math.exp(-sk * (v - mn)), 0)) / sk };
+  po.hip = smin([po.hip, smin(cap) - L * .012]);
+  po.legs = po.legs.map((l, i) => ({ ...l, ...Walker.ik2(lx[i], po.hip - l.lift + dy[i], R.L1, R.L2, g.digi ? -1 : 1), dz: dy[i] }));
 }
 // тень на полу
 function drawShadow(x, z, w, a = .38) { const X = sx(x), Y = zy(z), k = zs(z); ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.beginPath(); ctx.ellipse(X, Y + 1, w * k, w * k * .16, 0, 0, TAU); ctx.fill() }

@@ -12,7 +12,7 @@
   // Пресеты походки. Длины — в долях длины ноги L (бедро→лодыжка); скорости — в L/с; stance — разнос стоп в покое.
   const GAITS = {
     hero:        { speed: 1.25, stride: 1.30, beta: .60, lift: .16, crouch: .02, lean: .06, bob: .9,  arm: .45, elbow: .25, heavy: 0,   dwell: 0,   shake: 0,   dust: .15, stance: .07 },
-    ghoul:       { speed: 1.70, stride: 1.10, beta: .55, lift: .18, crouch: .16, lean: .42, bob: .5,  arm: .30, elbow: .9,  heavy: 0,   dwell: 0,   shake: 0,   dust: .10, armFwd: -1.05, twitch: 1, stance: .09 },
+    ghoul:       { speed: 1.60, stride: 1.10, beta: .55, lift: .15, crouch: .16, lean: .42, bob: .5,  arm: .30, elbow: .9,  heavy: 0,   dwell: 0,   shake: 0,   dust: .10, armFwd: -1.05, twitch: 1, stance: .09 },
     knight:      { speed: .85,  stride: 1.05, beta: .64, lift: .10, crouch: .03, lean: .04, bob: 1.0, arm: .22, elbow: .35, heavy: .35, dwell: .10, shake: .08, dust: .35, stance: .08 },
     doctor:      { speed: 1.00, stride: 1.10, beta: .60, lift: .12, crouch: .05, lean: .14, bob: .6,  arm: .12, elbow: .8,  heavy: 0,   dwell: 0,   shake: 0,   dust: .10, armFwd: -.35, stance: .06 },
     goatman:     { speed: 1.05, stride: 1.25, beta: .60, lift: .17, crouch: .07, lean: .16, bob: 1.2, arm: .50, elbow: .45, heavy: .55, dwell: .12, shake: .25, dust: .55, digi: 1, stance: .09 },
@@ -60,7 +60,7 @@
     { // темп досеменивания нарастает плавно по мере остановки (без скачка скорости стопы)
       let need = false; const nz0 = g.stance * L;
       c.feet.forEach((f, i) => { const u = fr(c.F + (i ? .5 : 0)); if (u >= beta) need = true; else if (f.ax != null && Math.abs(f.ax - (c.x + c.face * (i ? -nz0 : nz0))) > .06 * L) need = true });
-      if (need) dF = Math.max(dF, 1.1 * sm((.07 * L - base) / (.06 * L)) * dt);
+      const sr0 = need ? 1.1 * sm((.07 * L - base) / (.06 * L)) : 0; c.sr = (c.sr || 0) + (sr0 - (c.sr || 0)) * (1 - Math.exp(-dt * 7)); dF = Math.max(dF, c.sr * dt);
     }
     c.F += dF;
     const feet = [0, .5].map((o, i) => {
@@ -94,11 +94,12 @@
     // присед (замах, удар) — поверх фильтра, без запаздывания: плечо оказывается ровно там, где рассчитано
     const hip = smin([c.hf + c.sp - crL, hmax - L * .02]);
     // ноги
-    const legs = feet.map(f => { const r = ik2(f.x, hip - f.lift, def.L1, def.L2, g.digi ? -1 : 1); return { ...r, st: f.st, lift: f.lift, wx: f.wx } });
+    const legs = feet.map(f => { const r = ik2(f.x, hip - f.lift, def.L1, def.L2, g.digi ? -1 : 1); return { ...r, st: f.st, lift: f.lift, wx: f.wx, fx: f.x, u: f.u } });
     // корпус отстаёт и наклоняется; руки — маятник против ног: ближняя рука идёт вперёд, когда ближняя стопа уходит назад
+    // (размах рук насыщается мягко, через tanh, — без излома)
     c.lagv += ((c.sp * .02 - c.lag) * 90 - c.lagv * 12) * dt; c.lag += c.lagv * dt;
     const s = Math.sin(TAU * c.F), lean = g.lean * (.3 + .7 * m) + c.lag + (g.twitch ? .03 * Math.sin(c.t * 23) * m : 0) + (input.lean || 0), half = Math.max(S * beta / 2, L * .05);
-    const armBase = g.armFwd || 0, arms = [0, 1].map(i => { const fw = cl(-feet[i].x / half, -1.2, 1.2), sw = -fw * g.arm * m; const ru = armBase + sw + .04 * Math.sin(c.t * 1.3 + i); return { ru, rf: ru - g.elbow * (.6 + .4 * Math.log(1 + Math.exp(4 * fw)) / 4) } });
+    const armBase = g.armFwd || 0, arms = [0, 1].map(i => { const fw = 1.2 * Math.tanh(-feet[i].x / half / 1.2), sw = -fw * g.arm * m; const ru = armBase + sw + .04 * Math.sin(c.t * 1.3 + i); return { ru, rf: ru - g.elbow * (.6 + .4 * Math.log(1 + Math.exp(4 * fw)) / 4) } });
     c.pose = { hip, legs, arms, lean, m, F: c.F, roll: .015 * s * m, S };
     return c.pose;
   }

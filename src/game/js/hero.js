@@ -94,6 +94,7 @@ function frame(v0,dt){dt=cl(dt,1/240,.05);if(!Number.isFinite(st.Pf)||!Number.is
  const sbi=sm((25-vm)/17);
  const Lg=[0,.5].map((o,i)=>legPose(i,fr(st.F+o),m,g,beta,step,S,lift,Pfl,sbi,dt));
  if(D>0){const ps=[[.36,-.05,-.35],[-.4,-.12,.55]];Lg.forEach((l,i)=>{l.ax=lp(l.ax,ps[i][0]*REACH,D);l.ay=lp(l.ay,-SOLE-ps[i][1]*-REACH*.0-Math.abs(ps[i][1])*REACH,D);l.a=lp(l.a,ps[i][2],D)})}
+ if(legHook)legHook(Lg); // мир 2,5D: стопы на своей глубине (опорная держит точку на полу и по z)
  let oxA=0,LGw=0,PLc=0;
  if(KA&&W>.001){oxA=KA.ox*W*(1-.6*g);LGw=KA.LG*W*(1-g);
   if(LGw>.001){const ft=(wx,a)=>{const s_=cl((a+.15)/.65,0,1),c_=lp(HEEL,BALL,s_);return{ax:wx-oxA-(c_*Math.cos(a)-SOLE*Math.sin(a)),ayh:c_*Math.sin(a)+SOLE*Math.cos(a),a}},
@@ -134,7 +135,7 @@ function frame(v0,dt){dt=cl(dt,1/240,.05);if(!Number.isFinite(st.Pf)||!Number.is
   return{ru,rf,w,ya,ex,ey}});
  return{Pr,Praw,Pbob,Pcap,PN,m,g,D,hy,P,legs,lean,shx,shy,arm,v,cx,cy,ca:Math.max(st.ca,lean+.06),sb:st.sb,sf:st.sf,hrot,hdy,ox,shk,AS,AT,ak:st.ak|0,hit1,LGw,X:st.X}}
 // ---------------- рисование ----------------
-let tips=[]; // след клинка (локальные координаты героя)
+let tips=[],legHook=null; // след клинка (локальные координаты героя); крючок ног для оси z
 function pc(img,x,y,px,py,r){ctx.save();ctx.translate(GX+x*SC,GY+y*SC);ctx.rotate(r);ctx.scale(SC,SC);DI(img,-px,-py);ctx.restore()}
 function drawLeg(l,hy,d){const D=d?'D':'';pc(IMG['shin'+D],l.kx,l.ky,AX,O,l.r2);pc(IMG['foot'+D],l.ax,l.ay,AX,O,l.r3);pc(IMG['thigh'+D],0,hy,AX,J.leg.hip[1],l.r1);
  pc(IMG['kc'+D],l.kx,l.ky,66,66,(l.r1+l.r2)/2);pc(IMG['ac'+D],l.ax,l.ay,54,54,(l.r2+l.r3)/2);pc(IMG['guard'+D],l.kx,l.ky,J.guard.piv[0],J.guard.piv[1],(l.r1+l.r2)/2)}
@@ -179,8 +180,8 @@ function critic(){const dt=1/60,T=30,pf=t=>t<2?0:t<5?lp(0,1,(t-2)/3):t<8?1:t<10?
   ['Полуприсед: сгиб колена (шаг)',mean(Fx_),'°',25,sc(mean(Fx_),25)],['Макс. сгиб опорного колена',Math.max(...Fx_),'°',35,sc(Math.max(...Fx_),35)],['Взгляд: поворот головы (шаг)',Math.max(...Hd_)-Math.min(...Hd_),'°',1,sc(Math.max(...Hd_)-Math.min(...Hd_),1)],['Взгляд: поворот головы (бег)',Math.max(...Gr_)-Math.min(...Gr_),'°',1,sc(Math.max(...Gr_)-Math.min(...Gr_),1)],['Рывок таза (шаг)',Pa_,'ед/кадр²',2,sc(Pa_,2)],['Колебание таза (бег)',rg/(L1+L2)*100,'% ноги',9,sc(rg/(L1+L2)*100,9)],['Фаза полёта (бег)',fl,'с',.05,fl>.05?10:Math.round(fl/.05*100)/10],['Рывок сустава (ускорение)',M.jump,'рад/кадр²',.03,sc(M.jump,.03)],['… только бег',M.jumpR,'рад/кадр²',.03,sc(M.jumpR,.03)],['Руки против ног',c,'корр.',-.7,c<-.7?10:sc(c+1.7,1)]];
  return{R,jk:M.jk,jt:M.jt,score:Math.min(...R.map(r=>r[4]))}}
 // ================= игра =================
-const H={x:1000,z:.62,hp:100,maxhp:100,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,f:null,hist:[],swing:0,hitSet:new Set(),blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},t:0,kbv:0,flash:0,alpha:1,stepAcc:0,hidden:false};
-function reset(x,z){Object.assign(H,{x,z,hp:H.maxhp,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,hist:[],blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},kbv:0,flash:0,alpha:1,hidden:false});
+const H={fs:[{},{}],dir:null,x:1000,z:.62,hp:100,maxhp:100,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,f:null,hist:[],swing:0,hitSet:new Set(),blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},t:0,kbv:0,flash:0,alpha:1,stepAcc:0,hidden:false};
+function reset(x,z){Object.assign(H,{fs:[{},{}],dir:null,x,z,hp:H.maxhp,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,hist:[],blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},kbv:0,flash:0,alpha:1,hidden:false});
  Object.assign(st,{X:0,F:.3,t:0,atk:-1,dsh:-1,Pa:0,Pf:null,Pfv:0,hurtL:0});LS.forEach(q=>{q.pu=0;q.lt=null;q.se=null;q.se0=null;q.ts=null});FACE=1;H.f=frame(0,DT)}
 function hit(k){if(st.atk<0&&!H.dead){st.atk=0;st.ak=k;st.hd=0;st.bo=0;H.swing++;H.hitSet=new Set();Snd.swing(k);return true}return false}
 function dash(){if(st.dsh<0&&!H.dead){st.dsh=0;H.inv=Math.max(H.inv,.38);Snd.dash();FX.dust(H.x,H.z,4,.4)}}
@@ -199,11 +200,19 @@ function update(dt,inp){
  if(inp.dash)dash();if(inp.combo)cbHit();if(inp.atk>=0)hit(inp.atk);
  H.calm=(H.calm||0)+dt;if(H.calm>4&&!H.dead&&H.hp<H.maxhp)H.hp=Math.min(H.maxhp,H.hp+2.5*dt); // вне боя здоровье понемногу возвращается
  H.hurt=Math.max(0,H.hurt-dt);st.hurtL=.28*sm(H.hurt/.25);H.inv=Math.max(0,H.inv-dt);H.flash=Math.max(0,H.flash-dt*4);
- const k=Math.hypot(H.SV,H.SZ),X0=st.X,f=frame(k*VB,dt),dX=st.X-X0,s=W.CS*zs(H.z);H.f=f;
+ const k=Math.hypot(H.SV,H.SZ),X0=st.X,s=W.CS*zs(H.z);let mv={x:0,z:0};
+ // путь кадра (по нему идёт фаза стоп) раскладывается на x и z; рывок — вперёд по взгляду.
+ // Стопы: у каждой своя точка на полу (x и глубина); опорная не двигается, переносимая догоняет точку постановки.
+ legHook=Lg=>{const dX=st.X-X0;if(st.dsh>=0&&k<1e-3)mv={x:dX*s*FACE,z:0};else if(k>1e-6){const ex=st.dsh>=0?Math.max(0,dX-k*VB*dt):0;mv={x:(dX-ex)*s*(H.SV/k)+ex*s*FACE,z:(dX-ex)*s*(H.SZ/k)/ZPX}}
+  const bx=H.x+mv.x,bz=H.z+mv.z,mpx=Math.hypot(mv.x,mv.z*ZPX);if(mpx>1e-4)H.dir={x:mv.x/mpx,z:mv.z*ZPX/mpx};const dir=H.dir||{x:FACE,z:0};
+  Lg.forEach((l,i)=>{const F=H.fs[i],stn=l.u<l.beta,dx=l.rel*s*dir.x,dz=l.rel*s*dir.z/ZPX,ex=bx+dx,ez=bz+dz;
+   if(stn){if(!F.st||F.x==null){F.x=ex;F.z=ez}F.px=F.x;F.pz=F.z}else{if(F.st){F.cx=(F.x??ex)-ex;F.cz=(F.z??ez)-ez}const q=cl((l.u-l.beta)/(1-l.beta),0,1),kk=1-sm(q);F.px=ex+(F.cx||0)*kk;F.pz=ez+(F.cz||0)*kk}F.st=stn;
+   const lx=(F.px-bx)*FACE/s,dy=(F.pz-bz)*ZPX/s;l.ax+=lx-l.rel;l.ay+=dy})};
+ const f=frame(k*VB,dt);legHook=null;H.f=f;
  if(H.combo.q&&st.atk<0)cbHit();if(st.atk>=0)H.combo.last=H.t;
- // путь кадра (по нему идёт фаза стоп) раскладывается на x и z; рывок — вперёд по взгляду
- if(f.D>0&&k<1e-3)H.x+=dX*s*FACE;else if(k>1e-6){const ex=f.D>0?Math.max(0,dX-k*VB*dt):0;H.x+=(dX-ex)*s*(H.SV/k)+ex*s*FACE;H.z+=(dX-ex)*s*(H.SZ/k)/ZPX}
- if(H.kbv){H.x+=H.kbv*dt;H.kbv*=Math.exp(-dt*9);if(Math.abs(H.kbv)<2)H.kbv=0}
+ H.x+=mv.x;H.z+=mv.z;
+ // отброс — подскок назад: тело в воздухе, стопы переставляются при приземлении
+ if(H.kbv){H.x+=H.kbv*dt;H.kbv*=Math.exp(-dt*9);H.dy=-Math.min(14,Math.abs(H.kbv)*.07);H.fs.forEach(F=>{F.x=null;F.st=false});if(Math.abs(H.kbv)<16){H.kbv=0;H.dy=0}}
  H.x=cl(H.x,W.XMIN,W.XMAX);H.z=cl(H.z,.02,1);
  // шаги: звук и лёгкая пыль на постановке стопы
  f.legs.forEach((l,i)=>{const on=l.u<l.beta&&f.v>=25;if(on&&!H['st'+i]){Snd.step(.15+.25*f.g,0);if(f.g>.5)FX.dust(H.x+FACE*l.rel*s,H.z,2,.15)}H['st'+i]=on});
@@ -216,7 +225,7 @@ function damage(n,fromX,kb=1){if(H.dead||H.inv>0||H.soul)return false;H.calm=0;H
 // рисование в мире
 function drawAt(f,x,z,face,alpha,rec){
  SC=W.CS*zs(z);GX=0;GY=0;const F0=FACE;FACE=face;
- ctx.save();ctx.translate(sx(x),zy(z));if(face<0)ctx.scale(-1,1);ctx.globalAlpha=alpha;drawChar(f,rec);
+ ctx.save();ctx.translate(sx(x),zy(z)+(H.dy||0));if(face<0)ctx.scale(-1,1);ctx.globalAlpha=alpha;drawChar(f,rec);
  if(rec){
   tips=tips.filter(p=>st.t-p.t<.16);if(f.AT>=ATK[f.ak].tr[0]&&f.AT<ATK[f.ak].tr[1]&&tips.length>1){ctx.save();ctx.lineCap='round';for(let i=1;i<tips.length;i++){const a=tips[i-1],b=tips[i],al=1-(st.t-b.t)/.16;ctx.strokeStyle=`rgba(190,225,255,${.7*al})`;ctx.lineWidth=16*al*SC/.3;ctx.shadowColor='#6fb4ff';ctx.shadowBlur=12;ctx.beginPath();ctx.moveTo(a.x*SC,a.y*SC);ctx.lineTo(b.x*SC,b.y*SC);ctx.stroke()}ctx.restore()}
   if(st.fl&&st.t-st.fl.t<.16){const a=1-(st.t-st.fl.t)/.16,X=st.fl.x*SC,Y=st.fl.y*SC,r=70*SC/.3*(1+.8*(1-a)),gr=ctx.createRadialGradient(X,Y,0,X,Y,r);gr.addColorStop(0,`rgba(255,255,255,${.9*a})`);gr.addColorStop(.35,`rgba(170,215,255,${.5*a})`);gr.addColorStop(1,'rgba(120,180,255,0)');ctx.fillStyle=gr;ctx.fillRect(X-r,Y-r,2*r,2*r)}}

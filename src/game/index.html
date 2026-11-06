@@ -29,7 +29,7 @@ const ASSETS={"bg_far":{"src":"data:image/webp;base64,UklGRgoGAQBXRUJQVlA4IP4FAQ
   // Пресеты походки. Длины — в долях длины ноги L (бедро→лодыжка); скорости — в L/с; stance — разнос стоп в покое.
   const GAITS = {
     hero:        { speed: 1.25, stride: 1.30, beta: .60, lift: .16, crouch: .02, lean: .06, bob: .9,  arm: .45, elbow: .25, heavy: 0,   dwell: 0,   shake: 0,   dust: .15, stance: .07 },
-    ghoul:       { speed: 1.70, stride: 1.10, beta: .55, lift: .18, crouch: .16, lean: .42, bob: .5,  arm: .30, elbow: .9,  heavy: 0,   dwell: 0,   shake: 0,   dust: .10, armFwd: -1.05, twitch: 1, stance: .09 },
+    ghoul:       { speed: 1.60, stride: 1.10, beta: .55, lift: .15, crouch: .16, lean: .42, bob: .5,  arm: .30, elbow: .9,  heavy: 0,   dwell: 0,   shake: 0,   dust: .10, armFwd: -1.05, twitch: 1, stance: .09 },
     knight:      { speed: .85,  stride: 1.05, beta: .64, lift: .10, crouch: .03, lean: .04, bob: 1.0, arm: .22, elbow: .35, heavy: .35, dwell: .10, shake: .08, dust: .35, stance: .08 },
     doctor:      { speed: 1.00, stride: 1.10, beta: .60, lift: .12, crouch: .05, lean: .14, bob: .6,  arm: .12, elbow: .8,  heavy: 0,   dwell: 0,   shake: 0,   dust: .10, armFwd: -.35, stance: .06 },
     goatman:     { speed: 1.05, stride: 1.25, beta: .60, lift: .17, crouch: .07, lean: .16, bob: 1.2, arm: .50, elbow: .45, heavy: .55, dwell: .12, shake: .25, dust: .55, digi: 1, stance: .09 },
@@ -77,7 +77,7 @@ const ASSETS={"bg_far":{"src":"data:image/webp;base64,UklGRgoGAQBXRUJQVlA4IP4FAQ
     { // темп досеменивания нарастает плавно по мере остановки (без скачка скорости стопы)
       let need = false; const nz0 = g.stance * L;
       c.feet.forEach((f, i) => { const u = fr(c.F + (i ? .5 : 0)); if (u >= beta) need = true; else if (f.ax != null && Math.abs(f.ax - (c.x + c.face * (i ? -nz0 : nz0))) > .06 * L) need = true });
-      if (need) dF = Math.max(dF, 1.1 * sm((.07 * L - base) / (.06 * L)) * dt);
+      const sr0 = need ? 1.1 * sm((.07 * L - base) / (.06 * L)) : 0; c.sr = (c.sr || 0) + (sr0 - (c.sr || 0)) * (1 - Math.exp(-dt * 7)); dF = Math.max(dF, c.sr * dt);
     }
     c.F += dF;
     const feet = [0, .5].map((o, i) => {
@@ -111,11 +111,12 @@ const ASSETS={"bg_far":{"src":"data:image/webp;base64,UklGRgoGAQBXRUJQVlA4IP4FAQ
     // присед (замах, удар) — поверх фильтра, без запаздывания: плечо оказывается ровно там, где рассчитано
     const hip = smin([c.hf + c.sp - crL, hmax - L * .02]);
     // ноги
-    const legs = feet.map(f => { const r = ik2(f.x, hip - f.lift, def.L1, def.L2, g.digi ? -1 : 1); return { ...r, st: f.st, lift: f.lift, wx: f.wx } });
+    const legs = feet.map(f => { const r = ik2(f.x, hip - f.lift, def.L1, def.L2, g.digi ? -1 : 1); return { ...r, st: f.st, lift: f.lift, wx: f.wx, fx: f.x, u: f.u } });
     // корпус отстаёт и наклоняется; руки — маятник против ног: ближняя рука идёт вперёд, когда ближняя стопа уходит назад
+    // (размах рук насыщается мягко, через tanh, — без излома)
     c.lagv += ((c.sp * .02 - c.lag) * 90 - c.lagv * 12) * dt; c.lag += c.lagv * dt;
     const s = Math.sin(TAU * c.F), lean = g.lean * (.3 + .7 * m) + c.lag + (g.twitch ? .03 * Math.sin(c.t * 23) * m : 0) + (input.lean || 0), half = Math.max(S * beta / 2, L * .05);
-    const armBase = g.armFwd || 0, arms = [0, 1].map(i => { const fw = cl(-feet[i].x / half, -1.2, 1.2), sw = -fw * g.arm * m; const ru = armBase + sw + .04 * Math.sin(c.t * 1.3 + i); return { ru, rf: ru - g.elbow * (.6 + .4 * Math.log(1 + Math.exp(4 * fw)) / 4) } });
+    const armBase = g.armFwd || 0, arms = [0, 1].map(i => { const fw = 1.2 * Math.tanh(-feet[i].x / half / 1.2), sw = -fw * g.arm * m; const ru = armBase + sw + .04 * Math.sin(c.t * 1.3 + i); return { ru, rf: ru - g.elbow * (.6 + .4 * Math.log(1 + Math.exp(4 * fw)) / 4) } });
     c.pose = { hip, legs, arms, lean, m, F: c.F, roll: .015 * s * m, S };
     return c.pose;
   }
@@ -588,11 +589,13 @@ function drawRig(ch, opt = {}) {
   const G = ch.G || rigGeom(ch), Rt = G.Rt, tw = I.torso.width, th = I.torso.height;
   const xf = rigXf(ch); ctx.save(); ctx.translate(xf.X, xf.Y); ctx.scale(xf.f * xf.s, xf.s);
   const want = n => !only || only === n;
+  // вспышка попадания по конечности — в её собственном слое (дальняя не перекрывает ближнюю)
+  const lit = (part, fn) => { fn(v); const a = opt.flash && opt.flash[part]; if (a > 0 && v !== 'W') { ctx.save(); ctx.globalAlpha *= a; fn('W'); ctx.restore() } };
   // дальняя рука, дальняя нога, задняя пола
-  if (want('armF')) { if (miss.armF) { if (!only) rigStump(ch, G, 'stumpShF', v) } else { if (G.weapon && G.weapon.arm === 1) rigWeapon(ch, G, v); rigArm(ch, G, 1, v) } }
-  if (want('legF')) { if (miss.legF) { if (!only) rigStump(ch, G, 'stumpHipF', v) } else rigLeg(ch, G, 1, v) }
+  if (want('armF')) { if (miss.armF) { if (!only) rigStump(ch, G, 'stumpShF', v) } else { if (G.weapon && G.weapon.arm === 1) rigWeapon(ch, G, v); lit('armF', w => rigArm(ch, G, 1, w)) } }
+  if (want('legF')) { if (miss.legF) { if (!only) rigStump(ch, G, 'stumpHipF', v) } else lit('legF', w => rigLeg(ch, G, 1, w)) }
   if (!only && R.clothB) rigPiece(rimg(I, 'clothB', v), P.clothB.top, Rt([R.clothB[0] * tw, R.clothB[1] * th]), lean * .4 + (ch.cloth || 0) * 1.2);
-  if (want('legN')) { if (miss.legN) { if (!only) rigStump(ch, G, 'stumpHipN', v) } else rigLeg(ch, G, 0, v) }
+  if (want('legN')) { if (miss.legN) { if (!only) rigStump(ch, G, 'stumpHipN', v) } else lit('legN', w => rigLeg(ch, G, 0, w)) }
   if (!only) {
     rigPiece(rimg(I, 'torso', v), t.hip, [0, 0], lean);
     if (R.cloth) for (const [fx, fy, name] of R.cloth) rigPiece(rimg(I, name, v), P[name].top, Rt([fx * tw, fy * th]), lean * .4 + (ch.cloth || 0));
@@ -604,12 +607,32 @@ function drawRig(ch, opt = {}) {
     else {
       if (R.flask && !ch.flaskOut && !only) rigPiece(rimg(I, 'flask', v), P.flask.grip, G.arms[0].hand, -.3);
       if (G.weapon && G.weapon.arm === 0) rigWeapon(ch, G, v);
-      rigArm(ch, G, 0, v);
+      lit('armN', w => rigArm(ch, G, 0, w));
     }
   }
   if (opt.joints) { ctx.fillStyle = '#ffd84a'; for (const l of G.legs) for (const p of [l.hip, l.kn, l.an]) { ctx.beginPath(); ctx.arc(p[0], p[1], 4 / xf.s, 0, TAU); ctx.fill() } }
   ctx.restore();
   return G;
+}
+// Мир 2,5D: у каждой стопы своя точка на полу (x и глубина). walker.js считает шаг вдоль пути; здесь смещение стопы
+// раскладывается по направлению движения: опорная стопа держит точку, переносимая плавно приходит в точку постановки.
+// Нога тянется к стопе той же IK; таз опускается, если стопа ближе к зрителю и иначе не достать.
+function depthLegs(ch, dir) {
+  const po = ch.pose, R = ch.R, s = R.scale * zs(ch.z) * (ch.sMul || 1), L = R.L1 + R.L2, g = ch.c.g, fs = ch.fs || (ch.fs = [{}, {}]);
+  if (dir) ch.lastDir = dir; dir = ch.lastDir || { x: ch.face, z: 0 };
+  const lx = [], dy = [];
+  po.legs.forEach((l, i) => {
+    const F = fs[i], rel = l.fx ?? l.ax, ex = ch.x + rel * s * dir.x, ez = ch.z + rel * s * dir.z / ZPX;
+    // в подскоке (отброс от удара) стопы в воздухе и едут с телом; встают на новое место при приземлении
+    if (l.st && !(ch.dy < -.5)) { if (!F.st || F.x == null) { F.x = ex; F.z = ez } F.px = F.x; F.pz = F.z }
+    else if (l.st) { F.x = F.px = ex; F.z = F.pz = ez; F.st = false; lx[i] = (ex - ch.x) * ch.face / s; dy[i] = (ez - ch.z) * ZPX / s; return }
+    else { if (F.st) { F.cx = (F.x ?? ex) - ex; F.cz = (F.z ?? ez) - ez } const q = cl(((l.u ?? 1) - g.beta) / (1 - g.beta), 0, 1), k = 1 - sm(q); F.px = ex + (F.cx || 0) * k; F.pz = ez + (F.cz || 0) * k }
+    F.st = l.st; lx[i] = (F.px - ch.x) * ch.face / s; dy[i] = (F.pz - ch.z) * ZPX / s;
+  });
+  const Lmax = L * .985, cap = po.legs.map((l, i) => l.lift - dy[i] + Math.sqrt(Math.max(0, Lmax * Lmax - lx[i] * lx[i]))), sk = 30 / L;
+  const smin = a => { const mn = Math.min(...a); return mn - Math.log(a.reduce((q, v) => q + Math.exp(-sk * (v - mn)), 0)) / sk };
+  po.hip = smin([po.hip, smin(cap) - L * .012]);
+  po.legs = po.legs.map((l, i) => ({ ...l, ...Walker.ik2(lx[i], po.hip - l.lift + dy[i], R.L1, R.L2, g.digi ? -1 : 1), dz: dy[i] }));
 }
 // тень на полу
 function drawShadow(x, z, w, a = .38) { const X = sx(x), Y = zy(z), k = zs(z); ctx.fillStyle = `rgba(0,0,0,${a})`; ctx.beginPath(); ctx.ellipse(X, Y + 1, w * k, w * k * .16, 0, 0, TAU); ctx.fill() }
@@ -717,6 +740,7 @@ function frame(v0,dt){dt=cl(dt,1/240,.05);if(!Number.isFinite(st.Pf)||!Number.is
  const sbi=sm((25-vm)/17);
  const Lg=[0,.5].map((o,i)=>legPose(i,fr(st.F+o),m,g,beta,step,S,lift,Pfl,sbi,dt));
  if(D>0){const ps=[[.36,-.05,-.35],[-.4,-.12,.55]];Lg.forEach((l,i)=>{l.ax=lp(l.ax,ps[i][0]*REACH,D);l.ay=lp(l.ay,-SOLE-ps[i][1]*-REACH*.0-Math.abs(ps[i][1])*REACH,D);l.a=lp(l.a,ps[i][2],D)})}
+ if(legHook)legHook(Lg); // мир 2,5D: стопы на своей глубине (опорная держит точку на полу и по z)
  let oxA=0,LGw=0,PLc=0;
  if(KA&&W>.001){oxA=KA.ox*W*(1-.6*g);LGw=KA.LG*W*(1-g);
   if(LGw>.001){const ft=(wx,a)=>{const s_=cl((a+.15)/.65,0,1),c_=lp(HEEL,BALL,s_);return{ax:wx-oxA-(c_*Math.cos(a)-SOLE*Math.sin(a)),ayh:c_*Math.sin(a)+SOLE*Math.cos(a),a}},
@@ -757,7 +781,7 @@ function frame(v0,dt){dt=cl(dt,1/240,.05);if(!Number.isFinite(st.Pf)||!Number.is
   return{ru,rf,w,ya,ex,ey}});
  return{Pr,Praw,Pbob,Pcap,PN,m,g,D,hy,P,legs,lean,shx,shy,arm,v,cx,cy,ca:Math.max(st.ca,lean+.06),sb:st.sb,sf:st.sf,hrot,hdy,ox,shk,AS,AT,ak:st.ak|0,hit1,LGw,X:st.X}}
 // ---------------- рисование ----------------
-let tips=[]; // след клинка (локальные координаты героя)
+let tips=[],legHook=null; // след клинка (локальные координаты героя); крючок ног для оси z
 function pc(img,x,y,px,py,r){ctx.save();ctx.translate(GX+x*SC,GY+y*SC);ctx.rotate(r);ctx.scale(SC,SC);DI(img,-px,-py);ctx.restore()}
 function drawLeg(l,hy,d){const D=d?'D':'';pc(IMG['shin'+D],l.kx,l.ky,AX,O,l.r2);pc(IMG['foot'+D],l.ax,l.ay,AX,O,l.r3);pc(IMG['thigh'+D],0,hy,AX,J.leg.hip[1],l.r1);
  pc(IMG['kc'+D],l.kx,l.ky,66,66,(l.r1+l.r2)/2);pc(IMG['ac'+D],l.ax,l.ay,54,54,(l.r2+l.r3)/2);pc(IMG['guard'+D],l.kx,l.ky,J.guard.piv[0],J.guard.piv[1],(l.r1+l.r2)/2)}
@@ -802,8 +826,8 @@ function critic(){const dt=1/60,T=30,pf=t=>t<2?0:t<5?lp(0,1,(t-2)/3):t<8?1:t<10?
   ['Полуприсед: сгиб колена (шаг)',mean(Fx_),'°',25,sc(mean(Fx_),25)],['Макс. сгиб опорного колена',Math.max(...Fx_),'°',35,sc(Math.max(...Fx_),35)],['Взгляд: поворот головы (шаг)',Math.max(...Hd_)-Math.min(...Hd_),'°',1,sc(Math.max(...Hd_)-Math.min(...Hd_),1)],['Взгляд: поворот головы (бег)',Math.max(...Gr_)-Math.min(...Gr_),'°',1,sc(Math.max(...Gr_)-Math.min(...Gr_),1)],['Рывок таза (шаг)',Pa_,'ед/кадр²',2,sc(Pa_,2)],['Колебание таза (бег)',rg/(L1+L2)*100,'% ноги',9,sc(rg/(L1+L2)*100,9)],['Фаза полёта (бег)',fl,'с',.05,fl>.05?10:Math.round(fl/.05*100)/10],['Рывок сустава (ускорение)',M.jump,'рад/кадр²',.03,sc(M.jump,.03)],['… только бег',M.jumpR,'рад/кадр²',.03,sc(M.jumpR,.03)],['Руки против ног',c,'корр.',-.7,c<-.7?10:sc(c+1.7,1)]];
  return{R,jk:M.jk,jt:M.jt,score:Math.min(...R.map(r=>r[4]))}}
 // ================= игра =================
-const H={x:1000,z:.62,hp:100,maxhp:100,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,f:null,hist:[],swing:0,hitSet:new Set(),blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},t:0,kbv:0,flash:0,alpha:1,stepAcc:0,hidden:false};
-function reset(x,z){Object.assign(H,{x,z,hp:H.maxhp,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,hist:[],blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},kbv:0,flash:0,alpha:1,hidden:false});
+const H={fs:[{},{}],dir:null,x:1000,z:.62,hp:100,maxhp:100,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,f:null,hist:[],swing:0,hitSet:new Set(),blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},t:0,kbv:0,flash:0,alpha:1,stepAcc:0,hidden:false};
+function reset(x,z){Object.assign(H,{fs:[{},{}],dir:null,x,z,hp:H.maxhp,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,hist:[],blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},kbv:0,flash:0,alpha:1,hidden:false});
  Object.assign(st,{X:0,F:.3,t:0,atk:-1,dsh:-1,Pa:0,Pf:null,Pfv:0,hurtL:0});LS.forEach(q=>{q.pu=0;q.lt=null;q.se=null;q.se0=null;q.ts=null});FACE=1;H.f=frame(0,DT)}
 function hit(k){if(st.atk<0&&!H.dead){st.atk=0;st.ak=k;st.hd=0;st.bo=0;H.swing++;H.hitSet=new Set();Snd.swing(k);return true}return false}
 function dash(){if(st.dsh<0&&!H.dead){st.dsh=0;H.inv=Math.max(H.inv,.38);Snd.dash();FX.dust(H.x,H.z,4,.4)}}
@@ -822,11 +846,19 @@ function update(dt,inp){
  if(inp.dash)dash();if(inp.combo)cbHit();if(inp.atk>=0)hit(inp.atk);
  H.calm=(H.calm||0)+dt;if(H.calm>4&&!H.dead&&H.hp<H.maxhp)H.hp=Math.min(H.maxhp,H.hp+2.5*dt); // вне боя здоровье понемногу возвращается
  H.hurt=Math.max(0,H.hurt-dt);st.hurtL=.28*sm(H.hurt/.25);H.inv=Math.max(0,H.inv-dt);H.flash=Math.max(0,H.flash-dt*4);
- const k=Math.hypot(H.SV,H.SZ),X0=st.X,f=frame(k*VB,dt),dX=st.X-X0,s=W.CS*zs(H.z);H.f=f;
+ const k=Math.hypot(H.SV,H.SZ),X0=st.X,s=W.CS*zs(H.z);let mv={x:0,z:0};
+ // путь кадра (по нему идёт фаза стоп) раскладывается на x и z; рывок — вперёд по взгляду.
+ // Стопы: у каждой своя точка на полу (x и глубина); опорная не двигается, переносимая догоняет точку постановки.
+ legHook=Lg=>{const dX=st.X-X0;if(st.dsh>=0&&k<1e-3)mv={x:dX*s*FACE,z:0};else if(k>1e-6){const ex=st.dsh>=0?Math.max(0,dX-k*VB*dt):0;mv={x:(dX-ex)*s*(H.SV/k)+ex*s*FACE,z:(dX-ex)*s*(H.SZ/k)/ZPX}}
+  const bx=H.x+mv.x,bz=H.z+mv.z,mpx=Math.hypot(mv.x,mv.z*ZPX);if(mpx>1e-4)H.dir={x:mv.x/mpx,z:mv.z*ZPX/mpx};const dir=H.dir||{x:FACE,z:0};
+  Lg.forEach((l,i)=>{const F=H.fs[i],stn=l.u<l.beta,dx=l.rel*s*dir.x,dz=l.rel*s*dir.z/ZPX,ex=bx+dx,ez=bz+dz;
+   if(stn){if(!F.st||F.x==null){F.x=ex;F.z=ez}F.px=F.x;F.pz=F.z}else{if(F.st){F.cx=(F.x??ex)-ex;F.cz=(F.z??ez)-ez}const q=cl((l.u-l.beta)/(1-l.beta),0,1),kk=1-sm(q);F.px=ex+(F.cx||0)*kk;F.pz=ez+(F.cz||0)*kk}F.st=stn;
+   const lx=(F.px-bx)*FACE/s,dy=(F.pz-bz)*ZPX/s;l.ax+=lx-l.rel;l.ay+=dy})};
+ const f=frame(k*VB,dt);legHook=null;H.f=f;
  if(H.combo.q&&st.atk<0)cbHit();if(st.atk>=0)H.combo.last=H.t;
- // путь кадра (по нему идёт фаза стоп) раскладывается на x и z; рывок — вперёд по взгляду
- if(f.D>0&&k<1e-3)H.x+=dX*s*FACE;else if(k>1e-6){const ex=f.D>0?Math.max(0,dX-k*VB*dt):0;H.x+=(dX-ex)*s*(H.SV/k)+ex*s*FACE;H.z+=(dX-ex)*s*(H.SZ/k)/ZPX}
- if(H.kbv){H.x+=H.kbv*dt;H.kbv*=Math.exp(-dt*9);if(Math.abs(H.kbv)<2)H.kbv=0}
+ H.x+=mv.x;H.z+=mv.z;
+ // отброс — подскок назад: тело в воздухе, стопы переставляются при приземлении
+ if(H.kbv){H.x+=H.kbv*dt;H.kbv*=Math.exp(-dt*9);H.dy=-Math.min(14,Math.abs(H.kbv)*.07);H.fs.forEach(F=>{F.x=null;F.st=false});if(Math.abs(H.kbv)<16){H.kbv=0;H.dy=0}}
  H.x=cl(H.x,W.XMIN,W.XMAX);H.z=cl(H.z,.02,1);
  // шаги: звук и лёгкая пыль на постановке стопы
  f.legs.forEach((l,i)=>{const on=l.u<l.beta&&f.v>=25;if(on&&!H['st'+i]){Snd.step(.15+.25*f.g,0);if(f.g>.5)FX.dust(H.x+FACE*l.rel*s,H.z,2,.15)}H['st'+i]=on});
@@ -839,7 +871,7 @@ function damage(n,fromX,kb=1){if(H.dead||H.inv>0||H.soul)return false;H.calm=0;H
 // рисование в мире
 function drawAt(f,x,z,face,alpha,rec){
  SC=W.CS*zs(z);GX=0;GY=0;const F0=FACE;FACE=face;
- ctx.save();ctx.translate(sx(x),zy(z));if(face<0)ctx.scale(-1,1);ctx.globalAlpha=alpha;drawChar(f,rec);
+ ctx.save();ctx.translate(sx(x),zy(z)+(H.dy||0));if(face<0)ctx.scale(-1,1);ctx.globalAlpha=alpha;drawChar(f,rec);
  if(rec){
   tips=tips.filter(p=>st.t-p.t<.16);if(f.AT>=ATK[f.ak].tr[0]&&f.AT<ATK[f.ak].tr[1]&&tips.length>1){ctx.save();ctx.lineCap='round';for(let i=1;i<tips.length;i++){const a=tips[i-1],b=tips[i],al=1-(st.t-b.t)/.16;ctx.strokeStyle=`rgba(190,225,255,${.7*al})`;ctx.lineWidth=16*al*SC/.3;ctx.shadowColor='#6fb4ff';ctx.shadowBlur=12;ctx.beginPath();ctx.moveTo(a.x*SC,a.y*SC);ctx.lineTo(b.x*SC,b.y*SC);ctx.stroke()}ctx.restore()}
   if(st.fl&&st.t-st.fl.t<.16){const a=1-(st.t-st.fl.t)/.16,X=st.fl.x*SC,Y=st.fl.y*SC,r=70*SC/.3*(1+.8*(1-a)),gr=ctx.createRadialGradient(X,Y,0,X,Y,r);gr.addColorStop(0,`rgba(255,255,255,${.9*a})`);gr.addColorStop(.35,`rgba(170,215,255,${.5*a})`);gr.addColorStop(1,'rgba(120,180,255,0)');ctx.fillStyle=gr;ctx.fillRect(X-r,Y-r,2*r,2*r)}}
@@ -890,7 +922,9 @@ const Enemies = {
     let dir = 0; if (d > (opt.tol ?? 10)) dir = Math.abs(dxp) > 12 ? Math.sign(dxp) : e.face; if (opt.dir !== undefined) dir = opt.dir;
     const x0 = c.x; e.pose = Walker.update(c, dt, { dir: opt.hold ? 0 : dir, run: opt.run, speedK: opt.speedK, hold: opt.hold, runK: opt.runK, accK: opt.accK, lean: opt.lean, crouch: opt.crouch });
     e.face = c.face; const p = Math.abs(c.x - x0), s = e.R.scale * zs(e.z);
-    if (p > 0) { const n = Math.hypot(Math.abs(dxp), dzp) || 1, ax = d > 1 ? Math.abs(dxp) / n : 1, az = d > 1 ? dzp / n : 0; e.x += p * s * e.face * ax; e.z = cl(e.z + p * s * az / ZPX, 0, 1) }
+    // торможение у цели — по прежнему направлению (иначе тело уезжает вбок от стоящих стоп)
+    let mdir = null; if (p > 0) { let ax, az; if (d > 6) { const n = Math.hypot(Math.abs(dxp), dzp); ax = Math.abs(dxp) / n; az = dzp / n; e.mv = { ax, az } } else ({ ax, az } = e.mv || { ax: 1, az: 0 }); e.x += p * s * e.face * ax; e.z = cl(e.z + p * s * az / ZPX, 0, 1); mdir = { x: e.face * ax, z: az } }
+    depthLegs(e, mdir);
     for (const ev of c.events) { const R = e.R; if (c.g.heavy > .2) { Snd.step(ev.power * .5, 0); FX.dust(e.x, e.z, 2 + 4 * c.g.dust, .2 + .4 * c.g.dust) } }
     // одежда — пружина от скорости
     e.clothv += ((-c.v * .0012 - e.cloth) * 60 - e.clothv * 8) * dt; e.cloth += e.clothv * dt;
@@ -906,7 +940,8 @@ const Enemies = {
   },
   think(e, dt) {
     const h = Hero.H, T = e.T; e.t += dt; e.flash = Math.max(0, e.flash - dt * 5); e.cd -= dt;
-    if (e.kbv) { e.x += e.kbv * dt; e.kbv *= Math.exp(-dt * 10); if (Math.abs(e.kbv) < 2) e.kbv = 0 }
+    // отброс — короткий подскок назад (ноги в воздухе), а не скольжение по полу
+    if (e.kbv) { e.x += e.kbv * dt; e.kbv *= Math.exp(-dt * 10); e.dy = -Math.min(16, Math.abs(e.kbv) * .09); if (Math.abs(e.kbv) < 14) { e.kbv = 0; e.dy = 0 } }
     e.x = cl(e.x, W.GL, W.GR);
     const toH = h.x - e.x, adx = Math.abs(toH), dz = h.z - e.z, facing = Math.sign(toH) === e.face, target = h.soul ? null : h;
     let ov = null; // переопределение позы рук: {w, ...ключ}
@@ -1185,7 +1220,8 @@ const Boss = {
     const c = B.c, L = this.L(B), s = this.s(B);
     if (B.gait === 'walk') {
       const x0 = c.x; B.pose = Walker.update(c, dt, { dir: ctl.hold ? 0 : ctl.dir, hold: ctl.hold, crouch: ctl.crouch, speedK: B.D.speedK * (B.st === 'enter' ? .8 : 1) }); B.face = c.face;
-      const p = Math.abs(c.x - x0); if (p > 0) { const dxp = ctl.tx - B.x, dzp = (ctl.tz - B.z) * ZPX, n = Math.hypot(dxp, dzp) || 1; B.x += p * s * B.face * (n > 1 ? Math.abs(dxp) / n : 1); B.z = cl(B.z + p * s * (n > 1 ? dzp / n : 0) / ZPX, .1, .96) }
+      const p = Math.abs(c.x - x0); let dir = null; if (p > 0) { const dxp = ctl.tx - B.x, dzp = (ctl.tz - B.z) * ZPX, n = Math.hypot(dxp, dzp); if (n > 6) B.mv = { ax: Math.abs(dxp) / n, az: dzp / n }; const { ax, az } = B.mv || { ax: 1, az: 0 }; B.x += p * s * B.face * ax; B.z = cl(B.z + p * s * az / ZPX, .1, .96); dir = { x: B.face * ax, z: az } }
+      depthLegs(B, dir);
       for (const ev of c.events) this.stepFx(B, ev.foot);
     } else if (B.gait === 'hop') this.hopStep(B, dt, ctl);
     else this.sitStep(B, dt, ctl);
@@ -1323,8 +1359,7 @@ const Boss = {
     for (const w of this.waves) list.push({ z: w.z, draw: () => { const x = sx(w.x), y = zy(w.z), k = 1 - w.t / w.life; ctx.fillStyle = `rgba(90,96,112,${k})`; for (let i = 0; i < 4; i++) { const xx = x - w.dir * i * 22, hh = (30 - i * 6) * (1 + .2 * Math.sin(w.t * 30 + i)); ctx.beginPath(); ctx.moveTo(xx - 12, y); ctx.lineTo(xx - 3, y - hh); ctx.lineTo(xx + 4, y - hh * .7); ctx.lineTo(xx + 12, y); ctx.fill() } } });
   },
   draw(B) {
-    if (B.gone) return; ctx.save(); ctx.globalAlpha = B.alpha; drawRig(B);
-    for (const l of LIMBS) { const lm = B.limbs[l]; if (!lm.alive) continue; const a = Math.max(B.flash[l] || 0, lm.regrow); if (a > 0) { ctx.globalAlpha = a * .7 * B.alpha; drawRig(B, { v: 'W', only: l }) } }
+    if (B.gone) return; ctx.save(); ctx.globalAlpha = B.alpha; const flash = {}; for (const l of LIMBS) { const lm = B.limbs[l]; if (lm.alive) flash[l] = Math.max(B.flash[l] || 0, lm.regrow) * .7 } drawRig(B, { flash });
     ctx.restore();
     // светящиеся трещины на культях
     for (const l of LIMBS) if (!B.limbs[l].alive && Math.random() < .25) { const G = B.G, p = l.startsWith('arm') ? G.arms[l === 'armN' ? 0 : 1].sh : G.legs[l === 'legN' ? 0 : 1].hip, q = rigToWorld(B, p); FX.chips(q.x, B.z, zy(B.z) - q.y + 10, 1, 60) }
@@ -1355,6 +1390,9 @@ const Soul = {
     });
     const H = Hero.H; H.soul = true; this.x = H.x; this.z = H.z; this.h = Hero.height() * .55; this.vx = 0; this.vz = 0; this.face = Hero.FACE; this.alpha = 0;
     Snd.soulOut(); Snd.setMode('soul'); Game.stats.tasks++;
+    // первый выход души — объяснить механику; дальше — короткое напоминание
+    if (!Game.soulSeen) { Game.soulSeen = 1; UI.banner('Душа покинула тело', 'Найди осколки с цифрами ответа (E) и сложи их на монолите', '#bfefff', 4.2) }
+    else UI.banner('Душа вне тела', LIMB_NAME[part] + ' разбита — реши задачу на монолите', '#bfefff', 2.2);
   },
   atMonolith() { return Math.abs(this.x - World.monolith.x) < 140 && this.z < .32 },
   nearShard() { let best = null, bd = 92; for (const s of this.shards) if (s.landed && !s.carried && !s.placed) { const d = fdist(this.x, this.z, s.x, s.z); if (d < bd) { bd = d; best = s } } return best },

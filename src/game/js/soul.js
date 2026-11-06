@@ -21,6 +21,9 @@ const Soul = {
     });
     const H = Hero.H; H.soul = true; this.x = H.x; this.z = H.z; this.h = Hero.height() * .55; this.vx = 0; this.vz = 0; this.face = Hero.FACE; this.alpha = 0;
     Snd.soulOut(); Snd.setMode('soul'); Game.stats.tasks++;
+    // первый выход души — объяснить механику; дальше — короткое напоминание
+    if (!Game.soulSeen) { Game.soulSeen = 1; UI.banner('Душа покинула тело', 'Найди осколки с цифрами ответа (E) и сложи их на монолите', '#bfefff', 4.2) }
+    else UI.banner('Душа вне тела', LIMB_NAME[part] + ' разбита — реши задачу на монолите', '#bfefff', 2.2);
   },
   atMonolith() { return Math.abs(this.x - World.monolith.x) < 140 && this.z < .32 },
   nearShard() { let best = null, bd = 92; for (const s of this.shards) if (s.landed && !s.carried && !s.placed) { const d = fdist(this.x, this.z, s.x, s.z); if (d < bd) { bd = d; best = s } } return best },
