@@ -6,7 +6,7 @@ const LIMBS = ['armN', 'armF', 'legN', 'legF'];
 const LIMB_NAME = { armN: 'Ближняя рука', armF: 'Дальняя рука', legN: 'Ближняя нога', legF: 'Дальняя нога' };
 const BOSSDEF = {
   guardian: { hp: { armN: 95, armF: 95, legN: 105, legF: 105 }, atks: ['slam', 'sweep', 'stomp', 'wave'], cd: [2.6, 3.6], speedK: 1 },
-  executioner: { hp: { armN: 90, armF: 90, legN: 100, legF: 100 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [2.2, 3.2], speedK: 1.15 },
+  executioner: { hp: { armN: 85, armF: 85, legN: 95, legF: 95 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [1.5, 2.4], speedK: 1.15 },
 };
 // ключи атак: wk — поза замаха; hit — высота цели над полом ('g' — пол, 'c' — грудь героя); D — желаемая дальность (доля длины руки)
 const BATK = {
@@ -63,7 +63,7 @@ const Boss = {
   localT(B, T, hip) { const s = this.s(B); return [(T.x - B.x) * B.face / s, hip + B.R.foot - T.h / s] },
   // найти присед и наклон, при которых рука достаёт цель с запасом; null — недостижимо
   plan(B, A, T) {
-    const ai = this.armIdx(B); if (ai < 0) return null;
+    const ai = A.ai ?? this.armIdx(B); if (ai < 0) return null;
     const axes = A.axe && B.R.axe ? [A.axeHit, A.axeHit + .25, A.axeHit - .25, A.axeHit + .5, A.axeHit - .5, A.axeHit + .8, A.axeHit + 1.1] : [0];
     for (let lean = -.1; lean <= 1.1; lean += .075) for (let cr = 0; cr <= (B.gait === 'sit' ? 0 : .4); cr += .05) {
       const { sh, hip } = this.shoulderAt(B, ai, cr, lean), Tl = this.localT(B, T, hip);
@@ -86,16 +86,20 @@ const Boss = {
     const B = this.b; if (!B) return; B.t += dt; const h = Hero.H, L = this.L(B);
     for (const l of LIMBS) { B.flash[l] = Math.max(0, (B.flash[l] || 0) - dt * 5); const lm = B.limbs[l]; if (lm.regrow > 0) lm.regrow = Math.max(0, lm.regrow - dt / 1.1) }
     B.weaponArm = B.limbs.armN.alive ? 0 : 1;
-    const nLeg = this.legsAlive(B); B.gait = nLeg === 2 ? 'walk' : nLeg === 1 ? 'hop' : 'sit';
+    const nLeg = this.legsAlive(B), gait = nLeg === 2 ? 'walk' : nLeg === 1 ? 'hop' : 'sit';
+    // смена походки: старые точки стоп (они остались там, где босс стоял до прыжков) сбрасываются под тело
+    if (gait !== B.gait) { B.fs = [{}, {}]; B.c.feet.forEach(f => { f.ax = null; f.st = true; f.stInit = 0 }); B.c.moving = false } B.gait = gait;
     const ctl = { dir: 0, tx: B.x, tz: B.z, hold: false, crouch: 0, lean: 0 };
     let armOv = null, legOv = null;
     switch (B.st) {
       case 'enter': B.alpha = Math.min(1, B.alpha + dt * .9); ctl.tx = B.x - 300 * B.face * -1; ctl.dir = B.face; if (B.t > 2.2) { B.st = 'move'; B.t = 0 } break;
       case 'move': {
-        if (B.next && (B.nextT = (B.nextT || 0) + dt) > 2.6) { B.next = null; B.nextT = 0 } // не выходит достать — выбрать другой удар
+        if (B.next && (B.nextT = (B.nextT || 0) + dt) > (B.cd <= 0 ? 1.2 : 2.6)) { B.next = null; B.nextT = 0 } // не выходит достать — выбрать другой удар
         const A = B.next || (B.next = this.choose(B)); const s = this.s(B), dx = h.x - B.x, adx = Math.abs(dx);
         const want = A ? (A.D * this.armReach(B, A) * s) : 160, side = Math.sign(B.x - h.x) || 1;
         ctl.tx = h.x + side * want; ctl.tz = cl(h.z, .12, .95); if (A && A.far) ctl.tx = B.x; // волна — с места
+        // ближе нужного — не отходить (иначе босс поворачивается спиной и уходит); ударить можно и отсюда
+        if (A && !A.far && !A.leg) { const R = this.armReach(B, A) * s; if (adx < .98 * R) ctl.tx = B.x }
         if (A && A.leg) ctl.tx = h.x + side * 120;
         B.cd -= dt;
         B.planT = (B.planT || 0) - dt;
@@ -115,8 +119,10 @@ const Boss = {
     this.locomote(B, dt, ctl);
     // палач держит топор на плече, когда не бьёт (это же — исходная поза замаха)
     const po = B.pose;
-    if (B.R.axe && B.limbs[B.weaponArm ? 'armF' : 'armN'].alive) { const a = po.arms[B.weaponArm]; a.ru = -.35 + po.lean; a.rf = -2.5 + po.lean; B.axeC = 1.3 }
+    if (B.R.axe && B.limbs[B.weaponArm ? 'armF' : 'armN'].alive) { const a = po.arms[B.weaponArm], sit = B.gait === 'sit'; B.sitK = lp(B.sitK || 0, sit ? 1 : 0, 1 - Math.exp(-dt * 4)); const k = B.sitK; a.ru = lp(-.35, .55, k) + po.lean; a.rf = lp(-2.5, -.5, k) + po.lean; B.axeC = lp(1.3, 1.9, k) }
     if (B.st === 'atk' && B.atk && !B.atk.A.leg) this.applyArm(B);
+    // удар и удержание — точно в цель (IK), без ограничения; остальные смены позы рук — плавно
+    if (!(B.st === 'atk' && B.atk && (B.atk.ph === 'strike' || B.atk.ph === 'hold'))) limitArms(B, dt, .3); else B._sa = B.pose.arms.map(a => [a.ru, a.rf]);
     if (legOv) { const lg = po.legs[legOv.li], lift = Math.max(0, legOv.lift), r = Walker.ik2(lg.ax + legOv.dx, po.hip - lift, B.R.L1, B.R.L2, 1); Object.assign(lg, r, { st: lift < 1, lift, footRot: -.35 * cl(lift / (L * .3), 0, 1) }) }
     B.G = rigGeom(B);
     // след оружия: точка удара по кадрам фазы удара
@@ -126,14 +132,20 @@ const Boss = {
     if (B.atk && B.atk.impact && !B.atk.done) this.impact(B);
     this.updWaves(dt);
   },
-  armReach(B, A) { const ai = Math.max(0, this.armIdx(B)), { Pa, E } = this.effector(B, ai, A.axeHit ?? 0); return dist(Pa.root, Pa.joint) + Math.hypot(E[0], E[1]) },
+  armReach(B, A) { const ai = A.ai ?? Math.max(0, this.armIdx(B)), { Pa, E } = this.effector(B, ai, A.axeHit ?? 0); return dist(Pa.root, Pa.joint) + Math.hypot(E[0], E[1]) },
   choose(B) {
     const ai = this.armIdx(B), nLeg = this.legsAlive(B), h = Hero.H, far = Math.abs(h.x - B.x) > 640 || (B.gait === 'sit' && Math.abs(h.x - B.x) > 360);
     let list = B.D.atks.filter(k => { const A = BATK[k]; if (A.arm && ai < 0) return false; if (A.axe && (!B.R.axe)) return false; if (A.leg && (nLeg < 2)) return false; if (!A.axe && B.R.axe && A.arm && !A.far) return false; return true });
     const mk = k => (B.R.axe && k === 'wave') ? { ...BATK.chop, far: 1, D: .45, dmg: 9, r: 60, key: k } : { ...BATK[k], key: k };
     if (far) { const w = list.filter(k => BATK[k].far).map(mk).find(A => this.plan(B, A, this.targetFor(B, A))); if (w) return w; if (list.includes('stomp')) return mk('stomp') }
     list = list.filter(k => !BATK[k].far || Math.random() < .2); if (!list.length) return null;
-    return mk(pick(list));
+    // рукой/оружием — втрое чаще, чем топот; вплотную (рука не разворачивается) — топот
+    const close = Math.abs(h.x - B.x) < (B.gait === 'sit' ? .55 : .4) * this.armReach(B, BATK[B.R.axe ? 'chop' : 'slam']) * this.s(B);
+    // палач вплотную бьёт свободной рукой (топором так близко не замахнуться)
+    const off = B.R.axe ? 1 - B.weaponArm : -1;
+    if (close && off >= 0 && off !== B.weaponArm && B.limbs[off ? 'armF' : 'armN'].alive && Math.random() < (B.gait === 'sit' ? .85 : .45)) return { ...BATK.sweep, key: 'punch', ai: off, dmg: 10, wind: .6 };
+    if (close && list.includes('stomp') && Math.random() < .6) return mk('stomp');
+    const wl = list.flatMap(k => BATK[k].leg ? [k] : [k, k, k]); return mk(pick(wl));
   },
   startAtk(B, A, T, pl) {
     B.st = 'atk'; B.t = 0; B.atk = { A, T, pl, ph: 'wind', t: 0, z0: B.z, done: 0 }; B.next = null; B.nextT = 0; B.trail = []; Snd.windup(B.id === 'guardian' ? 1 : .8);
@@ -179,7 +191,8 @@ const Boss = {
   hopStep(B, dt, ctl) {
     const c = B.c, L = this.L(B), s = this.s(B), li = B.limbs.legN.alive ? 0 : 1; c.t += dt;
     const hp = B.hop || (B.hop = { u: 0, on: 0, fx: B.x, x0: B.x, z0: B.z });
-    const moving = ctl.dir !== 0 && !ctl.hold; if (moving && !hp.on) { hp.on = 1; hp.u = 0; hp.x0 = B.x; hp.z0 = B.z; hp.dir = ctl.dir; hp.dz = cl((ctl.tz - B.z), -.12, .12); hp.mark = FX.mark(B.x + hp.dir * L * .55 * s, cl(B.z + hp.dz, .1, .96), .9, '255,140,70', 150) }
+    hp.rest = Math.max(0, (hp.rest || 0) - dt);
+    const moving = ctl.dir !== 0 && !ctl.hold; if (moving && !hp.on && hp.rest <= 0) { hp.on = 1; hp.u = 0; hp.x0 = B.x; hp.z0 = B.z; hp.dir = ctl.dir; hp.dz = cl((ctl.tz - B.z), -.12, .12); hp.mark = FX.mark(B.x + hp.dir * L * .55 * s, cl(B.z + hp.dz, .1, .96), .9, '255,140,70', 105) }
     if (moving && hp.dir !== B.face) { B.face = hp.dir }
     let hipH = L * .88 - L * .006 * (1 + Math.sin(c.t * 1.6)) - (ctl.hold ? (ctl.crouch || 0) * L : 0), lift = 0, lean = .05, fx = hp.fx;
     const len = L * .55 * s;
@@ -187,8 +200,8 @@ const Boss = {
       hp.u += dt / 1.25; const u = hp.u;
       if (u < .35) { const e = sm(u / .35); hipH = lp(L * .88, L * .7, e); lean = .05 + .2 * e }
       else if (u < .7) { const q = (u - .35) / .35, e = sm(q); B.x = hp.x0 + hp.dir * len * e; B.z = cl(hp.z0 + hp.dz * e, .1, .96); hipH = L * .7 + L * .32 * Math.sin(PI * q); lift = L * .2 * Math.sin(PI * q); fx = lp(hp.fx, hp.x0 + hp.dir * len, e); lean = .25 - .15 * q }
-      else { if (!hp.landed) { hp.landed = 1; hp.fx = B.x; this.stepFx(B, li); Cam.kick(16); FX.ring(B.x, B.z, 260, .6); if (fdist(Hero.H.x, Hero.H.z, B.x, B.z) < 150) Hero.damage(8, B.x, 1.5) } fx = hp.fx; hipH = lp(L * .66, L * .88, sm((u - .7) / .3)); lean = .1 * (1 - (u - .7) / .3) }
-      if (u >= 1) { hp.on = 0; hp.landed = 0; hp.fx = B.x }
+      else { if (!hp.landed) { hp.landed = 1; hp.fx = B.x; this.stepFx(B, li); Cam.kick(16); FX.ring(B.x, B.z, 260, .6); if (fdist(Hero.H.x, Hero.H.z, B.x, B.z) < 100) Hero.damage(7, B.x, 1.5) } fx = hp.fx; hipH = lp(L * .66, L * .88, sm((u - .7) / .3)); lean = .1 * (1 - (u - .7) / .3) }
+      if (u >= 1) { hp.on = 0; hp.landed = 0; hp.fx = B.x; hp.rest = 1.1 }
     } else hp.fx = lp(hp.fx, B.x, 0); // опорная стопа стоит
     if (!hp.on) hp.fx = hp.fx ?? B.x;
     const fl = (fx - B.x) * B.face / s; const a = Walker.ik2(fl, hipH - lift, B.R.L1, B.R.L2, 1);
@@ -250,7 +263,7 @@ const Boss = {
   bladeHits(b) {
     const B = this.b; if (!B || B.st === 'enter' || B.st === 'dying' || Math.abs(B.z - b.z) > .2 || Hero.H.hitSet.has(B)) return null;
     let best = null;
-    for (const L of this.limbCaps(B)) for (const [a, c, r] of L.caps) { const q = segDist([b.x1, b.y1], [b.x2, b.y2], a, c); if (q.d < r + 6 && (!best || (L.near && !best.near) || (L.near === best.near && q.d < best.d))) best = { part: L.part, d: q.d, p: q.p, near: L.near } }
+    for (const L of this.limbCaps(B)) for (const [a, c, r] of L.caps) { const q = segDist([b.x1, b.y1], [b.x2, b.y2], a, c); if (q.d < r + (B.gait === 'sit' && L.part.startsWith('arm') ? 26 : 6) && (!best || (L.near && !best.near) || (L.near === best.near && q.d < best.d))) best = { part: L.part, d: q.d, p: q.p, near: L.near } }
     if (!best) { // корпус: клинок отскакивает
       const G = B.G, xf = rigXf(B), a = rigToWorld(B, [0, 0], xf), c = rigToWorld(B, G.neck, xf), q = segDist([b.x1, b.y1], [b.x2, b.y2], [a.x, a.y], [c.x, c.y]);
       if (q.d < B.R.P.torso.w * .4 * xf.s) { Hero.H.hitSet.add(B); Snd.clang(); FX.sparks(q.p[0], B.z, zy(B.z) - q.p[1], 12, '255,230,170', 340); return { part: null } }

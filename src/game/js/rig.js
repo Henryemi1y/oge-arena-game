@@ -2,10 +2,10 @@
 // лодыжки и локтя, одежда, оружие, культи. Перенесено из src/characters/walkers.tpl.html (drawChar), геометрия вынесена
 // в rigGeom(), чтобы по тем же точкам считать попадания. Локальные координаты: начало — таз, +x — вперёд, y — вниз.
 const DRESS = {
-  ghoul: { name: 'Гуль', gait: 'ghoul', size: .96, cloth: [[.52, .80, 'cloth']] },
-  knight: { name: 'Падший рыцарь', gait: 'knight', size: 1.1, clothB: [.30, .78], clothF: [.70, .80], weapon: { off: -.95 } },
+  ghoul: { name: 'Гуль', gait: 'ghoul', size: .92, cloth: [[.52, .80, 'cloth']] },
+  knight: { name: 'Падший рыцарь', gait: 'knight', size: 1.2, clothB: [.30, .78], clothF: [.70, .80], weapon: { off: -.95 } },
   doctor: { name: 'Чумной доктор', gait: 'doctor', cloth: [[.48, .74, 'cloth']], flask: 1 },
-  goatman: { name: 'Козлорог', gait: 'goatman', size: 1.32, cloth: [[.55, .80, 'cloth']] },
+  goatman: { name: 'Козлорог', gait: 'goatman', size: 1.55, cloth: [[.55, .80, 'cloth']] },
   guardian: { name: 'Каменный страж', gait: 'guardian', boss: 1 },
   executioner: { name: 'Каменный палач', gait: 'executioner', boss: 1, axe: 1 },
 };
@@ -16,10 +16,11 @@ function rigDef(id) {
   return RIG[id] = { id, P, I, ...d, k, L1: dist(l.root, l.joint), L2: dist(l.joint, l.end), foot: l.sole - l.end[1], scale: W.CS / k * (d.boss ? 1.7 : d.size || 1), ov: 12 * k / .5 };
 }
 // экранные координаты персонажа (для рисования и попаданий)
-function rigXf(ch) { const s = ch.R.scale * zs(ch.z) * (ch.sMul || 1); const tk = ch.turnT > 0 ? ch.turnT / ch.turnD : 0, f = ch.face * (1 - 2 * tk) || .02; return { X: sx(ch.x) + f * s * (ch.hx || 0), Y: zy(ch.z) - (ch.pose.hip + ch.R.foot) * s + (ch.dy || 0), s, f } }
+function rigXf(ch) { const s = ch.R.scale * zs(ch.z) * (ch.sMul || 1); const tk = ch.turnT > 0 ? ch.turnT / ch.turnD : 0, q = 1 - 2 * tk, f = ch.face * (q < 0 ? -1 : 1) * Math.max(.4, Math.abs(q)); return { X: sx(ch.x) + f * s * (ch.hx || 0), Y: zy(ch.z) - (ch.pose.hip + ch.R.foot) * s + (ch.dy || 0), s, f } }
 // разворот «через ребро»: при смене взгляда спрайт сжимается до ребра и раскрывается в другую сторону
 function turnTick(ch, dt, dur) { if (ch.pf !== undefined && ch.pf !== ch.face) { ch.turnT = dur; ch.turnD = dur } ch.pf = ch.face; ch.turnT = Math.max(0, (ch.turnT || 0) - dt) }
-function rigToWorld(ch, p, xf = rigXf(ch)) { return { x: ch.x + xf.f * xf.s * ((ch.hx || 0) + p[0]), y: xf.Y + xf.s * p[1] } }
+// колено и стопа рисуются без сжатия разворота (см. drawRig) — и в мир переводятся так же
+function rigToWorld(ch, p, xf = rigXf(ch)) { const f = p.leg ? ch.face : xf.f; return { x: ch.x + f * xf.s * ((ch.hx || 0) + p[0]), y: xf.Y + xf.s * p[1] } }
 function armChain(Pa, sh, ru, rf) {
   const U = dist(Pa.root, Pa.joint), Fa = dist(Pa.joint, Pa.end);
   const el = [sh[0] - Math.sin(ru) * U, sh[1] + Math.cos(ru) * U], wr = [el[0] - Math.sin(rf) * Fa, el[1] + Math.cos(rf) * Fa];
@@ -31,7 +32,7 @@ function rigGeom(ch) {
   const R = ch.R, P = R.P, po = ch.pose, t = P.torso, lean = po.lean;
   const Rt = (p, o = [0, 0]) => rot2([p[0] - t.hip[0] + o[0], p[1] - t.hip[1] + o[1]], lean);
   const shN = Rt(t.sh, [8, 0]), shF = Rt(t.sh, [-10, -4]), hipN = [6, 0], hipF = [-8, -3];
-  const legs = [[hipN, po.legs[0], 'legN'], [hipF, po.legs[1], 'legF']].map(([h, L, part]) => ({ hip: h, kn: [h[0] + L.kx, h[1] + L.ky], an: [h[0] + L.ax, h[1] + L.ay], L, part }));
+  const legs = [[hipN, po.legs[0], 'legN'], [hipF, po.legs[1], 'legF']].map(([h, L, part]) => ({ hip: h, kn: Object.assign([h[0] + L.kx, h[1] + L.ky], { leg: 1 }), an: Object.assign([h[0] + L.ax, h[1] + L.ay], { leg: 1 }), L, part }));
   const arms = [[shN, po.arms[0], 'armN'], [shF, po.arms[1], 'armF']].map(([sh, a, part]) => ({ ...armChain(P[part], sh, a.ru, a.rf), part }));
   const G = { legs, arms, neck: Rt(t.neck), lean, Rt, hipTop: Rt([t.hip[0], t.sh[1]]) };
   // оружие: меч рыцаря и топор палача — в ближней руке (или в дальней, если ближняя разрушена)
@@ -75,13 +76,15 @@ function drawRig(ch, opt = {}) {
   const G = ch.G || rigGeom(ch), Rt = G.Rt, tw = I.torso.width, th = I.torso.height;
   const xf = rigXf(ch); ctx.save(); ctx.translate(xf.X, xf.Y); ctx.scale(xf.f * xf.s, xf.s);
   const want = n => !only || only === n;
+  // ноги рисуются без сжатия разворота и сразу в новую сторону — стопы остаются на своих точках пола
+  const LX = sx(ch.x) + ch.face * xf.s * (ch.hx || 0), legT = fn => { if (xf.f === ch.face) return fn(); ctx.save(); ctx.scale(1 / (xf.f * xf.s), 1 / xf.s); ctx.translate(LX - xf.X, 0); ctx.scale(ch.face * xf.s, xf.s); fn(); ctx.restore() };
   // вспышка попадания по конечности — в её собственном слое (дальняя не перекрывает ближнюю)
   const lit = (part, fn) => { fn(v); const a = opt.flash && opt.flash[part]; if (a > 0 && v !== 'W') { ctx.save(); ctx.globalAlpha *= a; fn('W'); ctx.restore() } };
   // дальняя рука, дальняя нога, задняя пола
   if (want('armF')) { if (miss.armF) { if (!only) rigStump(ch, G, 'stumpShF', v) } else { if (G.weapon && G.weapon.arm === 1) rigWeapon(ch, G, v); lit('armF', w => rigArm(ch, G, 1, w)) } }
-  if (want('legF')) { if (miss.legF) { if (!only) rigStump(ch, G, 'stumpHipF', v) } else lit('legF', w => rigLeg(ch, G, 1, w)) }
+  if (want('legF')) { if (miss.legF) { if (!only) rigStump(ch, G, 'stumpHipF', v) } else legT(() => lit('legF', w => rigLeg(ch, G, 1, w))) }
   if (!only && R.clothB) rigPiece(rimg(I, 'clothB', v), P.clothB.top, Rt([R.clothB[0] * tw, R.clothB[1] * th]), lean * .4 + (ch.cloth || 0) * 1.2);
-  if (want('legN')) { if (miss.legN) { if (!only) rigStump(ch, G, 'stumpHipN', v) } else lit('legN', w => rigLeg(ch, G, 0, w)) }
+  if (want('legN')) { if (miss.legN) { if (!only) rigStump(ch, G, 'stumpHipN', v) } else legT(() => lit('legN', w => rigLeg(ch, G, 0, w))) }
   if (!only) {
     rigPiece(rimg(I, 'torso', v), t.hip, [0, 0], lean);
     if (R.cloth) for (const [fx, fy, name] of R.cloth) rigPiece(rimg(I, name, v), P[name].top, Rt([fx * tw, fy * th]), lean * .4 + (ch.cloth || 0));
@@ -103,6 +106,13 @@ function drawRig(ch, opt = {}) {
 // Мир 2,5D: у каждой стопы своя точка на полу (x и глубина). walker.js считает шаг вдоль пути; здесь смещение стопы
 // раскладывается по направлению движения: опорная стопа держит точку, переносимая плавно приходит в точку постановки.
 // Нога тянется к стопе той же IK; таз опускается, если стопа ближе к зрителю и иначе не достать.
+// руки не перескакивают: смена позы (прерванный замах, смена походки) идёт не быстрее lim рад за кадр
+// углы позы не свёрнуты в ±π — разница берётся прямая (иначе рука пошла бы короткой дугой не в ту сторону)
+function limitArms(ch, dt, lim = .3) {
+  const A = ch.pose.arms, S = ch._sa; if (!S || ch._saF !== ch.face) { ch._sa = A.map(a => [a.ru, a.rf]); ch._saF = ch.face; return }
+  const m = lim * dt * 60;
+  A.forEach((a, i) => { if (!a) return; const s = S[i]; s[0] += cl(a.ru - s[0], -m, m); s[1] += cl(a.rf - s[1], -m, m); a.ru = s[0]; a.rf = s[1] });
+}
 function depthLegs(ch, dir) {
   const po = ch.pose, R = ch.R, s = R.scale * zs(ch.z) * (ch.sMul || 1), L = R.L1 + R.L2, g = ch.c.g, fs = ch.fs || (ch.fs = [{}, {}]);
   if (dir) ch.lastDir = dir; dir = ch.lastDir || { x: ch.face, z: 0 };

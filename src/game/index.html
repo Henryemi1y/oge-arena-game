@@ -313,7 +313,7 @@ const Problems = (() => {
   const dec = (n, d = 10) => (n / d).toFixed(String(d).length - 1).replace('.', ',');
   const T = {
     linear() { const a = irnd(2, 9), x = irnd(-6, 12), b = nz(-20, 20), c = a * x + b; return { t: `${kx(a)}${sgn(b)} = ${num(c)}`, c: 'Найдите x', a: x, k: 'Линейные уравнения', s: `${a}x = ${num(c)} ${b > 0 ? M : '+'} ${Math.abs(b)} = ${num(c - b)}  →  x = ${num(c - b)} : ${a} = ${num(x)}` } },
-    linear2() { let a, c; do { a = irnd(2, 7); c = irnd(1, 6) } while (a === c); const x = irnd(-5, 10), b = nz(-6, 6), d = a * (x + b) - c * x; if (!d) return T.linear2(); return { t: `${a}(x${sgn(b)}) = ${kx(c)}${sgn(d)}`, c: 'Найдите x', a: x, k: 'Линейные уравнения', s: `${a}x${sgn(a * b)} = ${kx(c)}${sgn(d)}  →  ${a - c === 1 ? '' : num(a - c)}x = ${num(d - a * b)}  →  x = ${num(x)}` } },
+    linear2() { let a, c; do { a = irnd(2, 7); c = irnd(1, 6) } while (a === c); const x = irnd(-5, 10), b = nz(-6, 6), d = a * (x + b) - c * x; if (!d) return T.linear2(); return { t: `${a}(x${sgn(b)}) = ${kx(c)}${sgn(d)}`, c: 'Найдите x', a: x, k: 'Линейные уравнения', s: `${a}x${sgn(a * b)} = ${kx(c)}${sgn(d)}  →  ${kx(a - c)} = ${num(d - a * b)}` + (a - c === 1 ? '' : `  →  x = ${num(x)}`) } },
     linear3() { const x = irnd(-8, 12), a = irnd(2, 6), b = irnd(1, 9); if (x === b) return T.linear3(); return { t: `${a}(x${sgn(-b)}) = ${num(a * (x - b))}`, c: 'Найдите x', a: x, k: 'Линейные уравнения', s: `x ${M} ${b} = ${num(a * (x - b))} : ${a} = ${num(x - b)}  →  x = ${num(x)}` } },
     fracLinear() { const a = irnd(2, 6), q = nz(-4, 8), x = a * q, b = nz(-9, 9); return { t: `x/${a}${sgn(b)} = ${num(q + b)}`, c: 'Найдите x', a: x, k: 'Уравнения с дробями', s: `x/${a} = ${num(q + b)} ${b > 0 ? M : '+'} ${Math.abs(b)} = ${num(q)}  →  x = ${a} · ${par(q)} = ${num(x)}` } },
     proportion() { const x = irnd(2, 12), k = irnd(2, 5), b = irnd(2, 9); if (gcd(x, b) !== 1) return T.proportion(); return { t: `x/${b} = ${x * k}/${b * k}`, c: 'Найдите x', a: x, k: 'Пропорции', s: `x = ${b} · ${x * k} : ${b * k} = ${x}` } },
@@ -469,7 +469,7 @@ const FX = {
   _grad(stops) { const c = mkCanvas(64, 64), x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); for (const [o, v] of stops) g.addColorStop(o, v); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c },
   ember(x, z, h) { this.P.push({ k: 'ember', x, z, h, vx: rnd(-15, 15), vz: 0, vh: rnd(50, 110), t: 0, life: rnd(.5, 1.1), g: -20 }) },
   smoke(x, z, h, n = 6, col = '20,18,28', sz = 30) { for (let i = 0; i < n; i++) this.P.push({ k: 'smoke', x: x + rnd(-20, 20), z, h: h + rnd(-20, 20), vx: rnd(-40, 40), vz: 0, vh: rnd(20, 70), t: 0, life: rnd(.6, 1.2), s: sz * rnd(.6, 1.3), col, g: -10 }) },
-  poison(x, z) { for (let i = 0; i < 14; i++) this.P.push({ k: 'smoke', x: x + rnd(-40, 40), z: z + rnd(-.03, .03), h: rnd(0, 30), vx: rnd(-50, 50), vz: 0, vh: rnd(5, 40), t: 0, life: rnd(1, 2.2), s: rnd(22, 46), col: '80,150,60', g: -5 }) },
+  poison(x, z, n = 14) { for (let i = 0; i < n; i++) this.P.push({ k: 'smoke', x: x + rnd(-40, 40), z: z + rnd(-.03, .03), h: rnd(0, 30), vx: rnd(-50, 50), vz: 0, vh: rnd(5, 40), t: 0, life: rnd(1, 2.2), s: rnd(22, 46), col: '80,150,60', g: -5 }) },
   soulMote(x, z, h) { this.P.push({ k: 'mote', x, z, h, vx: rnd(-20, 20), vz: 0, vh: rnd(15, 50), t: 0, life: rnd(.6, 1.2), g: -10 }) },
   ring(x, z, r1 = 220, life = .55, col = '200,215,240', w = 3) { this.rings.push({ x, z, r1, t: 0, life, col, w }) },
   crack(x, z, s = 1, life = 7) { this.cracks.push({ x, z, s, t: 0, life, i: (Math.random() * IM.cracks.length) | 0, flip: Math.random() < .5 }) },
@@ -547,10 +547,10 @@ const FX = {
 // лодыжки и локтя, одежда, оружие, культи. Перенесено из src/characters/walkers.tpl.html (drawChar), геометрия вынесена
 // в rigGeom(), чтобы по тем же точкам считать попадания. Локальные координаты: начало — таз, +x — вперёд, y — вниз.
 const DRESS = {
-  ghoul: { name: 'Гуль', gait: 'ghoul', size: .96, cloth: [[.52, .80, 'cloth']] },
-  knight: { name: 'Падший рыцарь', gait: 'knight', size: 1.1, clothB: [.30, .78], clothF: [.70, .80], weapon: { off: -.95 } },
+  ghoul: { name: 'Гуль', gait: 'ghoul', size: .92, cloth: [[.52, .80, 'cloth']] },
+  knight: { name: 'Падший рыцарь', gait: 'knight', size: 1.2, clothB: [.30, .78], clothF: [.70, .80], weapon: { off: -.95 } },
   doctor: { name: 'Чумной доктор', gait: 'doctor', cloth: [[.48, .74, 'cloth']], flask: 1 },
-  goatman: { name: 'Козлорог', gait: 'goatman', size: 1.32, cloth: [[.55, .80, 'cloth']] },
+  goatman: { name: 'Козлорог', gait: 'goatman', size: 1.55, cloth: [[.55, .80, 'cloth']] },
   guardian: { name: 'Каменный страж', gait: 'guardian', boss: 1 },
   executioner: { name: 'Каменный палач', gait: 'executioner', boss: 1, axe: 1 },
 };
@@ -561,10 +561,11 @@ function rigDef(id) {
   return RIG[id] = { id, P, I, ...d, k, L1: dist(l.root, l.joint), L2: dist(l.joint, l.end), foot: l.sole - l.end[1], scale: W.CS / k * (d.boss ? 1.7 : d.size || 1), ov: 12 * k / .5 };
 }
 // экранные координаты персонажа (для рисования и попаданий)
-function rigXf(ch) { const s = ch.R.scale * zs(ch.z) * (ch.sMul || 1); const tk = ch.turnT > 0 ? ch.turnT / ch.turnD : 0, f = ch.face * (1 - 2 * tk) || .02; return { X: sx(ch.x) + f * s * (ch.hx || 0), Y: zy(ch.z) - (ch.pose.hip + ch.R.foot) * s + (ch.dy || 0), s, f } }
+function rigXf(ch) { const s = ch.R.scale * zs(ch.z) * (ch.sMul || 1); const tk = ch.turnT > 0 ? ch.turnT / ch.turnD : 0, q = 1 - 2 * tk, f = ch.face * (q < 0 ? -1 : 1) * Math.max(.4, Math.abs(q)); return { X: sx(ch.x) + f * s * (ch.hx || 0), Y: zy(ch.z) - (ch.pose.hip + ch.R.foot) * s + (ch.dy || 0), s, f } }
 // разворот «через ребро»: при смене взгляда спрайт сжимается до ребра и раскрывается в другую сторону
 function turnTick(ch, dt, dur) { if (ch.pf !== undefined && ch.pf !== ch.face) { ch.turnT = dur; ch.turnD = dur } ch.pf = ch.face; ch.turnT = Math.max(0, (ch.turnT || 0) - dt) }
-function rigToWorld(ch, p, xf = rigXf(ch)) { return { x: ch.x + xf.f * xf.s * ((ch.hx || 0) + p[0]), y: xf.Y + xf.s * p[1] } }
+// колено и стопа рисуются без сжатия разворота (см. drawRig) — и в мир переводятся так же
+function rigToWorld(ch, p, xf = rigXf(ch)) { const f = p.leg ? ch.face : xf.f; return { x: ch.x + f * xf.s * ((ch.hx || 0) + p[0]), y: xf.Y + xf.s * p[1] } }
 function armChain(Pa, sh, ru, rf) {
   const U = dist(Pa.root, Pa.joint), Fa = dist(Pa.joint, Pa.end);
   const el = [sh[0] - Math.sin(ru) * U, sh[1] + Math.cos(ru) * U], wr = [el[0] - Math.sin(rf) * Fa, el[1] + Math.cos(rf) * Fa];
@@ -576,7 +577,7 @@ function rigGeom(ch) {
   const R = ch.R, P = R.P, po = ch.pose, t = P.torso, lean = po.lean;
   const Rt = (p, o = [0, 0]) => rot2([p[0] - t.hip[0] + o[0], p[1] - t.hip[1] + o[1]], lean);
   const shN = Rt(t.sh, [8, 0]), shF = Rt(t.sh, [-10, -4]), hipN = [6, 0], hipF = [-8, -3];
-  const legs = [[hipN, po.legs[0], 'legN'], [hipF, po.legs[1], 'legF']].map(([h, L, part]) => ({ hip: h, kn: [h[0] + L.kx, h[1] + L.ky], an: [h[0] + L.ax, h[1] + L.ay], L, part }));
+  const legs = [[hipN, po.legs[0], 'legN'], [hipF, po.legs[1], 'legF']].map(([h, L, part]) => ({ hip: h, kn: Object.assign([h[0] + L.kx, h[1] + L.ky], { leg: 1 }), an: Object.assign([h[0] + L.ax, h[1] + L.ay], { leg: 1 }), L, part }));
   const arms = [[shN, po.arms[0], 'armN'], [shF, po.arms[1], 'armF']].map(([sh, a, part]) => ({ ...armChain(P[part], sh, a.ru, a.rf), part }));
   const G = { legs, arms, neck: Rt(t.neck), lean, Rt, hipTop: Rt([t.hip[0], t.sh[1]]) };
   // оружие: меч рыцаря и топор палача — в ближней руке (или в дальней, если ближняя разрушена)
@@ -620,13 +621,15 @@ function drawRig(ch, opt = {}) {
   const G = ch.G || rigGeom(ch), Rt = G.Rt, tw = I.torso.width, th = I.torso.height;
   const xf = rigXf(ch); ctx.save(); ctx.translate(xf.X, xf.Y); ctx.scale(xf.f * xf.s, xf.s);
   const want = n => !only || only === n;
+  // ноги рисуются без сжатия разворота и сразу в новую сторону — стопы остаются на своих точках пола
+  const LX = sx(ch.x) + ch.face * xf.s * (ch.hx || 0), legT = fn => { if (xf.f === ch.face) return fn(); ctx.save(); ctx.scale(1 / (xf.f * xf.s), 1 / xf.s); ctx.translate(LX - xf.X, 0); ctx.scale(ch.face * xf.s, xf.s); fn(); ctx.restore() };
   // вспышка попадания по конечности — в её собственном слое (дальняя не перекрывает ближнюю)
   const lit = (part, fn) => { fn(v); const a = opt.flash && opt.flash[part]; if (a > 0 && v !== 'W') { ctx.save(); ctx.globalAlpha *= a; fn('W'); ctx.restore() } };
   // дальняя рука, дальняя нога, задняя пола
   if (want('armF')) { if (miss.armF) { if (!only) rigStump(ch, G, 'stumpShF', v) } else { if (G.weapon && G.weapon.arm === 1) rigWeapon(ch, G, v); lit('armF', w => rigArm(ch, G, 1, w)) } }
-  if (want('legF')) { if (miss.legF) { if (!only) rigStump(ch, G, 'stumpHipF', v) } else lit('legF', w => rigLeg(ch, G, 1, w)) }
+  if (want('legF')) { if (miss.legF) { if (!only) rigStump(ch, G, 'stumpHipF', v) } else legT(() => lit('legF', w => rigLeg(ch, G, 1, w))) }
   if (!only && R.clothB) rigPiece(rimg(I, 'clothB', v), P.clothB.top, Rt([R.clothB[0] * tw, R.clothB[1] * th]), lean * .4 + (ch.cloth || 0) * 1.2);
-  if (want('legN')) { if (miss.legN) { if (!only) rigStump(ch, G, 'stumpHipN', v) } else lit('legN', w => rigLeg(ch, G, 0, w)) }
+  if (want('legN')) { if (miss.legN) { if (!only) rigStump(ch, G, 'stumpHipN', v) } else legT(() => lit('legN', w => rigLeg(ch, G, 0, w))) }
   if (!only) {
     rigPiece(rimg(I, 'torso', v), t.hip, [0, 0], lean);
     if (R.cloth) for (const [fx, fy, name] of R.cloth) rigPiece(rimg(I, name, v), P[name].top, Rt([fx * tw, fy * th]), lean * .4 + (ch.cloth || 0));
@@ -648,6 +651,13 @@ function drawRig(ch, opt = {}) {
 // Мир 2,5D: у каждой стопы своя точка на полу (x и глубина). walker.js считает шаг вдоль пути; здесь смещение стопы
 // раскладывается по направлению движения: опорная стопа держит точку, переносимая плавно приходит в точку постановки.
 // Нога тянется к стопе той же IK; таз опускается, если стопа ближе к зрителю и иначе не достать.
+// руки не перескакивают: смена позы (прерванный замах, смена походки) идёт не быстрее lim рад за кадр
+// углы позы не свёрнуты в ±π — разница берётся прямая (иначе рука пошла бы короткой дугой не в ту сторону)
+function limitArms(ch, dt, lim = .3) {
+  const A = ch.pose.arms, S = ch._sa; if (!S || ch._saF !== ch.face) { ch._sa = A.map(a => [a.ru, a.rf]); ch._saF = ch.face; return }
+  const m = lim * dt * 60;
+  A.forEach((a, i) => { if (!a) return; const s = S[i]; s[0] += cl(a.ru - s[0], -m, m); s[1] += cl(a.rf - s[1], -m, m); a.ru = s[0]; a.rf = s[1] });
+}
 function depthLegs(ch, dir) {
   const po = ch.pose, R = ch.R, s = R.scale * zs(ch.z) * (ch.sMul || 1), L = R.L1 + R.L2, g = ch.c.g, fs = ch.fs || (ch.fs = [{}, {}]);
   if (dir) ch.lastDir = dir; dir = ch.lastDir || { x: ch.face, z: 0 };
@@ -860,7 +870,7 @@ function critic(){const dt=1/60,T=30,pf=t=>t<2?0:t<5?lp(0,1,(t-2)/3):t<8?1:t<10?
 // ================= игра =================
 const H={fs:[{},{}],dir:null,qk:-1,pf:1,turnT:0,dyD:0,x:1000,z:.62,hp:100,maxhp:100,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,f:null,hist:[],swing:0,hitSet:new Set(),blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},t:0,kbv:0,flash:0,alpha:1,stepAcc:0,hidden:false};
 function reset(x,z){Object.assign(H,{fs:[{},{}],dir:null,x,z,hp:H.maxhp,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,hist:[],blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},kbv:0,flash:0,alpha:1,hidden:false});
- Object.assign(st,{X:0,F:.3,t:0,atk:-1,dsh:-1,Pa:0,Pf:null,Pfv:0,hurtL:0});LS.forEach(q=>{q.pu=0;q.lt=null;q.se=null;q.se0=null;q.ts=null});FACE=1;H.f=frame(0,DT)}
+ Object.assign(st,{X:0,F:.3,t:0,atk:-1,dsh:-1,Pa:0,Pf:null,Pfv:0,hurtL:0,fl:null,contact:undefined});tips=[];H.qq=[];H.dyD=0;H.dy=0;H.turnT=0;LS.forEach(q=>{q.pu=0;q.lt=null;q.se=null;q.se0=null;q.ts=null});FACE=1;H.f=frame(0,DT)}
 function hit(k){if(st.atk<0&&!H.dead){st.atk=0;st.ak=k;st.hd=0;st.bo=0;H.swing++;H.hitSet=new Set();Snd.swing(k);return true}return false}
 function dash(){if(st.dsh<0&&!H.dead){st.dsh=0;H.inv=Math.max(H.inv,.38);Snd.dash();FX.dust(H.x,H.z,4,.4)}}
 // ЛКМ: три удара по очереди; клик во время удара ставится в очередь; пауза >1,5 с — серия заново (как в hero_run.html)
@@ -870,13 +880,22 @@ function bladeLocal(f){const j=J.armN,a=f.arm[0],dx=j.fist[0]-j.el[0],dy=j.fist[
  return{bx:fx+f.ox+Math.cos(ang)*SWH*.1*ln,by:fy+Math.sin(ang)*SWH*.1*ln,tx:fx+f.ox+Math.cos(ang)*SWH*.82*ln,ty:fy+Math.sin(ang)*SWH*.82*ln}}
 function toWorld(lx,ly,x=H.x,z=H.z,face=FACE){const s=W.CS*zs(z);return{x:x+face*lx*s,y:zy(z)+ly*s}}
 // inp: {x,z,run,dash,combo,atk(0..2|-1)}
+// тела не проходят друг сквозь друга: впереди (по ходу) враг или босс ближе зазора — ход в его сторону гасится
+function blocked(dir){if(!dir)return false;const L=[];if(typeof Enemies!=='undefined')for(const e of Enemies.list)if(e.st!=='enter'&&e.st!=='dying'&&e.st!=='dead'&&e.st!=='gone')L.push([e.x,e.z,58*(e.R.size||1)]);
+ const B=typeof Boss!=='undefined'&&Boss.b;if(B&&!B.gone&&B.st!=='dying'&&B.st!=='enter')L.push([B.x,B.z,B.gait==='sit'?130:105]);
+ return L.some(([x,z,g])=>Math.abs(z-H.z)<.09&&(x-H.x)*dir>0&&(x-H.x)*dir<g)}
 function update(dt,inp){
- H.t+=dt;const atk=st.atk>=0;let tg=inp.x*(inp.run?2.3:1),tz=inp.z*(inp.run?1.7:1)*.8;if(atk||H.dead){tg=0;tz=0}
+ if(inp.x&&blocked(Math.sign(inp.x)))inp={...inp,x:0};
+ H.t+=dt;const A0=ATK[st.ak|0],mvIn=Math.abs(inp.x)+Math.abs(inp.z)>0;
+ // ход отменяет проводку удара после попадания: остаток удара доигрывается на ходу
+ if(mvIn&&st.atk>A0.hs[1]+.08)st.atk=Math.max(st.atk,A0.T-.24);
+ const atk=st.atk>=0&&st.atk<A0.T-.24;let tg=inp.x*(inp.run?2.3:1),tz=inp.z*(inp.run?1.7:1)*.8;if(atk||H.dead){tg=0;tz=0}
  let want=tg;if(H.SV*tg<0||(Math.abs(H.SV)<.04&&tg*FACE<0))want=0;
  const acc=(Math.abs(want)<Math.abs(H.SV)?(atk?5.5:4.2):2.6)*dt;H.SV+=cl(want-H.SV,-acc,acc);if(Math.abs(H.SV)<.04&&tg*FACE<0)FACE=-FACE;
  H.SZ+=cl(tz-H.SZ,-3.2*dt,3.2*dt);if(Math.abs(H.SZ)<1e-3&&!tz)H.SZ=0;
- st.as=1.2;st.contact=st.atk>=0?H.hitSet.size>0:undefined;
- if(inp.dash){if(st.atk>=0&&st.atk>ATK[st.ak].hs[1]){st.atk=Math.max(st.atk,ATK[st.ak].T-.22)}dash()}if(inp.combo)cbHit();if(inp.atk>=0&&!hit(inp.atk))H.qk=inp.atk;
+ st.as=st.atk>=0&&st.atk<A0.hs[0]?1.5:1.25;st.contact=st.atk>=0?H.hitSet.size>0:undefined;
+ // рывок отменяет любую фазу удара (уворот)
+ if(inp.dash&&st.dsh<0){if(st.atk>=0)st.atk=Math.max(st.atk,ATK[st.ak].T-.22);dash()}if(inp.combo)cbHit();if(inp.atk>=0&&!hit(inp.atk)){H.qq=H.qq||[];if(H.qq.length<2)H.qq.push(inp.atk)}
  H.calm=(H.calm||0)+dt;if(H.calm>4&&!H.dead&&H.hp<H.maxhp)H.hp=Math.min(H.maxhp,H.hp+2.5*dt); // вне боя здоровье понемногу возвращается
  H.hurt=Math.max(0,H.hurt-dt);st.hurtL=.28*sm(H.hurt/.25);H.inv=Math.max(0,H.inv-dt);H.flash=Math.max(0,H.flash-dt*4);
  const k=Math.hypot(H.SV,H.SZ),X0=st.X,s=W.CS*zs(H.z);let mv={x:0,z:0};
@@ -888,14 +907,15 @@ function update(dt,inp){
    if(stn){if(!F.st||F.x==null){F.x=ex;F.z=ez}F.px=F.x;F.pz=F.z}else{if(F.st){F.cx=(F.x??ex)-ex;F.cz=(F.z??ez)-ez}const q=cl((l.u-l.beta)/(1-l.beta),0,1),kk=1-sm(q);F.px=ex+(F.cx||0)*kk;F.pz=ez+(F.cz||0)*kk}F.st=stn;
    const lx=(F.px-bx)*FACE/s,dy=(F.pz-bz)*ZPX/s;l.ax+=lx-l.rel;l.ay+=dy})};
  const f=frame(k*VB,dt);legHook=null;H.f=f;
- if(H.combo.q&&st.atk<0)cbHit();if(H.qk>=0&&st.atk<0){hit(H.qk);H.qk=-1}if(st.atk>=0)H.combo.last=H.t;
+ // следующий удар из очереди начинается, не дожидаясь конца проводки
+ const chain=st.atk<0||st.atk>ATK[st.ak|0].T-.14;if(chain&&(H.combo.q||(H.qq&&H.qq.length))){st.atk=-1;if(H.combo.q)cbHit();else hit(H.qq.shift())}if(st.atk>=0)H.combo.last=H.t;
  // рывок — короткий прыжок: стопы в воздухе, встают на новое место при приземлении
  H.dyD=-16*f.D;if(f.D>.02)H.fs.forEach(F=>{F.x=null;F.st=false});
  // разворот — «через ребро» за доли секунды
  if(FACE!==H.pf){H.turnT=.12;H.pf=FACE}H.turnT=Math.max(0,(H.turnT||0)-dt);
  H.x+=mv.x;H.z+=mv.z;
  // отброс — подскок назад: тело в воздухе, стопы переставляются при приземлении
- if(H.kbv){H.x+=H.kbv*dt;H.kbv*=Math.exp(-dt*9);H.dy=-Math.min(14,Math.abs(H.kbv)*.07);H.fs.forEach(F=>{F.x=null;F.st=false});if(Math.abs(H.kbv)<16){H.kbv=0;H.dy=0}}
+ if(H.kbv&&blocked(Math.sign(H.kbv)))H.kbv=0;if(H.kbv){H.x+=H.kbv*dt;H.kbv*=Math.exp(-dt*9);H.dy=-Math.min(14,Math.abs(H.kbv)*.07);H.fs.forEach(F=>{F.x=null;F.st=false});if(Math.abs(H.kbv)<16){H.kbv=0;H.dy=0}}
  H.x=cl(H.x,W.XMIN,W.XMAX);H.z=cl(H.z,.02,1);
  // шаги: звук и лёгкая пыль на постановке стопы
  f.legs.forEach((l,i)=>{const on=l.u<l.beta&&f.v>=25;if(on&&!H['st'+i]){Snd.step(.15+.25*f.g,0);if(f.g>.5)FX.dust(H.x+FACE*l.rel*s,H.z,2,.15)}H['st'+i]=on});
@@ -909,10 +929,10 @@ function damage(n,fromX,kb=1){if(H.dead||H.inv>0||H.soul)return false;n*=Game.dm
 // рисование в мире
 function drawAt(f,x,z,face,alpha,rec){
  SC=W.CS*zs(z);GX=0;GY=0;const F0=FACE;FACE=face;
- ctx.save();ctx.translate(sx(x),zy(z)+(H.dy||0)+(H.dyD||0));const tk=(H.turnT||0)/.12;ctx.scale((face<0?-1:1)*(rec?(1-2*tk):1)||.02,1);ctx.globalAlpha=alpha;drawChar(f,rec);
+ ctx.save();ctx.translate(sx(x),zy(z)+(H.dy||0)+(H.dyD||0));ctx.scale(face<0?-1:1,1);ctx.globalAlpha=alpha;drawChar(f,rec);
  if(rec){
-  tips=tips.filter(p=>st.t-p.t<.16);if(f.AT>=ATK[f.ak].tr[0]&&f.AT<ATK[f.ak].tr[1]&&tips.length>1){ctx.save();ctx.lineCap='round';for(let i=1;i<tips.length;i++){const a=tips[i-1],b=tips[i],al=1-(st.t-b.t)/.16;ctx.strokeStyle=`rgba(190,225,255,${.7*al})`;ctx.lineWidth=16*al*SC/.3;ctx.shadowColor='#6fb4ff';ctx.shadowBlur=12;ctx.beginPath();ctx.moveTo(a.x*SC,a.y*SC);ctx.lineTo(b.x*SC,b.y*SC);ctx.stroke()}ctx.restore()}
-  if(st.fl&&st.t-st.fl.t<.16){const a=1-(st.t-st.fl.t)/.16,X=st.fl.x*SC,Y=st.fl.y*SC,r=70*SC/.3*(1+.8*(1-a)),gr=ctx.createRadialGradient(X,Y,0,X,Y,r);gr.addColorStop(0,`rgba(255,255,255,${.9*a})`);gr.addColorStop(.35,`rgba(170,215,255,${.5*a})`);gr.addColorStop(1,'rgba(120,180,255,0)');ctx.fillStyle=gr;ctx.fillRect(X-r,Y-r,2*r,2*r)}}
+  tips=tips.filter(p=>st.t>=p.t&&st.t-p.t<.16);if(f.AT>=ATK[f.ak].tr[0]&&f.AT<ATK[f.ak].tr[1]&&tips.length>1){ctx.save();ctx.lineCap='round';for(let i=1;i<tips.length;i++){const a=tips[i-1],b=tips[i],al=1-(st.t-b.t)/.16;ctx.strokeStyle=`rgba(190,225,255,${.7*al})`;ctx.lineWidth=16*al*SC/.3;ctx.shadowColor='#6fb4ff';ctx.shadowBlur=12;ctx.beginPath();ctx.moveTo(a.x*SC,a.y*SC);ctx.lineTo(b.x*SC,b.y*SC);ctx.stroke()}ctx.restore()}
+  if(st.fl&&st.t>=st.fl.t&&st.t-st.fl.t<.16){const a=1-(st.t-st.fl.t)/.16,X=st.fl.x*SC,Y=st.fl.y*SC,r=70*SC/.3*(1+.8*(1-a)),gr=ctx.createRadialGradient(X,Y,0,X,Y,r);gr.addColorStop(0,`rgba(255,255,255,${.9*a})`);gr.addColorStop(.35,`rgba(170,215,255,${.5*a})`);gr.addColorStop(1,'rgba(120,180,255,0)');ctx.fillStyle=gr;ctx.fillRect(X-r,Y-r,2*r,2*r)}}
  ctx.restore();FACE=F0}
 function draw(){const f=H.f;if(!f||H.hidden)return;
  if(f.D>.05){for(const k of[3,6,9,12]){const h=H.hist[H.hist.length-1-k];if(h)drawAt(h.f,h.x,h.z,h.face,.3*(1-k/14)*H.alpha,false)}}
@@ -939,7 +959,7 @@ const ETYPES = {
     wp: { ru: 1.0, rf: .5, lean: .12, far: -.6, crouch: .1 }, sp: { ru: -1.85, rf: -2.25, lean: .38, far: .9, lunge: .3, crouch: .06 } },
   knight: { hp: 70, dmg: 10, range: 168, wind: .7, strike: .15, rec: .7, cd: [1.8, 2.7], score: 25, poise: .5,
     wp: { ru: -2.75, rf: -3.35, lean: -.1, far: .3, crouch: .03 }, sp: { ru: -1.05, rf: -1.3, lean: .22, far: -.3, lunge: .14, crouch: .08 } },
-  doctor: { hp: 36, dmg: 7, range: 520, wind: .6, strike: .12, rec: .55, cd: [2.4, 3.4], score: 20, ranged: 1,
+  doctor: { hp: 30, dmg: 7, range: 520, wind: .6, strike: .12, rec: .55, cd: [2.4, 3.4], score: 20, ranged: 1,
     wp: { ru: 1.35, rf: 2.3, lean: -.14, far: -.4, crouch: .04 }, sp: { ru: -2.4, rf: -2.7, lean: .2, far: .4, lunge: .06, crouch: .03 } },
   goatman: { hp: 100, dmg: 14, range: 440, wind: .85, strike: 0, rec: 1.1, cd: [3.0, 4.2], score: 35, poise: 1, charge: 1,
     wp: { ru: .75, rf: .4, lean: .5, far: .75 }, sp: { ru: .5, rf: .2, lean: .55, far: .5, lunge: 0 } },
@@ -960,8 +980,9 @@ const Enemies = {
     let dir = 0; if (d > (opt.tol ?? 10)) dir = Math.abs(dxp) > 12 ? Math.sign(dxp) : e.face; if (opt.dir !== undefined) dir = opt.dir;
     const x0 = c.x; e.pose = Walker.update(c, dt, { dir: opt.hold ? 0 : dir, run: opt.run, speedK: opt.speedK, hold: opt.hold, runK: opt.runK, accK: opt.accK, lean: opt.lean, crouch: opt.crouch });
     e.face = c.face; turnTick(e, dt, .16); const p = Math.abs(c.x - x0), s = e.R.scale * zs(e.z);
-    // торможение у цели — по прежнему направлению (иначе тело уезжает вбок от стоящих стоп)
-    let mdir = null; if (p > 0) { let ax, az; if (d > 6) { const n = Math.hypot(Math.abs(dxp), dzp); ax = Math.abs(dxp) / n; az = dzp / n; e.mv = { ax, az } } else ({ ax, az } = e.mv || { ax: 1, az: 0 }); e.x += p * s * e.face * ax; e.z = cl(e.z + p * s * az / ZPX, 0, 1); mdir = { x: e.face * ax, z: az } }
+    // торможение у цели — по прежнему направлению (иначе тело уезжает вбок от стоящих стоп);
+    // цель чуть позади (ход в глубину) — шаг с малым смещением назад, без разворота
+    let mdir = null; if (p > 0) { let ax, az; if (d > 6) { const n = Math.hypot(Math.abs(dxp), dzp); ax = (Math.abs(dxp) > 12 ? Math.abs(dxp) : dxp * e.face) / n; az = dzp / n; e.mv = { ax, az } } else ({ ax, az } = e.mv || { ax: 1, az: 0 }); e.x += p * s * e.face * ax; e.z = cl(e.z + p * s * az / ZPX, 0, 1); mdir = { x: e.face * ax, z: az } }
     depthLegs(e, mdir);
     for (const ev of c.events) { if (c.g.heavy > .2) { Snd.step(ev.power * .5, 0); FX.dust(e.x, e.z, 2 + 4 * c.g.dust, .2 + .4 * c.g.dust) } else if (Math.abs(e.x - Hero.H.x) < 600 && Math.random() < .6) Snd.step(.05, 0) }
     // одежда — пружина от скорости
@@ -988,11 +1009,13 @@ const Enemies = {
       case 'move': {
         let tx, tz = cl(h.z + (T.ranged ? 0 : (e.slot || 0) % 2 ? e.slotZ * .6 : 0), .03, 1), run = false;
         if (T.ranged) { const want = 360, sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * want; if (tx < W.XMIN || tx > W.XMAX) tx = h.x - sd * want; tz = cl(h.z + e.slotZ, .03, 1);
-          const flee = adx < want - 60; e.flee = flee ? (e.flee || 0) + dt : Math.max(0, (e.flee || 0) - dt * .5); if (e.flee > 2.2) { e.stand = 3.5; e.flee = 0 } if (e.stand > 0) { e.stand -= dt; tx = e.x } }
+          const flee = adx < want - 60; e.flee = flee ? (e.flee || 0) + dt : Math.max(0, (e.flee || 0) - dt * .5); if (e.flee > 1.5) { e.stand = 4; e.flee = 0 } if (e.stand > 0) { e.stand -= dt; tx = e.x } }
         else if (T.charge) { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * 300 } else { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * (Math.max(T.range * .8, 104 * (e.R.size || 1)) + (e.slot || 0) * 75); run = adx > 420 && e.type === 'ghoul' }
         const close = !T.ranged && adx < T.range * .85 && Math.abs(dz) < .15 && (e.slot || 0) < 2;
         // уже рядом — не пятиться, а стоять лицом к герою (разворот короткими шагами)
         if (close) this.move(e, dt, e.x, tz, { dir: facing ? 0 : Math.sign(toH), speedK: .08, tol: 6 }); else this.move(e, dt, tx, tz, { run, tol: 14 });
+        // слишком близко к герою (его отбросило на врага) — короткий отскок назад, не разворачиваясь
+        e.bsT = Math.max(0, (e.bsT || 0) - dt); if (!T.ranged && adx < 66 * (e.R.size || 1) && Math.abs(dz) < .1 && !e.kbv && !e.bsT) { e.kbv = (Math.sign(e.x - h.x) || -e.face) * 300; e.bsT = .8 }
         const inRange = T.ranged ? adx > 110 && adx < T.range : T.charge ? adx < T.range && adx > 150 && Math.abs(dz) < .14 : adx < T.range && Math.abs(dz) < .1;
         const busy = this.list.filter(o => o !== e && (o.st === 'wind' || o.st === 'strike')).length;
         if (target && e.cd <= 0 && inRange && facing && busy < 2 && (e.slot || 0) < 2 && Math.abs(e.c.v) < e.R.L1 * 3) { e.st = 'wind'; e.t = 0; e.aim = { x: h.x, z: h.z }; if (T.charge) Snd.whoosh() }
@@ -1006,12 +1029,12 @@ const Enemies = {
       }
       case 'strike': {
         if (T.charge) { // таран: бег по прямой через точку, где был герой
-          this.move(e, dt, e.chEnd, e.chZ, { run: true, runK: 2.6, accK: 3, lean: .35 }); ov = { k: 'sp', w: 1 };
+          this.move(e, dt, e.chEnd, e.chZ, { run: true, runK: 2.6, accK: 3, lean: .35 }); ov = { k: 'sp', from: 'wp', w: sm(Math.min(1, e.t / .12)) };
           if (!e.done && Math.abs(h.x - e.x) < 70 && Math.abs(h.z - e.z) < .11 && Hero.damage(T.dmg, e.x, 2.2)) { e.done = 1; FX.flash(h.x, h.z, 100, 80, '255,150,120') }
           if (Math.sign(e.chEnd - e.x) !== e.chDir || e.t > 1.6 || e.x <= W.XMIN || e.x >= W.XMAX) { e.st = 'rec'; e.t = 0; Cam.kick(4); FX.dust(e.x, e.z, 8, .6) }
           break;
         }
-        this.move(e, dt, e.x, e.z, { hold: true, crouch: lp(T.wp.crouch || 0, T.sp.crouch || 0, sm(e.t / T.strike)) }); ov = { k: 'sp', w: sm(e.t / T.strike) };
+        this.move(e, dt, e.x, e.z, { hold: true, crouch: lp(T.wp.crouch || 0, T.sp.crouch || 0, sm(e.t / T.strike)) }); ov = { k: 'sp', from: 'wp', w: sm(e.t / T.strike) };
         if (e.t >= T.strike && !e.done) { e.done = 1; this.release(e) }
         if (e.t >= T.strike) { e.st = 'rec'; e.t = 0 }
         break;
@@ -1022,7 +1045,11 @@ const Enemies = {
       case 'dead': break;
     }
     // поза: руки и корпус к ключу атаки
-    const po = e.pose; if (ov && ov.w > 0) { const K = T[ov.k], w = ov.w, a = po.arms[0], b = po.arms[1]; a.ru = lp(a.ru, K.ru, w); a.rf = lp(a.rf, K.rf, w); b.ru = lp(b.ru, K.far, w); b.rf = lp(b.rf, K.far - .4, w); po.lean += K.lean * w; e.lunge = (K.lunge || 0) * w } else e.lunge = 0;
+    const po = e.pose; if (ov && (ov.w > 0 || ov.from)) { // удар идёт из позы замаха (а не из обычной позы — иначе рука на кадр «отскакивает»)
+      const K = T[ov.k], K0 = ov.from ? T[ov.from] : null, w = ov.w, a = po.arms[0], b = po.arms[1], f = (x, k0, k1) => K0 ? lp(k0, k1, w) : lp(x, k1, w);
+      a.ru = f(a.ru, K0 && K0.ru, K.ru); a.rf = f(a.rf, K0 && K0.rf, K.rf); b.ru = f(b.ru, K0 && K0.far, K.far); b.rf = f(b.rf, K0 && K0.far - .4, K.far - .4);
+      po.lean += K0 ? lp(K0.lean, K.lean, w) : K.lean * w; e.lunge = K0 ? lp(K0.lunge || 0, K.lunge || 0, w) : (K.lunge || 0) * w } else e.lunge = 0;
+    limitArms(e, dt, e.st === 'strike' ? .45 : .3);
     e.hx = e.lunge * (e.R.L1 + e.R.L2) * .4; if (e.hx) po.legs = po.legs.map(l => ({ ...l, ...Walker.ik2(l.ax - e.hx, l.ay, e.R.L1, e.R.L2, e.c.g.digi ? -1 : 1) }));
     if (e.st === 'hurt') po.lean -= .25 * (1 - sm(e.t / .32));
     e.G = rigGeom(e);
@@ -1048,7 +1075,8 @@ const Enemies = {
       if (p.t >= p.tt) { p.dead = 1; Snd.glass(); FX.poison(p.x, p.z); FX.sparks(p.x, p.z, 6, 8, '150,230,120', 200); this.clouds.push({ x: p.x, z: p.z, t: 0, life: 2.6 });
         if (fdist(h.x, h.z, p.x, p.z) < 58 && !h.soul) Hero.damage(ETYPES.doctor.dmg, p.x, .6) } }
     this.proj = this.proj.filter(p => !p.dead);
-    for (const c of this.clouds) { c.t += dt; if (Math.random() < .3) FX.poison(c.x + rnd(-20, 20), c.z); if (fdist(h.x, h.z, c.x, c.z) < 55 && c.t > .3 && !h.soul && Math.random() < dt * 2.5) Hero.damage(2, c.x, .1) }
+    // облако держится ~50 клубами, а не сотнями
+    for (const c of this.clouds) { c.t += dt; if (Math.random() < dt * 9) FX.poison(c.x + rnd(-20, 20), c.z, 3); if (fdist(h.x, h.z, c.x, c.z) < 55 && c.t > .3 && !h.soul && Math.random() < dt * 2.5) Hero.damage(2, c.x, .1) }
     this.clouds = this.clouds.filter(c => c.t < c.life);
   },
   // ---------- попадание клинка героя ----------
@@ -1106,7 +1134,7 @@ const LIMBS = ['armN', 'armF', 'legN', 'legF'];
 const LIMB_NAME = { armN: 'Ближняя рука', armF: 'Дальняя рука', legN: 'Ближняя нога', legF: 'Дальняя нога' };
 const BOSSDEF = {
   guardian: { hp: { armN: 95, armF: 95, legN: 105, legF: 105 }, atks: ['slam', 'sweep', 'stomp', 'wave'], cd: [2.6, 3.6], speedK: 1 },
-  executioner: { hp: { armN: 90, armF: 90, legN: 100, legF: 100 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [2.2, 3.2], speedK: 1.15 },
+  executioner: { hp: { armN: 85, armF: 85, legN: 95, legF: 95 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [1.5, 2.4], speedK: 1.15 },
 };
 // ключи атак: wk — поза замаха; hit — высота цели над полом ('g' — пол, 'c' — грудь героя); D — желаемая дальность (доля длины руки)
 const BATK = {
@@ -1163,7 +1191,7 @@ const Boss = {
   localT(B, T, hip) { const s = this.s(B); return [(T.x - B.x) * B.face / s, hip + B.R.foot - T.h / s] },
   // найти присед и наклон, при которых рука достаёт цель с запасом; null — недостижимо
   plan(B, A, T) {
-    const ai = this.armIdx(B); if (ai < 0) return null;
+    const ai = A.ai ?? this.armIdx(B); if (ai < 0) return null;
     const axes = A.axe && B.R.axe ? [A.axeHit, A.axeHit + .25, A.axeHit - .25, A.axeHit + .5, A.axeHit - .5, A.axeHit + .8, A.axeHit + 1.1] : [0];
     for (let lean = -.1; lean <= 1.1; lean += .075) for (let cr = 0; cr <= (B.gait === 'sit' ? 0 : .4); cr += .05) {
       const { sh, hip } = this.shoulderAt(B, ai, cr, lean), Tl = this.localT(B, T, hip);
@@ -1186,16 +1214,20 @@ const Boss = {
     const B = this.b; if (!B) return; B.t += dt; const h = Hero.H, L = this.L(B);
     for (const l of LIMBS) { B.flash[l] = Math.max(0, (B.flash[l] || 0) - dt * 5); const lm = B.limbs[l]; if (lm.regrow > 0) lm.regrow = Math.max(0, lm.regrow - dt / 1.1) }
     B.weaponArm = B.limbs.armN.alive ? 0 : 1;
-    const nLeg = this.legsAlive(B); B.gait = nLeg === 2 ? 'walk' : nLeg === 1 ? 'hop' : 'sit';
+    const nLeg = this.legsAlive(B), gait = nLeg === 2 ? 'walk' : nLeg === 1 ? 'hop' : 'sit';
+    // смена походки: старые точки стоп (они остались там, где босс стоял до прыжков) сбрасываются под тело
+    if (gait !== B.gait) { B.fs = [{}, {}]; B.c.feet.forEach(f => { f.ax = null; f.st = true; f.stInit = 0 }); B.c.moving = false } B.gait = gait;
     const ctl = { dir: 0, tx: B.x, tz: B.z, hold: false, crouch: 0, lean: 0 };
     let armOv = null, legOv = null;
     switch (B.st) {
       case 'enter': B.alpha = Math.min(1, B.alpha + dt * .9); ctl.tx = B.x - 300 * B.face * -1; ctl.dir = B.face; if (B.t > 2.2) { B.st = 'move'; B.t = 0 } break;
       case 'move': {
-        if (B.next && (B.nextT = (B.nextT || 0) + dt) > 2.6) { B.next = null; B.nextT = 0 } // не выходит достать — выбрать другой удар
+        if (B.next && (B.nextT = (B.nextT || 0) + dt) > (B.cd <= 0 ? 1.2 : 2.6)) { B.next = null; B.nextT = 0 } // не выходит достать — выбрать другой удар
         const A = B.next || (B.next = this.choose(B)); const s = this.s(B), dx = h.x - B.x, adx = Math.abs(dx);
         const want = A ? (A.D * this.armReach(B, A) * s) : 160, side = Math.sign(B.x - h.x) || 1;
         ctl.tx = h.x + side * want; ctl.tz = cl(h.z, .12, .95); if (A && A.far) ctl.tx = B.x; // волна — с места
+        // ближе нужного — не отходить (иначе босс поворачивается спиной и уходит); ударить можно и отсюда
+        if (A && !A.far && !A.leg) { const R = this.armReach(B, A) * s; if (adx < .98 * R) ctl.tx = B.x }
         if (A && A.leg) ctl.tx = h.x + side * 120;
         B.cd -= dt;
         B.planT = (B.planT || 0) - dt;
@@ -1215,8 +1247,10 @@ const Boss = {
     this.locomote(B, dt, ctl);
     // палач держит топор на плече, когда не бьёт (это же — исходная поза замаха)
     const po = B.pose;
-    if (B.R.axe && B.limbs[B.weaponArm ? 'armF' : 'armN'].alive) { const a = po.arms[B.weaponArm]; a.ru = -.35 + po.lean; a.rf = -2.5 + po.lean; B.axeC = 1.3 }
+    if (B.R.axe && B.limbs[B.weaponArm ? 'armF' : 'armN'].alive) { const a = po.arms[B.weaponArm], sit = B.gait === 'sit'; B.sitK = lp(B.sitK || 0, sit ? 1 : 0, 1 - Math.exp(-dt * 4)); const k = B.sitK; a.ru = lp(-.35, .55, k) + po.lean; a.rf = lp(-2.5, -.5, k) + po.lean; B.axeC = lp(1.3, 1.9, k) }
     if (B.st === 'atk' && B.atk && !B.atk.A.leg) this.applyArm(B);
+    // удар и удержание — точно в цель (IK), без ограничения; остальные смены позы рук — плавно
+    if (!(B.st === 'atk' && B.atk && (B.atk.ph === 'strike' || B.atk.ph === 'hold'))) limitArms(B, dt, .3); else B._sa = B.pose.arms.map(a => [a.ru, a.rf]);
     if (legOv) { const lg = po.legs[legOv.li], lift = Math.max(0, legOv.lift), r = Walker.ik2(lg.ax + legOv.dx, po.hip - lift, B.R.L1, B.R.L2, 1); Object.assign(lg, r, { st: lift < 1, lift, footRot: -.35 * cl(lift / (L * .3), 0, 1) }) }
     B.G = rigGeom(B);
     // след оружия: точка удара по кадрам фазы удара
@@ -1226,14 +1260,20 @@ const Boss = {
     if (B.atk && B.atk.impact && !B.atk.done) this.impact(B);
     this.updWaves(dt);
   },
-  armReach(B, A) { const ai = Math.max(0, this.armIdx(B)), { Pa, E } = this.effector(B, ai, A.axeHit ?? 0); return dist(Pa.root, Pa.joint) + Math.hypot(E[0], E[1]) },
+  armReach(B, A) { const ai = A.ai ?? Math.max(0, this.armIdx(B)), { Pa, E } = this.effector(B, ai, A.axeHit ?? 0); return dist(Pa.root, Pa.joint) + Math.hypot(E[0], E[1]) },
   choose(B) {
     const ai = this.armIdx(B), nLeg = this.legsAlive(B), h = Hero.H, far = Math.abs(h.x - B.x) > 640 || (B.gait === 'sit' && Math.abs(h.x - B.x) > 360);
     let list = B.D.atks.filter(k => { const A = BATK[k]; if (A.arm && ai < 0) return false; if (A.axe && (!B.R.axe)) return false; if (A.leg && (nLeg < 2)) return false; if (!A.axe && B.R.axe && A.arm && !A.far) return false; return true });
     const mk = k => (B.R.axe && k === 'wave') ? { ...BATK.chop, far: 1, D: .45, dmg: 9, r: 60, key: k } : { ...BATK[k], key: k };
     if (far) { const w = list.filter(k => BATK[k].far).map(mk).find(A => this.plan(B, A, this.targetFor(B, A))); if (w) return w; if (list.includes('stomp')) return mk('stomp') }
     list = list.filter(k => !BATK[k].far || Math.random() < .2); if (!list.length) return null;
-    return mk(pick(list));
+    // рукой/оружием — втрое чаще, чем топот; вплотную (рука не разворачивается) — топот
+    const close = Math.abs(h.x - B.x) < (B.gait === 'sit' ? .55 : .4) * this.armReach(B, BATK[B.R.axe ? 'chop' : 'slam']) * this.s(B);
+    // палач вплотную бьёт свободной рукой (топором так близко не замахнуться)
+    const off = B.R.axe ? 1 - B.weaponArm : -1;
+    if (close && off >= 0 && off !== B.weaponArm && B.limbs[off ? 'armF' : 'armN'].alive && Math.random() < (B.gait === 'sit' ? .85 : .45)) return { ...BATK.sweep, key: 'punch', ai: off, dmg: 10, wind: .6 };
+    if (close && list.includes('stomp') && Math.random() < .6) return mk('stomp');
+    const wl = list.flatMap(k => BATK[k].leg ? [k] : [k, k, k]); return mk(pick(wl));
   },
   startAtk(B, A, T, pl) {
     B.st = 'atk'; B.t = 0; B.atk = { A, T, pl, ph: 'wind', t: 0, z0: B.z, done: 0 }; B.next = null; B.nextT = 0; B.trail = []; Snd.windup(B.id === 'guardian' ? 1 : .8);
@@ -1279,7 +1319,8 @@ const Boss = {
   hopStep(B, dt, ctl) {
     const c = B.c, L = this.L(B), s = this.s(B), li = B.limbs.legN.alive ? 0 : 1; c.t += dt;
     const hp = B.hop || (B.hop = { u: 0, on: 0, fx: B.x, x0: B.x, z0: B.z });
-    const moving = ctl.dir !== 0 && !ctl.hold; if (moving && !hp.on) { hp.on = 1; hp.u = 0; hp.x0 = B.x; hp.z0 = B.z; hp.dir = ctl.dir; hp.dz = cl((ctl.tz - B.z), -.12, .12); hp.mark = FX.mark(B.x + hp.dir * L * .55 * s, cl(B.z + hp.dz, .1, .96), .9, '255,140,70', 150) }
+    hp.rest = Math.max(0, (hp.rest || 0) - dt);
+    const moving = ctl.dir !== 0 && !ctl.hold; if (moving && !hp.on && hp.rest <= 0) { hp.on = 1; hp.u = 0; hp.x0 = B.x; hp.z0 = B.z; hp.dir = ctl.dir; hp.dz = cl((ctl.tz - B.z), -.12, .12); hp.mark = FX.mark(B.x + hp.dir * L * .55 * s, cl(B.z + hp.dz, .1, .96), .9, '255,140,70', 105) }
     if (moving && hp.dir !== B.face) { B.face = hp.dir }
     let hipH = L * .88 - L * .006 * (1 + Math.sin(c.t * 1.6)) - (ctl.hold ? (ctl.crouch || 0) * L : 0), lift = 0, lean = .05, fx = hp.fx;
     const len = L * .55 * s;
@@ -1287,8 +1328,8 @@ const Boss = {
       hp.u += dt / 1.25; const u = hp.u;
       if (u < .35) { const e = sm(u / .35); hipH = lp(L * .88, L * .7, e); lean = .05 + .2 * e }
       else if (u < .7) { const q = (u - .35) / .35, e = sm(q); B.x = hp.x0 + hp.dir * len * e; B.z = cl(hp.z0 + hp.dz * e, .1, .96); hipH = L * .7 + L * .32 * Math.sin(PI * q); lift = L * .2 * Math.sin(PI * q); fx = lp(hp.fx, hp.x0 + hp.dir * len, e); lean = .25 - .15 * q }
-      else { if (!hp.landed) { hp.landed = 1; hp.fx = B.x; this.stepFx(B, li); Cam.kick(16); FX.ring(B.x, B.z, 260, .6); if (fdist(Hero.H.x, Hero.H.z, B.x, B.z) < 150) Hero.damage(8, B.x, 1.5) } fx = hp.fx; hipH = lp(L * .66, L * .88, sm((u - .7) / .3)); lean = .1 * (1 - (u - .7) / .3) }
-      if (u >= 1) { hp.on = 0; hp.landed = 0; hp.fx = B.x }
+      else { if (!hp.landed) { hp.landed = 1; hp.fx = B.x; this.stepFx(B, li); Cam.kick(16); FX.ring(B.x, B.z, 260, .6); if (fdist(Hero.H.x, Hero.H.z, B.x, B.z) < 100) Hero.damage(7, B.x, 1.5) } fx = hp.fx; hipH = lp(L * .66, L * .88, sm((u - .7) / .3)); lean = .1 * (1 - (u - .7) / .3) }
+      if (u >= 1) { hp.on = 0; hp.landed = 0; hp.fx = B.x; hp.rest = 1.1 }
     } else hp.fx = lp(hp.fx, B.x, 0); // опорная стопа стоит
     if (!hp.on) hp.fx = hp.fx ?? B.x;
     const fl = (fx - B.x) * B.face / s; const a = Walker.ik2(fl, hipH - lift, B.R.L1, B.R.L2, 1);
@@ -1350,7 +1391,7 @@ const Boss = {
   bladeHits(b) {
     const B = this.b; if (!B || B.st === 'enter' || B.st === 'dying' || Math.abs(B.z - b.z) > .2 || Hero.H.hitSet.has(B)) return null;
     let best = null;
-    for (const L of this.limbCaps(B)) for (const [a, c, r] of L.caps) { const q = segDist([b.x1, b.y1], [b.x2, b.y2], a, c); if (q.d < r + 6 && (!best || (L.near && !best.near) || (L.near === best.near && q.d < best.d))) best = { part: L.part, d: q.d, p: q.p, near: L.near } }
+    for (const L of this.limbCaps(B)) for (const [a, c, r] of L.caps) { const q = segDist([b.x1, b.y1], [b.x2, b.y2], a, c); if (q.d < r + (B.gait === 'sit' && L.part.startsWith('arm') ? 26 : 6) && (!best || (L.near && !best.near) || (L.near === best.near && q.d < best.d))) best = { part: L.part, d: q.d, p: q.p, near: L.near } }
     if (!best) { // корпус: клинок отскакивает
       const G = B.G, xf = rigXf(B), a = rigToWorld(B, [0, 0], xf), c = rigToWorld(B, G.neck, xf), q = segDist([b.x1, b.y1], [b.x2, b.y2], [a.x, a.y], [c.x, c.y]);
       if (q.d < B.R.P.torso.w * .4 * xf.s) { Hero.H.hitSet.add(B); Snd.clang(); FX.sparks(q.p[0], B.z, zy(B.z) - q.p[1], 12, '255,230,170', 340); return { part: null } }
@@ -1432,7 +1473,7 @@ const Soul = {
   },
   start(o) {
     const p = this.prob = Problems.next(Game.level), s = this.ansStr(p.a), pos = o.pos;
-    Object.assign(this, { mode: o.mode, part: o.part || null, B: o.B || null, last: o.last, slots: s.length, on: true, ph: 'out', t: 0, T: this.TMAX, carried: [], placed: [], msg: null, res: null, used: 0 });
+    Object.assign(this, { mode: o.mode, part: o.part || null, B: o.B || null, last: o.last, slots: Math.max(4, s.length), confirm: 0, on: true, ph: 'out', t: 0, T: this.TMAX, carried: [], placed: [], msg: null, res: null, used: 0 });
     // осколки: цифры ответа + приманки (соседние цифры — типичные ошибки)
     const ds = [...s], dec = [], nDec = cl(8 - ds.length, 3, 5);
     for (let i = 0; i < nDec; i++) { const base = ds.filter(c => c !== '−'); let d = base.length && Math.random() < .6 ? (+pick(base) + pick([-1, 1, 2, -2]) + 10) % 10 : irnd(0, 9); dec.push('' + d) }
@@ -1476,14 +1517,15 @@ const Soul = {
         if (this.mode === 'limb') Boss.limbResult(this.part, this.res); else Game.sealDone(this.res);
       }
     }
-    this.hint = Math.max(0, this.hint - dt);
+    this.hint = Math.max(0, this.hint - dt); this.confirm = Math.max(0, (this.confirm || 0) - dt);
     this.shards = this.shards.filter(s => !s.gone);
   },
-  // E: у монолита — положить первую цифру из рук; все ячейки заполнены — проверить; в поле — подобрать
+  // E: у монолита — положить первую цифру из рук; руки пусты — проверить (второе нажатие подтверждает, если ячейки не заполнены);
+  // в поле — подобрать. Ячеек всегда не меньше четырёх: их число не подсказывает длину ответа.
   use() {
     if (this.atMonolith()) {
-      if (this.full()) return this.check();
-      if (this.carried.length) { const s = this.carried.shift(); s.carried = false; s.placed = true; this.placed.push(s); Snd.place(); FX.flash(World.monolith.x, World.monolith.z, 200, 60, '120,220,255', .2); return }
+      if (this.carried.length && !this.full()) { const s = this.carried.shift(); s.carried = false; s.placed = true; this.placed.push(s); Snd.place(); FX.flash(World.monolith.x, World.monolith.z, 200, 60, '120,220,255', .2); return }
+      if (this.placed.length && (!this.carried.length || this.full())) { if (this.confirm > 0) return this.check(); this.confirm = 2.5; Snd.tick(); return }
     }
     const s = this.nearShard(); if (s && this.carried.length < 3) { s.carried = true; this.carried.push(s); Snd.pickup(); FX.flash(s.x, s.z, 20, 40, '140,230,255', .15); return }
     this.hint = 1.2; Snd.tick();
@@ -1505,7 +1547,7 @@ const Soul = {
     if (ok) {
       Snd.correct(); Game.stats.solved++; FX.flash(World.monolith.x, World.monolith.z, 220, 200, '120,230,255', .6); for (const s of this.placed) s.gone = 1;
       // награда: здоровье за верный ответ, больше — за быстрый
-      const heal = 30 + (fast ? 20 : 0); Game.heal(heal); Game.score += 100 + (fast ? 100 : 0); this.msg.heal = heal;
+      const heal = 30 + (fast ? 20 : 0); Game.heal(heal); Game.score += 100 + (fast ? 100 : 0); this.msg.heal = Game.healAmt;
     } else {
       Snd.wrong(); FX.flash(World.monolith.x, World.monolith.z, 220, 200, '255,90,70', .6); Cam.kick(6);
       const B = this.B, G = B && B.G; let tx = World.monolith.x, th = 300, tz = World.monolith.z;
@@ -1566,9 +1608,10 @@ const Soul = {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(60,140,220,${act ? .12 + .05 * Math.sin(tt * 2) : .03})`; ctx.fillRect(px, py, pw, ph); ctx.restore();
     if (!act) return;
     ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#bfefff'; ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10;
-    const lines = wrapEq(this.prob.t, pw - 8, 19); let fy = py + 18;
-    ctx.font = `600 13px ${FONT_UI}`; ctx.fillStyle = '#86c9e8'; ctx.fillText(this.prob.c, px + pw / 2, fy); fy += 19;
-    ctx.fillStyle = '#d8f6ff'; for (const l of lines.lines) { ctx.font = `700 ${lines.size}px ${FONT_EQ}`; ctx.fillText(l, px + pw / 2, fy); fy += lines.size + 4 }
+    // на самом монолите — та же запись, что на табличке: дроби столбиком, строки переносятся
+    const lines = wrapEq(this.prob.t, pw - 6, 22), fr = /\//.test(this.prob.t); let fy = py + 16;
+    ctx.font = `600 14px ${FONT_UI}`; ctx.fillStyle = '#86c9e8'; ctx.fillText(this.prob.c, px + pw / 2, fy); fy += fr ? 30 : 22;
+    for (const l of lines.lines) { mathText(l, px + pw / 2, fy, lines.size, '#d8f6ff', 'center', pw - 6); fy += lines.size * (fr ? 1.6 : 1.15) }
     // ячейки ответа
     const n = this.slots, cw = Math.min(26, (pw - 10) / n), x0 = px + pw / 2 - cw * n / 2, cy = py + ph - 26;
     for (let i = 0; i < n; i++) { ctx.strokeStyle = 'rgba(140,220,255,.6)'; ctx.lineWidth = 1.5; ctx.shadowBlur = 0; ctx.strokeRect(x0 + i * cw + 2, cy - 12, cw - 4, 26); const s = this.placed[i]; if (s) this.drawShardAt(s, x0 + i * cw + cw / 2, cy + 1, (cw - 2) / 74) }
@@ -1578,7 +1621,7 @@ const Soul = {
 };
 // перенос уравнения на строки под ширину панели
 function wrapEq(t, maxW, size) {
-  for (let s = size; s >= 9; s--) {
+  for (let s = size; s >= 13; s--) {
     ctx.font = `700 ${s}px ${FONT_EQ}`; if (ctx.measureText(t).width <= maxW) return { lines: [t], size: s };
     const parts = t.includes(';') ? t.split(/;\s*/) : t.includes(' = ') ? [t.slice(0, t.indexOf(' = ')), t.slice(t.indexOf(' = ') + 1)] : [t];
     if (parts.every(p => ctx.measureText(p).width <= maxW)) return { lines: parts, size: s };
@@ -1611,13 +1654,13 @@ const Eye = {
   },
   drawables(list) { list.push({ z: this.z + .003, draw: () => this.draw() }) },
   draw() {
-    const E = IM.eye, X = sx(this.x), Y = zy(this.z) - this.h, k = .2 * zs(this.z), t = this.t;
+    const E = IM.eye, X = sx(this.x), Y = zy(this.z) - this.h, k = .24 * zs(this.z), t = this.t;
     if (X < -80 || X > VW + 80) return;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(X, Y, 0, X, Y, 70); g.addColorStop(0, 'rgba(70,150,255,.32)'); g.addColorStop(1, 'rgba(40,90,255,0)'); ctx.fillStyle = g; ctx.fillRect(X - 70, Y - 70, 140, 140); ctx.restore();
     // корона пламени: колышется (масштаб и наклон), второй слой — свечение
-    const fw = E.flame.width * k, fh = E.flame.height * k, sy = 1 + .09 * Math.sin(t * 9) + .04 * Math.sin(t * 23), sxx = 1 + .05 * Math.sin(t * 7 + 1), sway = .06 * Math.sin(t * 3.3) - this.vx * .0006;
+    const fw = E.flame.width * k * 1.35, fh = E.flame.height * k * 1.45, sy = 1 + .09 * Math.sin(t * 9) + .04 * Math.sin(t * 23), sxx = 1 + .05 * Math.sin(t * 7 + 1), sway = .06 * Math.sin(t * 3.3) - this.vx * .0006;
     ctx.save(); ctx.translate(X, Y + fh * .08); ctx.rotate(sway); ctx.scale(sxx, sy); ctx.drawImage(E.flame, -fw / 2, -fh * .55, fw, fh);
-    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .35 + .2 * Math.sin(t * 13); ctx.scale(1.04, 1.08); ctx.drawImage(E.flame, -fw / 2, -fh * .56, fw, fh); ctx.restore();
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .6 + .2 * Math.sin(t * 13); ctx.scale(1.06, 1.12); ctx.drawImage(E.flame, -fw / 2, -fh * .56, fw, fh); ctx.restore();
     // глаз внутри оправы, зрачок поворачивается к цели
     const rw = E.ring.width * k, ir = rw * .36, ew = E.eye.width * k * .78, eh = E.eye.height * k * .78 * (this.blink > 0 ? .15 : 1);
     ctx.save(); ctx.beginPath(); ctx.arc(X, Y, ir, 0, TAU); ctx.clip(); ctx.fillStyle = '#0c1020'; ctx.fillRect(X - ir, Y - ir, 2 * ir, 2 * ir);
@@ -1641,16 +1684,16 @@ const UI = {
   hud() {
     const H = Hero.H, G = Game;
     // здоровье
-    this.panel(16, 14, 300, 52); this.text('Здоровье', 28, 34, 16, '#aeb9cf'); this.text(`${Math.ceil(H.hp)}`, 304, 34, 16, '#f1d7d2', FONT_UI, 'right');
-    this.bar(28, 42, 276, 13, H.hp / H.maxhp, '#e0574a', '#8e2420'); if (G.healFx > 0) { ctx.globalAlpha = G.healFx; this.text(`+${G.healAmt}`, 320, 54, 18, '#9dffb8', FONT_UI, 'left', 700); ctx.globalAlpha = 1 }
+    this.panel(16, 14, 300, 56); this.text('Здоровье', 28, 36, 18, '#aeb9cf'); this.text(`${Math.ceil(H.hp)}`, 304, 36, 18, '#f1d7d2', FONT_UI, 'right');
+    this.bar(28, 45, 276, 14, H.hp / H.maxhp, '#e0574a', '#8e2420'); if (G.healFx > 0) { ctx.globalAlpha = G.healFx; this.text(`+${G.healAmt}`, 320, 54, 18, '#9dffb8', FONT_UI, 'left', 700); ctx.globalAlpha = 1 }
     // очки и решённые задачи
-    this.panel(VW - 236, 14, 220, G.stats.tasks ? 52 : 34); this.text(`Очки: ${G.score}`, VW - 224, 36, 17, '#e6d9b8'); if (G.stats.tasks) this.text(`Решено: ${G.stats.solved} из ${G.stats.tasks}`, VW - 224, 58, 15, '#9fd8f0');
+    this.panel(VW - 246, 14, 230, G.stats.tasks ? 58 : 36); this.text(`Очки: ${G.score}`, VW - 234, 38, 19, '#e6d9b8'); if (G.stats.tasks) this.text(`Решено: ${G.stats.solved} из ${G.stats.tasks}`, VW - 234, 62, 17, '#9fd8f0');
     this.text(Snd.muted ? 'M — звук выкл' : 'M — звук', VW - 28, 36, 13, '#7f8aa0', FONT_UI, 'right', 500);
     // волна или босс
     const B = Boss.b;
     if (B && B.st !== 'dying') {
       const w = 540, x = VW / 2 - w / 2; this.panel(x, 12, w, 74); this.text(DRESS[B.id].name, VW / 2, 35, 21, '#e9e2d0', FONT_TITLE, 'center', 700);
-      LIMBS.forEach((l, i) => { const lm = B.limbs[l], bx = x + 14 + i * 130, k = lm.alive ? lm.hp / lm.max : 0; this.text(LIMB_NAME[l], bx, 56, 14, lm.alive ? '#b9c3d6' : '#5f6779', FONT_UI, 'left', 500);
+      LIMBS.forEach((l, i) => { const lm = B.limbs[l], bx = x + 14 + i * 130, k = lm.alive ? lm.hp / lm.max : 0; this.text(LIMB_NAME[l], bx, 56, 15, lm.alive ? '#b9c3d6' : '#5f6779', FONT_UI, 'left', 500);
         this.bar(bx, 63, 116, 10, k, lm.regrow > 0 ? '#ffb27a' : '#9fb3cf', lm.regrow > 0 ? '#a0522d' : '#56657d'); if (!lm.alive) { ctx.strokeStyle = '#7ad6ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx + 2, 68); ctx.lineTo(bx + 114, 68); ctx.stroke() } });
     } else if (G.phase && G.phase.type === 'wave' && !Soul.on) { const n = Enemies.alive() + G.queue.length; if (n) { this.panel(VW / 2 - 130, 12, 260, 40); this.text(`${G.phase.name} · врагов: ${n}`, VW / 2, 39, 19, '#e6e0cf', FONT_TITLE, 'center', 700) } }
     // форма души: табличка с уравнением
@@ -1659,33 +1702,37 @@ const UI = {
     if (this.helpT < 16 && !Soul.on) { const a = Math.min(1, (16 - this.helpT) / 2); ctx.globalAlpha = a; this.panel(16, VH - 70, 680, 54, .62);
       this.text('A/D — шаг · Shift — бег · W/S — вглубь/ближе · Space — рывок', 28, VH - 47, 16, '#c9d3e6', FONT_UI, 'left', 500); this.text('ЛКМ — серия из трёх ударов · J/K/L — удары · Enter — пауза', 28, VH - 25, 16, '#c9d3e6', FONT_UI, 'left', 500); ctx.globalAlpha = 1 }
     // баннеры
-    for (const b of this.banners) { const k = b.t / b.life, a = Math.min(1, b.t * 4) * Math.min(1, (b.life - b.t) * 2.5), y = (Soul.on ? VH * .5 : VH * .34) - 10 * k; ctx.globalAlpha = a; this.text(b.text, VW / 2, y, 52, b.col, FONT_TITLE, 'center', 700); if (b.sub) this.text(b.sub, VW / 2, y + 36, 21, '#c2cde2', FONT_UI, 'center', 500); ctx.globalAlpha = 1 }
+    for (const b of this.banners) { const k = b.t / b.life, a = Math.min(1, b.t * 4) * Math.min(1, (b.life - b.t) * 2.5), so = Soul.on && this.tabB, y = (so ? this.tabB + 44 : VH * .34) - 10 * k, bxc = so ? this.tabX : VW / 2; ctx.globalAlpha = a; this.text(b.text, bxc, y, so ? 34 : 52, b.col, FONT_TITLE, 'center', 700); if (b.sub) this.text(b.sub, bxc, y + (so ? 28 : 36), so ? 17 : 21, '#c2cde2', FONT_UI, 'center', 500); ctx.globalAlpha = 1 }
   },
   soulTablet() {
-    const S = Soul, w = 470, h = 124, x = VW / 2 - w / 2, y = Boss.b ? 94 : 60;
+    // табличка уходит в сторону от босса, чтобы не закрывать ему голову
+    const S = Soul, w = 470, h = 124, B = Boss.b, bx = B && !B.gone ? sx(B.x) : null, want = bx == null || bx < -200 || bx > VW + 200 ? VW / 2 : bx > VW / 2 ? 290 : VW - 290;
+    this.tabX = this.tabX == null ? want : lp(this.tabX, want, .08); const cx = this.tabX, x = cx - w / 2, y = Boss.b ? 94 : 60; this.tabB = y + h;
     ctx.save(); rr(x, y, w, h, 10); ctx.fillStyle = this.pat(); ctx.fill(); ctx.fillStyle = 'rgba(8,12,24,.84)'; ctx.fill(); ctx.strokeStyle = 'rgba(120,200,255,.55)'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
     this.text(S.prob.c, x + 16, y + 24, 16, '#8fcbe6', FONT_UI, 'left', 600);
     // уравнение: дроби — столбиком, как в бланке ОГЭ
-    ctx.save(); ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10; mathText(S.prob.t, VW / 2, y + 60, 26, '#dcf6ff', 'center', w - 40); ctx.restore();
+    ctx.save(); ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10; mathText(S.prob.t, cx, y + 60, 26, '#dcf6ff', 'center', w - 40); ctx.restore();
     // ячейки ответа
-    const n = S.slots, cw = 34, x0 = VW / 2 - n * cw / 2, cy = y + 104, full = S.full();
-    for (let i = 0; i < n; i++) { ctx.strokeStyle = full ? 'rgba(160,255,200,.8)' : 'rgba(140,220,255,.55)'; ctx.lineWidth = 1.5; ctx.strokeRect(x0 + i * cw + 3, cy - 14, cw - 6, 28); const s = S.placed[i]; if (s) Soul.drawShardAt(s, x0 + i * cw + cw / 2, cy, .42) }
+    const n = S.slots, cw = 34, x0 = cx - n * cw / 2, cy = y + 104, full = S.full();
+    for (let i = 0; i < n; i++) { ctx.strokeStyle = S.confirm > 0 && i < S.placed.length ? 'rgba(255,217,138,.95)' : full ? 'rgba(160,255,200,.8)' : 'rgba(140,220,255,.55)'; ctx.lineWidth = 1.5; ctx.strokeRect(x0 + i * cw + 3, cy - 14, cw - 6, 28); const s = S.placed[i]; if (s) Soul.drawShardAt(s, x0 + i * cw + cw / 2, cy, .42) }
     // время души
     const k = S.T / S.TMAX; this.bar(x + w - 124, y + 14, 108, 8, k, k > .3 ? '#7fe3ff' : '#ff9a7a', k > .3 ? '#2c8fbf' : '#b0402a'); this.text(`${Math.ceil(S.T)} с`, x + w - 16, y + 39, 15, S.T < 10 ? '#ffb59a' : '#a9d9ee', FONT_UI, 'right', 600);
     // в руках: первая цифра ляжет следующей
     if (S.carried.length) { this.text('В руках:', x + 16, y + 110, 15, '#9fb8cc', FONT_UI, 'left', 500); S.carried.forEach((s, i) => { if (!i) { ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 2; ctx.strokeRect(x + 84 + i * 30, y + 92, 26, 26) } Soul.drawShardAt(s, x + 97 + i * 30, y + 105, .34) }) }
     // подсказка внизу — по состоянию
     const at = S.atMonolith(), near = S.nearShard(), nx = S.carried[0] ? `«${S.carried[0].d}»` : '';
-    const tip = S.ph !== 'free' ? '' : at && full ? 'E — проверить ответ · Q — забрать последнюю цифру'
+    const ans = S.placed.map(s => s.d).join('');
+    const tip = S.ph !== 'free' ? '' : at && S.confirm > 0 ? `E — да, проверить «${ans}» · Q — забрать последнюю цифру`
+      : at && full ? 'Ячейки заполнены: E — проверить · Q — забрать последнюю цифру'
       : at && S.carried.length ? `E — положить ${nx} в следующую ячейку · R — поменять порядок · Q — забрать последнюю`
-      : at && S.placed.length ? 'Q — забрать последнюю цифру · принеси недостающие цифры'
+      : at && S.placed.length ? 'E — проверить ответ · Q — забрать последнюю · или принеси ещё цифры'
       : near && S.carried.length < 3 ? `E — подобрать «${near.d}»` : S.carried.length >= 3 ? 'Руки заняты — неси цифры к монолиту (Q — бросить последнюю)'
       : 'Собери цифры ответа и неси к монолиту в центре арены';
     if (tip) { const tw = Math.min(VW - 40, 720); this.panel(VW / 2 - tw / 2, VH - 58, tw, 40, .74); this.text(tip, VW / 2, VH - 31, 18, S.hint > 0 ? '#ffd27a' : '#cfe9f6', FONT_UI, 'center', 600) }
     if (S.msg && S.ph === 'result') {
       const m = S.msg, cy2 = VH * .40; this.panel(VW / 2 - 330, cy2 - 58, 660, m.ok ? 92 : 150, .82);
       this.text(m.text, VW / 2, cy2, 44, m.ok ? '#8dffb3' : '#ff8a7a', FONT_TITLE, 'center', 700);
-      if (m.ok) this.text(`+${m.heal} здоровья${m.fast ? ' · быстрый ответ!' : ''}`, VW / 2, cy2 + 26, 19, '#c9f7d8', FONT_UI, 'center', 600);
+      if (m.ok) { const parts = []; if (m.heal > 0) parts.push(`+${m.heal} здоровья`); if (m.fast) parts.push('быстрый ответ!'); if (parts.length) this.text(parts.join(' · '), VW / 2, cy2 + 26, 19, '#c9f7d8', FONT_UI, 'center', 600) }
       else { this.text(`Верный ответ: ${m.ans}`, VW / 2, cy2 + 30, 22, '#e8eef8', FONT_UI, 'center', 700); if (m.sol) mathText(m.sol, VW / 2, cy2 + 62, 18, '#b9d8ea', 'center', 620); if (S.t > 2.2) this.text('E — дальше', VW / 2, cy2 + 84, 14, '#8a97ad', FONT_UI, 'center', 500) }
     }
     // стрелки к монолиту и к осколкам за краем экрана
@@ -1713,7 +1760,7 @@ const UI = {
   end(win, t) {
     this.overlay(.68); const G = Game, s = G.stats, tm = Math.floor(G.time);
     ctx.save(); ctx.shadowColor = win ? '#4fd6ff' : '#ff4a3a'; ctx.shadowBlur = 26; this.text(win ? 'Победа' : 'Поражение', VW / 2, 150, 84, win ? '#dff7ff' : '#ffd2cc', FONT_TITLE, 'center', 700); ctx.restore();
-    this.text(win ? 'Каменные стражи повержены. Арена молчит.' : 'Арена забрала героя. Этап можно пройти заново.', VW / 2, 194, 22, '#b6c3db', FONT_UI, 'center', 500);
+    this.text(win ? 'Страж и палач повержены. Арена молчит.' : 'Арена забрала героя. Этап можно пройти заново.', VW / 2, 194, 22, '#b6c3db', FONT_UI, 'center', 500);
     this.panel(VW / 2 - 440, 222, 400, 128, .6);
     [['Решено задач', `${s.solved} из ${s.tasks}`], ['Разбито конечностей', `${s.broken}`], ['Время', `${Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`], ['Очки', `${G.score}`]].forEach(([k, v], i) => { this.text(k, VW / 2 - 420, 254 + i * 26, 18, '#aeb9cf', FONT_UI, 'left', 500); this.text(v, VW / 2 - 60, 254 + i * 26, 18, '#f0e6c8', FONT_UI, 'right', 700) });
     // темы: что получилось, что повторить
@@ -1833,13 +1880,13 @@ const Game = {
   reset0() { Snd.init(); FX.reset(); Enemies.reset(); Boss.reset(); Soul.reset(); this.setDiff(this.diff) },
   start() {
     this.reset0(); Problems.reset();
-    Object.assign(this, { scene: 'play', time: 0, score: 0, level: 0, stats: { solved: 0, tasks: 0, broken: 0, hits: 0, topics: {} }, pi: -1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false });
+    Object.assign(this, { scene: 'play', time: 0, score: 0, level: 0, stats: { solved: 0, tasks: 0, broken: 0, hits: 0, topics: {} }, pi: -1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false, sealBroken: false });
     Hero.reset(W.ARENA / 2 - 260, .62); Eye.reset(Hero.H.x - 60, .62); Cam.snap(Hero.H.x); UI.helpT = 0; this.next();
   },
   // после поражения — заново с начала этапа: счёт и статистика — как были на входе в этап
   retry() {
     const c = this.check; if (!c) return this.start();
-    this.reset0(); Object.assign(this, { scene: 'play', time: c.time, score: c.score, level: c.level, stats: JSON.parse(JSON.stringify(c.stats)), pi: c.pi - 1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false });
+    this.reset0(); Object.assign(this, { scene: 'play', time: c.time, score: c.score, level: c.level, stats: JSON.parse(JSON.stringify(c.stats)), pi: c.pi - 1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false, sealBroken: false });
     Hero.reset(W.ARENA / 2 - 260, .62); Eye.reset(Hero.H.x - 60, .62); Cam.snap(Hero.H.x); this.next(true);
   },
   next(retry) {
@@ -1851,8 +1898,9 @@ const Game = {
   },
   bossDown(id) { this.score += 500; UI.banner(DRESS[id].name + ' повержен', '', '#bfefff', 2.6); this.nextT = 3 },
   // волна отбита: печать монолита — задача без боя, верный ответ возвращает силы
-  waveDone() { this.sealing = true; Snd.seal(); Soul.seal(); if (!this.soulSeen) { this.soulSeen = 1; UI.banner('Печать монолита', 'Душа выходит из тела: собери цифры ответа (E) и сложи их на монолите', '#bfefff', 4.6) } },
-  sealDone(ok) { this.sealing = false; this.nextT = 1.2 },
+  waveDone() { if (this.sealBroken) { this.sealBroken = false; this.nextT = 1.2; return } this.sealing = true; Snd.seal(); Soul.seal(); if (!this.soulSeen) { this.soulSeen = 1; UI.banner('Печать монолита', 'Душа выходит из тела: собери цифры ответа (E) и сложи их на монолите', '#bfefff', 4.6) } },
+  // неверный ответ на печати: печать трескается, из ворот выходят ещё два врага
+  sealDone(ok) { this.sealing = false; if (ok) { this.nextT = 1.2; return } this.sealBroken = true; this.queue.push('ghoul', pick(['knight', 'doctor'])); this.spawnT = 1.4; UI.banner('Печать треснула', 'Из ворот выходят ещё враги', '#ffb59a', 2.6) },
   // тело героя, пока душа вне тела: подходит к боссу и рубит (для вида — урона нет); без босса — стоит в стойке
   bodyAI() {
     const B = Boss.b, H = Hero.H; if (!B) return { x: 0, z: 0, atk: -1 };
@@ -1930,12 +1978,15 @@ const autoPause = () => { if (Game.scene === 'play' && !Game.test) Game.scene = 
 addEventListener('blur', autoPause); document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause() });
 let acc = 0, last = 0;
 function frame(ts) {
+  requestAnimationFrame(frame);
+  try { frameBody(ts) } catch (e) { if (!frame.err) { frame.err = 1; console.warn(e) } }
+}
+function frameBody(ts) {
   const dt = last ? Math.min(.1, (ts - last) / 1000) : DT; last = ts;
   if (!Game.test) { acc += dt; let n = 0; while (acc >= DT && n < 5) { Game.step(DT); acc -= DT; n++ } if (n === 5) acc = 0 }
   ctx = cvs.getContext('2d'); ctx.setTransform(Game.k, 0, 0, Game.k, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'low'; // все картинки заранее уменьшены почти до экранного размера — билинейной выборки хватает
   ctx.fillStyle = '#05060c'; ctx.fillRect(0, 0, VW, VH);
   if (Game.scene !== 'load' || IM.bg_far) Game.render(); else { ctx.fillStyle = '#9fb0c8'; ctx.font = `600 22px ${FONT_UI}`; ctx.textAlign = 'center'; ctx.fillText(`Загрузка… ${Math.round(Game.loadK * 100)}%`, VW / 2, VH / 2) }
-  requestAnimationFrame(frame);
 }
 (async () => {
   requestAnimationFrame(frame);

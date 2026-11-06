@@ -12,16 +12,16 @@ const UI = {
   hud() {
     const H = Hero.H, G = Game;
     // здоровье
-    this.panel(16, 14, 300, 52); this.text('Здоровье', 28, 34, 16, '#aeb9cf'); this.text(`${Math.ceil(H.hp)}`, 304, 34, 16, '#f1d7d2', FONT_UI, 'right');
-    this.bar(28, 42, 276, 13, H.hp / H.maxhp, '#e0574a', '#8e2420'); if (G.healFx > 0) { ctx.globalAlpha = G.healFx; this.text(`+${G.healAmt}`, 320, 54, 18, '#9dffb8', FONT_UI, 'left', 700); ctx.globalAlpha = 1 }
+    this.panel(16, 14, 300, 56); this.text('Здоровье', 28, 36, 18, '#aeb9cf'); this.text(`${Math.ceil(H.hp)}`, 304, 36, 18, '#f1d7d2', FONT_UI, 'right');
+    this.bar(28, 45, 276, 14, H.hp / H.maxhp, '#e0574a', '#8e2420'); if (G.healFx > 0) { ctx.globalAlpha = G.healFx; this.text(`+${G.healAmt}`, 320, 54, 18, '#9dffb8', FONT_UI, 'left', 700); ctx.globalAlpha = 1 }
     // очки и решённые задачи
-    this.panel(VW - 236, 14, 220, G.stats.tasks ? 52 : 34); this.text(`Очки: ${G.score}`, VW - 224, 36, 17, '#e6d9b8'); if (G.stats.tasks) this.text(`Решено: ${G.stats.solved} из ${G.stats.tasks}`, VW - 224, 58, 15, '#9fd8f0');
+    this.panel(VW - 246, 14, 230, G.stats.tasks ? 58 : 36); this.text(`Очки: ${G.score}`, VW - 234, 38, 19, '#e6d9b8'); if (G.stats.tasks) this.text(`Решено: ${G.stats.solved} из ${G.stats.tasks}`, VW - 234, 62, 17, '#9fd8f0');
     this.text(Snd.muted ? 'M — звук выкл' : 'M — звук', VW - 28, 36, 13, '#7f8aa0', FONT_UI, 'right', 500);
     // волна или босс
     const B = Boss.b;
     if (B && B.st !== 'dying') {
       const w = 540, x = VW / 2 - w / 2; this.panel(x, 12, w, 74); this.text(DRESS[B.id].name, VW / 2, 35, 21, '#e9e2d0', FONT_TITLE, 'center', 700);
-      LIMBS.forEach((l, i) => { const lm = B.limbs[l], bx = x + 14 + i * 130, k = lm.alive ? lm.hp / lm.max : 0; this.text(LIMB_NAME[l], bx, 56, 14, lm.alive ? '#b9c3d6' : '#5f6779', FONT_UI, 'left', 500);
+      LIMBS.forEach((l, i) => { const lm = B.limbs[l], bx = x + 14 + i * 130, k = lm.alive ? lm.hp / lm.max : 0; this.text(LIMB_NAME[l], bx, 56, 15, lm.alive ? '#b9c3d6' : '#5f6779', FONT_UI, 'left', 500);
         this.bar(bx, 63, 116, 10, k, lm.regrow > 0 ? '#ffb27a' : '#9fb3cf', lm.regrow > 0 ? '#a0522d' : '#56657d'); if (!lm.alive) { ctx.strokeStyle = '#7ad6ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx + 2, 68); ctx.lineTo(bx + 114, 68); ctx.stroke() } });
     } else if (G.phase && G.phase.type === 'wave' && !Soul.on) { const n = Enemies.alive() + G.queue.length; if (n) { this.panel(VW / 2 - 130, 12, 260, 40); this.text(`${G.phase.name} · врагов: ${n}`, VW / 2, 39, 19, '#e6e0cf', FONT_TITLE, 'center', 700) } }
     // форма души: табличка с уравнением
@@ -30,33 +30,37 @@ const UI = {
     if (this.helpT < 16 && !Soul.on) { const a = Math.min(1, (16 - this.helpT) / 2); ctx.globalAlpha = a; this.panel(16, VH - 70, 680, 54, .62);
       this.text('A/D — шаг · Shift — бег · W/S — вглубь/ближе · Space — рывок', 28, VH - 47, 16, '#c9d3e6', FONT_UI, 'left', 500); this.text('ЛКМ — серия из трёх ударов · J/K/L — удары · Enter — пауза', 28, VH - 25, 16, '#c9d3e6', FONT_UI, 'left', 500); ctx.globalAlpha = 1 }
     // баннеры
-    for (const b of this.banners) { const k = b.t / b.life, a = Math.min(1, b.t * 4) * Math.min(1, (b.life - b.t) * 2.5), y = (Soul.on ? VH * .5 : VH * .34) - 10 * k; ctx.globalAlpha = a; this.text(b.text, VW / 2, y, 52, b.col, FONT_TITLE, 'center', 700); if (b.sub) this.text(b.sub, VW / 2, y + 36, 21, '#c2cde2', FONT_UI, 'center', 500); ctx.globalAlpha = 1 }
+    for (const b of this.banners) { const k = b.t / b.life, a = Math.min(1, b.t * 4) * Math.min(1, (b.life - b.t) * 2.5), so = Soul.on && this.tabB, y = (so ? this.tabB + 44 : VH * .34) - 10 * k, bxc = so ? this.tabX : VW / 2; ctx.globalAlpha = a; this.text(b.text, bxc, y, so ? 34 : 52, b.col, FONT_TITLE, 'center', 700); if (b.sub) this.text(b.sub, bxc, y + (so ? 28 : 36), so ? 17 : 21, '#c2cde2', FONT_UI, 'center', 500); ctx.globalAlpha = 1 }
   },
   soulTablet() {
-    const S = Soul, w = 470, h = 124, x = VW / 2 - w / 2, y = Boss.b ? 94 : 60;
+    // табличка уходит в сторону от босса, чтобы не закрывать ему голову
+    const S = Soul, w = 470, h = 124, B = Boss.b, bx = B && !B.gone ? sx(B.x) : null, want = bx == null || bx < -200 || bx > VW + 200 ? VW / 2 : bx > VW / 2 ? 290 : VW - 290;
+    this.tabX = this.tabX == null ? want : lp(this.tabX, want, .08); const cx = this.tabX, x = cx - w / 2, y = Boss.b ? 94 : 60; this.tabB = y + h;
     ctx.save(); rr(x, y, w, h, 10); ctx.fillStyle = this.pat(); ctx.fill(); ctx.fillStyle = 'rgba(8,12,24,.84)'; ctx.fill(); ctx.strokeStyle = 'rgba(120,200,255,.55)'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
     this.text(S.prob.c, x + 16, y + 24, 16, '#8fcbe6', FONT_UI, 'left', 600);
     // уравнение: дроби — столбиком, как в бланке ОГЭ
-    ctx.save(); ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10; mathText(S.prob.t, VW / 2, y + 60, 26, '#dcf6ff', 'center', w - 40); ctx.restore();
+    ctx.save(); ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10; mathText(S.prob.t, cx, y + 60, 26, '#dcf6ff', 'center', w - 40); ctx.restore();
     // ячейки ответа
-    const n = S.slots, cw = 34, x0 = VW / 2 - n * cw / 2, cy = y + 104, full = S.full();
-    for (let i = 0; i < n; i++) { ctx.strokeStyle = full ? 'rgba(160,255,200,.8)' : 'rgba(140,220,255,.55)'; ctx.lineWidth = 1.5; ctx.strokeRect(x0 + i * cw + 3, cy - 14, cw - 6, 28); const s = S.placed[i]; if (s) Soul.drawShardAt(s, x0 + i * cw + cw / 2, cy, .42) }
+    const n = S.slots, cw = 34, x0 = cx - n * cw / 2, cy = y + 104, full = S.full();
+    for (let i = 0; i < n; i++) { ctx.strokeStyle = S.confirm > 0 && i < S.placed.length ? 'rgba(255,217,138,.95)' : full ? 'rgba(160,255,200,.8)' : 'rgba(140,220,255,.55)'; ctx.lineWidth = 1.5; ctx.strokeRect(x0 + i * cw + 3, cy - 14, cw - 6, 28); const s = S.placed[i]; if (s) Soul.drawShardAt(s, x0 + i * cw + cw / 2, cy, .42) }
     // время души
     const k = S.T / S.TMAX; this.bar(x + w - 124, y + 14, 108, 8, k, k > .3 ? '#7fe3ff' : '#ff9a7a', k > .3 ? '#2c8fbf' : '#b0402a'); this.text(`${Math.ceil(S.T)} с`, x + w - 16, y + 39, 15, S.T < 10 ? '#ffb59a' : '#a9d9ee', FONT_UI, 'right', 600);
     // в руках: первая цифра ляжет следующей
     if (S.carried.length) { this.text('В руках:', x + 16, y + 110, 15, '#9fb8cc', FONT_UI, 'left', 500); S.carried.forEach((s, i) => { if (!i) { ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 2; ctx.strokeRect(x + 84 + i * 30, y + 92, 26, 26) } Soul.drawShardAt(s, x + 97 + i * 30, y + 105, .34) }) }
     // подсказка внизу — по состоянию
     const at = S.atMonolith(), near = S.nearShard(), nx = S.carried[0] ? `«${S.carried[0].d}»` : '';
-    const tip = S.ph !== 'free' ? '' : at && full ? 'E — проверить ответ · Q — забрать последнюю цифру'
+    const ans = S.placed.map(s => s.d).join('');
+    const tip = S.ph !== 'free' ? '' : at && S.confirm > 0 ? `E — да, проверить «${ans}» · Q — забрать последнюю цифру`
+      : at && full ? 'Ячейки заполнены: E — проверить · Q — забрать последнюю цифру'
       : at && S.carried.length ? `E — положить ${nx} в следующую ячейку · R — поменять порядок · Q — забрать последнюю`
-      : at && S.placed.length ? 'Q — забрать последнюю цифру · принеси недостающие цифры'
+      : at && S.placed.length ? 'E — проверить ответ · Q — забрать последнюю · или принеси ещё цифры'
       : near && S.carried.length < 3 ? `E — подобрать «${near.d}»` : S.carried.length >= 3 ? 'Руки заняты — неси цифры к монолиту (Q — бросить последнюю)'
       : 'Собери цифры ответа и неси к монолиту в центре арены';
     if (tip) { const tw = Math.min(VW - 40, 720); this.panel(VW / 2 - tw / 2, VH - 58, tw, 40, .74); this.text(tip, VW / 2, VH - 31, 18, S.hint > 0 ? '#ffd27a' : '#cfe9f6', FONT_UI, 'center', 600) }
     if (S.msg && S.ph === 'result') {
       const m = S.msg, cy2 = VH * .40; this.panel(VW / 2 - 330, cy2 - 58, 660, m.ok ? 92 : 150, .82);
       this.text(m.text, VW / 2, cy2, 44, m.ok ? '#8dffb3' : '#ff8a7a', FONT_TITLE, 'center', 700);
-      if (m.ok) this.text(`+${m.heal} здоровья${m.fast ? ' · быстрый ответ!' : ''}`, VW / 2, cy2 + 26, 19, '#c9f7d8', FONT_UI, 'center', 600);
+      if (m.ok) { const parts = []; if (m.heal > 0) parts.push(`+${m.heal} здоровья`); if (m.fast) parts.push('быстрый ответ!'); if (parts.length) this.text(parts.join(' · '), VW / 2, cy2 + 26, 19, '#c9f7d8', FONT_UI, 'center', 600) }
       else { this.text(`Верный ответ: ${m.ans}`, VW / 2, cy2 + 30, 22, '#e8eef8', FONT_UI, 'center', 700); if (m.sol) mathText(m.sol, VW / 2, cy2 + 62, 18, '#b9d8ea', 'center', 620); if (S.t > 2.2) this.text('E — дальше', VW / 2, cy2 + 84, 14, '#8a97ad', FONT_UI, 'center', 500) }
     }
     // стрелки к монолиту и к осколкам за краем экрана
@@ -84,7 +88,7 @@ const UI = {
   end(win, t) {
     this.overlay(.68); const G = Game, s = G.stats, tm = Math.floor(G.time);
     ctx.save(); ctx.shadowColor = win ? '#4fd6ff' : '#ff4a3a'; ctx.shadowBlur = 26; this.text(win ? 'Победа' : 'Поражение', VW / 2, 150, 84, win ? '#dff7ff' : '#ffd2cc', FONT_TITLE, 'center', 700); ctx.restore();
-    this.text(win ? 'Каменные стражи повержены. Арена молчит.' : 'Арена забрала героя. Этап можно пройти заново.', VW / 2, 194, 22, '#b6c3db', FONT_UI, 'center', 500);
+    this.text(win ? 'Страж и палач повержены. Арена молчит.' : 'Арена забрала героя. Этап можно пройти заново.', VW / 2, 194, 22, '#b6c3db', FONT_UI, 'center', 500);
     this.panel(VW / 2 - 440, 222, 400, 128, .6);
     [['Решено задач', `${s.solved} из ${s.tasks}`], ['Разбито конечностей', `${s.broken}`], ['Время', `${Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`], ['Очки', `${G.score}`]].forEach(([k, v], i) => { this.text(k, VW / 2 - 420, 254 + i * 26, 18, '#aeb9cf', FONT_UI, 'left', 500); this.text(v, VW / 2 - 60, 254 + i * 26, 18, '#f0e6c8', FONT_UI, 'right', 700) });
     // темы: что получилось, что повторить

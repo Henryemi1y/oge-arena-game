@@ -18,7 +18,7 @@ const Soul = {
   },
   start(o) {
     const p = this.prob = Problems.next(Game.level), s = this.ansStr(p.a), pos = o.pos;
-    Object.assign(this, { mode: o.mode, part: o.part || null, B: o.B || null, last: o.last, slots: s.length, on: true, ph: 'out', t: 0, T: this.TMAX, carried: [], placed: [], msg: null, res: null, used: 0 });
+    Object.assign(this, { mode: o.mode, part: o.part || null, B: o.B || null, last: o.last, slots: Math.max(4, s.length), confirm: 0, on: true, ph: 'out', t: 0, T: this.TMAX, carried: [], placed: [], msg: null, res: null, used: 0 });
     // осколки: цифры ответа + приманки (соседние цифры — типичные ошибки)
     const ds = [...s], dec = [], nDec = cl(8 - ds.length, 3, 5);
     for (let i = 0; i < nDec; i++) { const base = ds.filter(c => c !== '−'); let d = base.length && Math.random() < .6 ? (+pick(base) + pick([-1, 1, 2, -2]) + 10) % 10 : irnd(0, 9); dec.push('' + d) }
@@ -62,14 +62,15 @@ const Soul = {
         if (this.mode === 'limb') Boss.limbResult(this.part, this.res); else Game.sealDone(this.res);
       }
     }
-    this.hint = Math.max(0, this.hint - dt);
+    this.hint = Math.max(0, this.hint - dt); this.confirm = Math.max(0, (this.confirm || 0) - dt);
     this.shards = this.shards.filter(s => !s.gone);
   },
-  // E: у монолита — положить первую цифру из рук; все ячейки заполнены — проверить; в поле — подобрать
+  // E: у монолита — положить первую цифру из рук; руки пусты — проверить (второе нажатие подтверждает, если ячейки не заполнены);
+  // в поле — подобрать. Ячеек всегда не меньше четырёх: их число не подсказывает длину ответа.
   use() {
     if (this.atMonolith()) {
-      if (this.full()) return this.check();
-      if (this.carried.length) { const s = this.carried.shift(); s.carried = false; s.placed = true; this.placed.push(s); Snd.place(); FX.flash(World.monolith.x, World.monolith.z, 200, 60, '120,220,255', .2); return }
+      if (this.carried.length && !this.full()) { const s = this.carried.shift(); s.carried = false; s.placed = true; this.placed.push(s); Snd.place(); FX.flash(World.monolith.x, World.monolith.z, 200, 60, '120,220,255', .2); return }
+      if (this.placed.length && (!this.carried.length || this.full())) { if (this.confirm > 0) return this.check(); this.confirm = 2.5; Snd.tick(); return }
     }
     const s = this.nearShard(); if (s && this.carried.length < 3) { s.carried = true; this.carried.push(s); Snd.pickup(); FX.flash(s.x, s.z, 20, 40, '140,230,255', .15); return }
     this.hint = 1.2; Snd.tick();
@@ -91,7 +92,7 @@ const Soul = {
     if (ok) {
       Snd.correct(); Game.stats.solved++; FX.flash(World.monolith.x, World.monolith.z, 220, 200, '120,230,255', .6); for (const s of this.placed) s.gone = 1;
       // награда: здоровье за верный ответ, больше — за быстрый
-      const heal = 30 + (fast ? 20 : 0); Game.heal(heal); Game.score += 100 + (fast ? 100 : 0); this.msg.heal = heal;
+      const heal = 30 + (fast ? 20 : 0); Game.heal(heal); Game.score += 100 + (fast ? 100 : 0); this.msg.heal = Game.healAmt;
     } else {
       Snd.wrong(); FX.flash(World.monolith.x, World.monolith.z, 220, 200, '255,90,70', .6); Cam.kick(6);
       const B = this.B, G = B && B.G; let tx = World.monolith.x, th = 300, tz = World.monolith.z;
@@ -152,9 +153,10 @@ const Soul = {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(60,140,220,${act ? .12 + .05 * Math.sin(tt * 2) : .03})`; ctx.fillRect(px, py, pw, ph); ctx.restore();
     if (!act) return;
     ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#bfefff'; ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10;
-    const lines = wrapEq(this.prob.t, pw - 8, 19); let fy = py + 18;
-    ctx.font = `600 13px ${FONT_UI}`; ctx.fillStyle = '#86c9e8'; ctx.fillText(this.prob.c, px + pw / 2, fy); fy += 19;
-    ctx.fillStyle = '#d8f6ff'; for (const l of lines.lines) { ctx.font = `700 ${lines.size}px ${FONT_EQ}`; ctx.fillText(l, px + pw / 2, fy); fy += lines.size + 4 }
+    // на самом монолите — та же запись, что на табличке: дроби столбиком, строки переносятся
+    const lines = wrapEq(this.prob.t, pw - 6, 22), fr = /\//.test(this.prob.t); let fy = py + 16;
+    ctx.font = `600 14px ${FONT_UI}`; ctx.fillStyle = '#86c9e8'; ctx.fillText(this.prob.c, px + pw / 2, fy); fy += fr ? 30 : 22;
+    for (const l of lines.lines) { mathText(l, px + pw / 2, fy, lines.size, '#d8f6ff', 'center', pw - 6); fy += lines.size * (fr ? 1.6 : 1.15) }
     // ячейки ответа
     const n = this.slots, cw = Math.min(26, (pw - 10) / n), x0 = px + pw / 2 - cw * n / 2, cy = py + ph - 26;
     for (let i = 0; i < n; i++) { ctx.strokeStyle = 'rgba(140,220,255,.6)'; ctx.lineWidth = 1.5; ctx.shadowBlur = 0; ctx.strokeRect(x0 + i * cw + 2, cy - 12, cw - 4, 26); const s = this.placed[i]; if (s) this.drawShardAt(s, x0 + i * cw + cw / 2, cy + 1, (cw - 2) / 74) }
@@ -164,7 +166,7 @@ const Soul = {
 };
 // перенос уравнения на строки под ширину панели
 function wrapEq(t, maxW, size) {
-  for (let s = size; s >= 9; s--) {
+  for (let s = size; s >= 13; s--) {
     ctx.font = `700 ${s}px ${FONT_EQ}`; if (ctx.measureText(t).width <= maxW) return { lines: [t], size: s };
     const parts = t.includes(';') ? t.split(/;\s*/) : t.includes(' = ') ? [t.slice(0, t.indexOf(' = ')), t.slice(t.indexOf(' = ') + 1)] : [t];
     if (parts.every(p => ctx.measureText(p).width <= maxW)) return { lines: parts, size: s };

@@ -17,13 +17,13 @@ const Game = {
   reset0() { Snd.init(); FX.reset(); Enemies.reset(); Boss.reset(); Soul.reset(); this.setDiff(this.diff) },
   start() {
     this.reset0(); Problems.reset();
-    Object.assign(this, { scene: 'play', time: 0, score: 0, level: 0, stats: { solved: 0, tasks: 0, broken: 0, hits: 0, topics: {} }, pi: -1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false });
+    Object.assign(this, { scene: 'play', time: 0, score: 0, level: 0, stats: { solved: 0, tasks: 0, broken: 0, hits: 0, topics: {} }, pi: -1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false, sealBroken: false });
     Hero.reset(W.ARENA / 2 - 260, .62); Eye.reset(Hero.H.x - 60, .62); Cam.snap(Hero.H.x); UI.helpT = 0; this.next();
   },
   // после поражения — заново с начала этапа: счёт и статистика — как были на входе в этап
   retry() {
     const c = this.check; if (!c) return this.start();
-    this.reset0(); Object.assign(this, { scene: 'play', time: c.time, score: c.score, level: c.level, stats: JSON.parse(JSON.stringify(c.stats)), pi: c.pi - 1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false });
+    this.reset0(); Object.assign(this, { scene: 'play', time: c.time, score: c.score, level: c.level, stats: JSON.parse(JSON.stringify(c.stats)), pi: c.pi - 1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false, sealBroken: false });
     Hero.reset(W.ARENA / 2 - 260, .62); Eye.reset(Hero.H.x - 60, .62); Cam.snap(Hero.H.x); this.next(true);
   },
   next(retry) {
@@ -35,8 +35,9 @@ const Game = {
   },
   bossDown(id) { this.score += 500; UI.banner(DRESS[id].name + ' повержен', '', '#bfefff', 2.6); this.nextT = 3 },
   // волна отбита: печать монолита — задача без боя, верный ответ возвращает силы
-  waveDone() { this.sealing = true; Snd.seal(); Soul.seal(); if (!this.soulSeen) { this.soulSeen = 1; UI.banner('Печать монолита', 'Душа выходит из тела: собери цифры ответа (E) и сложи их на монолите', '#bfefff', 4.6) } },
-  sealDone(ok) { this.sealing = false; this.nextT = 1.2 },
+  waveDone() { if (this.sealBroken) { this.sealBroken = false; this.nextT = 1.2; return } this.sealing = true; Snd.seal(); Soul.seal(); if (!this.soulSeen) { this.soulSeen = 1; UI.banner('Печать монолита', 'Душа выходит из тела: собери цифры ответа (E) и сложи их на монолите', '#bfefff', 4.6) } },
+  // неверный ответ на печати: печать трескается, из ворот выходят ещё два врага
+  sealDone(ok) { this.sealing = false; if (ok) { this.nextT = 1.2; return } this.sealBroken = true; this.queue.push('ghoul', pick(['knight', 'doctor'])); this.spawnT = 1.4; UI.banner('Печать треснула', 'Из ворот выходят ещё враги', '#ffb59a', 2.6) },
   // тело героя, пока душа вне тела: подходит к боссу и рубит (для вида — урона нет); без босса — стоит в стойке
   bodyAI() {
     const B = Boss.b, H = Hero.H; if (!B) return { x: 0, z: 0, atk: -1 };
@@ -114,12 +115,15 @@ const autoPause = () => { if (Game.scene === 'play' && !Game.test) Game.scene = 
 addEventListener('blur', autoPause); document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause() });
 let acc = 0, last = 0;
 function frame(ts) {
+  requestAnimationFrame(frame);
+  try { frameBody(ts) } catch (e) { if (!frame.err) { frame.err = 1; console.warn(e) } }
+}
+function frameBody(ts) {
   const dt = last ? Math.min(.1, (ts - last) / 1000) : DT; last = ts;
   if (!Game.test) { acc += dt; let n = 0; while (acc >= DT && n < 5) { Game.step(DT); acc -= DT; n++ } if (n === 5) acc = 0 }
   ctx = cvs.getContext('2d'); ctx.setTransform(Game.k, 0, 0, Game.k, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'low'; // все картинки заранее уменьшены почти до экранного размера — билинейной выборки хватает
   ctx.fillStyle = '#05060c'; ctx.fillRect(0, 0, VW, VH);
   if (Game.scene !== 'load' || IM.bg_far) Game.render(); else { ctx.fillStyle = '#9fb0c8'; ctx.font = `600 22px ${FONT_UI}`; ctx.textAlign = 'center'; ctx.fillText(`Загрузка… ${Math.round(Game.loadK * 100)}%`, VW / 2, VH / 2) }
-  requestAnimationFrame(frame);
 }
 (async () => {
   requestAnimationFrame(frame);

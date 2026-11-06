@@ -22,13 +22,13 @@ const Eye = {
   },
   drawables(list) { list.push({ z: this.z + .003, draw: () => this.draw() }) },
   draw() {
-    const E = IM.eye, X = sx(this.x), Y = zy(this.z) - this.h, k = .2 * zs(this.z), t = this.t;
+    const E = IM.eye, X = sx(this.x), Y = zy(this.z) - this.h, k = .24 * zs(this.z), t = this.t;
     if (X < -80 || X > VW + 80) return;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; const g = ctx.createRadialGradient(X, Y, 0, X, Y, 70); g.addColorStop(0, 'rgba(70,150,255,.32)'); g.addColorStop(1, 'rgba(40,90,255,0)'); ctx.fillStyle = g; ctx.fillRect(X - 70, Y - 70, 140, 140); ctx.restore();
     // корона пламени: колышется (масштаб и наклон), второй слой — свечение
-    const fw = E.flame.width * k, fh = E.flame.height * k, sy = 1 + .09 * Math.sin(t * 9) + .04 * Math.sin(t * 23), sxx = 1 + .05 * Math.sin(t * 7 + 1), sway = .06 * Math.sin(t * 3.3) - this.vx * .0006;
+    const fw = E.flame.width * k * 1.35, fh = E.flame.height * k * 1.45, sy = 1 + .09 * Math.sin(t * 9) + .04 * Math.sin(t * 23), sxx = 1 + .05 * Math.sin(t * 7 + 1), sway = .06 * Math.sin(t * 3.3) - this.vx * .0006;
     ctx.save(); ctx.translate(X, Y + fh * .08); ctx.rotate(sway); ctx.scale(sxx, sy); ctx.drawImage(E.flame, -fw / 2, -fh * .55, fw, fh);
-    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .35 + .2 * Math.sin(t * 13); ctx.scale(1.04, 1.08); ctx.drawImage(E.flame, -fw / 2, -fh * .56, fw, fh); ctx.restore();
+    ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .6 + .2 * Math.sin(t * 13); ctx.scale(1.06, 1.12); ctx.drawImage(E.flame, -fw / 2, -fh * .56, fw, fh); ctx.restore();
     // глаз внутри оправы, зрачок поворачивается к цели
     const rw = E.ring.width * k, ir = rw * .36, ew = E.eye.width * k * .78, eh = E.eye.height * k * .78 * (this.blink > 0 ? .15 : 1);
     ctx.save(); ctx.beginPath(); ctx.arc(X, Y, ir, 0, TAU); ctx.clip(); ctx.fillStyle = '#0c1020'; ctx.fillRect(X - ir, Y - ir, 2 * ir, 2 * ir);
