@@ -103,7 +103,7 @@ const ASSETS={"bg_far":{"src":"data:image/webp;base64,UklGRgoGAQBXRUJQVlA4IP4FAQ
     const smin = a => { const mn = Math.min(...a); return mn - Math.log(a.reduce((q, v) => q + Math.exp(-sk * (v - mn)), 0)) / sk };
     const hs = feet.filter(f => f.st).map(f => Math.sqrt(Math.max(0, Lw * Lw - f.x * f.x))), hm = feet.map(f => f.lift + Math.sqrt(Math.max(0, Lmax * Lmax - f.x * f.x)));
     let h = hs.length ? smin(hs) : Lw; const hmax = smin(hm);
-    h = lp(Lw, h, cl(cl(g.bob, 0, 2) * .5 + .5, 0, 1)); if (m < .05) h -= L * .004 * (1 + Math.sin(c.t * 1.6)) * (1 - m * 20);
+    h = lp(Lw, h, cl(cl(g.bob, 0, 2) * .5 + .5, 0, 1)); h -= L * .012 * (1 + Math.sin(c.t * 1.6)) * (1 - m); // дыхание в стойке
     // цель для таза скачет, когда стопа меняет опору; таз догоняет её пружиной без перерегулирования (второй порядок)
     if (c.hf == null) { c.hf = h; c.hfv = 0 } const w = 20; c.hfv += (w * w * (h - c.hf) - 2 * w * c.hfv) * dt; c.hf += c.hfv * dt;
     c.spv += (-c.sp * 140 - c.spv * 16) * dt; c.sp += c.spv * dt;
@@ -115,8 +115,8 @@ const ASSETS={"bg_far":{"src":"data:image/webp;base64,UklGRgoGAQBXRUJQVlA4IP4FAQ
     // корпус отстаёт и наклоняется; руки — маятник против ног: ближняя рука идёт вперёд, когда ближняя стопа уходит назад
     // (размах рук насыщается мягко, через tanh, — без излома)
     c.lagv += ((c.sp * .02 - c.lag) * 90 - c.lagv * 12) * dt; c.lag += c.lagv * dt;
-    const s = Math.sin(TAU * c.F), lean = g.lean * (.3 + .7 * m) + c.lag + (g.twitch ? .03 * Math.sin(c.t * 23) * m : 0) + (input.lean || 0), half = Math.max(S * beta / 2, L * .05);
-    const armBase = g.armFwd || 0, arms = [0, 1].map(i => { const fw = 1.2 * Math.tanh(-feet[i].x / half / 1.2), sw = -fw * g.arm * m; const ru = armBase + sw + .04 * Math.sin(c.t * 1.3 + i); return { ru, rf: ru - g.elbow * (.6 + .4 * Math.log(1 + Math.exp(4 * fw)) / 4) } });
+    const s = Math.sin(TAU * c.F), lean = g.lean * (.3 + .7 * m) + c.lag + (g.twitch ? .03 * Math.sin(c.t * 23) * m : 0) + .025 * Math.sin(c.t * 1.6 + .8) * (1 - m) + (input.lean || 0), half = Math.max(S * beta / 2, L * .05);
+    const armBase = g.armFwd || 0, arms = [0, 1].map(i => { const fw = 1.2 * Math.tanh(-feet[i].x / half / 1.2), sw = -fw * g.arm * m; const ru = armBase + sw + .07 * Math.sin(c.t * 1.3 + i) * (1 - m * .6); return { ru, rf: ru - g.elbow * (.6 + .4 * Math.log(1 + Math.exp(4 * fw)) / 4) } });
     c.pose = { hip, legs, arms, lean, m, F: c.F, roll: .015 * s * m, S };
     return c.pose;
   }
@@ -162,13 +162,13 @@ addEventListener('blur', () => { Input.k = {} });
 // audio.js — звук без файлов: синтез WebAudio. Музыка — генеративный цикл в ля миноре (режимы: титул, волна, босс, душа),
 // эффекты — шаги, взмахи, попадания, камень, тряска, осколки, ответы, душа.
 const Snd = (() => {
-  let ac = null, master, musicG, sfxG, verbIn, noiseBuf, muted = false, mode = 'title', drone = null;
+  let ac = null, master, musicG, sfxG, verbIn, noiseBuf, muted = false, mode = 'title', drone = null, vol = .85;
   const g = (dest, v) => { const n = ac.createGain(); n.gain.value = v; n.connect(dest); return n };
   function impulse(sec, decay) { const r = ac.sampleRate, n = r * sec, b = ac.createBuffer(2, n, r); for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, decay) } return b }
   function init() {
     if (ac) { if (ac.state === 'suspended') ac.resume(); return }
     const C = window.AudioContext || window.webkitAudioContext; if (!C) return; ac = new C();
-    master = g(ac.destination, muted ? 0 : .85);
+    master = g(ac.destination, muted ? 0 : vol);
     const comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.connect(master);
     musicG = g(comp, .32); sfxG = g(comp, .9);
     const cv = ac.createConvolver(); cv.buffer = impulse(2.8, 2.4); verbIn = g(cv, 1); cv.connect(g(comp, .32));
@@ -209,6 +209,14 @@ const Snd = (() => {
     gate() { tone(90, 66, 'sawtooth', .9, .06, { a: .1 }); noise(.9, 'lowpass', 220, 90, .7, .22) },
     whoosh() { noise(.35, 'bandpass', 300, 1500, 1, .14, { a: .08 }) },
     tick() { tone(1500, 1500, 'square', .03, .04) },
+    // замах босса: низкий нарастающий гул — сигнал «сейчас ударит»
+    windup(heavy = 1) { noise(.7, 'lowpass', 90, 420, 3, .16 * heavy, { a: .5 }); tone(55, 92, 'sawtooth', .75, .06 * heavy, { a: .5 }) },
+    // топор палача: металлический свист и звон
+    axe() { if (!ac) return; noise(.32, 'bandpass', 900, 3800, 2.5, .22, { a: .05 }); tone(1180, 1100, 'triangle', .5, .05, { t: now() + .05, verb: .4 }) },
+    // конечность собирается обратно: камни тянутся друг к другу
+    regrow() { if (!ac) return; const t = now(); for (let i = 0; i < 10; i++) noise(.05, 'bandpass', 600 + i * 220, 900 + i * 200, 3, .1, { t: t + i * .06 }); tone(60, 120, 'sine', .8, .3, { a: .3 }) },
+    heroDeath() { noise(1.1, 'lowpass', 1400, 200, .7, .3, { a: .02, verb: .8 }); tone(330, 110, 'triangle', 1.2, .14, { verb: 1 }); tone(165, 55, 'sine', 1.3, .3) },
+    seal() { if (!ac) return; const t = now();[220, 277, 330].forEach((f, i) => tone(f, f, 'sine', 1.4, .1, { t: t + i * .12, a: .1, verb: 1 })) },
   };
   // ---------- музыка ----------
   const BPM = 84, E8 = 60 / BPM / 2; let nextT = 0, stepI = 0, timer = null;
@@ -247,8 +255,9 @@ const Snd = (() => {
     tone(mf(ROOT[bar]), mf(ROOT[bar]), 'sine', E8 * .9, boss ? .1 : .07, { t, dest: musicG });
   }
   function setMode(m) { mode = m; if (drone && ac) drone.gain.setTargetAtTime(m === 'soul' ? .05 : m === 'boss' ? .14 : .1, now(), 1) }
-  function toggleMute() { muted = !muted; if (master) master.gain.setTargetAtTime(muted ? 0 : .85, now(), .05); return muted }
-  return { init, setMode, toggleMute, get muted() { return muted }, get mode() { return mode }, ...S };
+  function toggleMute() { muted = !muted; if (master) master.gain.setTargetAtTime(muted ? 0 : vol, now(), .05); return muted }
+  function setVol(v) { vol = cl(v, 0, 1); if (master && !muted) master.gain.setTargetAtTime(vol, now(), .05); return vol }
+  return { init, setMode, toggleMute, setVol, get vol() { return vol }, get muted() { return muted }, get mode() { return mode }, ...S };
 })();
 
 // ===== assets.js =====
@@ -288,62 +297,76 @@ async function loadAssets(onProgress) {
 
 // ===== problems.js =====
 // problems.js — задачи в стиле ОГЭ (9 класс). Ответ — целое число (может быть отрицательным), набирается осколками-цифрами.
-// Генераторы по темам дают бесконечно много вариантов; плюс фиксированный банк из прежней версии (массив Q).
+// У каждой задачи: t — условие, c — что найти, a — ответ, k — тема, s — краткий разбор (показывается после ошибки).
+// Запись: дробь — «a/b» без пробелов (табличка рисует её столбиком), минус — «−», умножение — «·», деление — «:».
 const Problems = (() => {
-  const M = '−'; // настоящий минус
+  const M = '−';
   const num = n => (n < 0 ? M + Math.abs(n) : '' + n);
+  const par = n => (n < 0 ? `(${num(n)})` : '' + n);
   const sgn = n => (n < 0 ? ' ' + M + ' ' + Math.abs(n) : ' + ' + n);
   const kx = (k, v = 'x') => (k === 1 ? v : k === -1 ? M + v : num(k) + v);
-  const SUP = { 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶' };
+  const SUP = { 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷' };
+  const SUB = n => [...String(n)].map(c => '₀₁₂₃₄₅₆₇₈₉'[+c]).join('');
   const nz = (a, b) => { let v; do v = irnd(a, b); while (v === 0); return v };
+  const gcd = (a, b) => b ? gcd(b, a % b) : Math.abs(a), lcm = (a, b) => a / gcd(a, b) * b;
+  const coprime = d => { let n; do n = irnd(1, d - 1); while (gcd(n, d) !== 1); return n };
+  const dec = (n, d = 10) => (n / d).toFixed(String(d).length - 1).replace('.', ',');
   const T = {
-    linear() { const a = irnd(2, 9), x = irnd(-6, 12), b = nz(-20, 20); return { t: `${kx(a)}${sgn(b)} = ${num(a * x + b)}`, c: 'Найдите x', a: x, k: 'Линейное уравнение' } },
-    linear2() { let a, c; do { a = irnd(2, 7); c = irnd(1, 6) } while (a === c); const x = irnd(-5, 10), b = nz(-6, 6), d = a * (x + b) - c * x; return { t: `${a}(x${sgn(b)}) = ${kx(c)}${d ? sgn(d) : ''}`, c: 'Найдите x', a: x, k: 'Линейное уравнение' } },
-    linear3() { const x = irnd(-8, 12), a = irnd(2, 6), b = irnd(1, 9); return { t: `${a}(x${sgn(-b)}) = ${num(a * (x - b))}`, c: 'Найдите x', a: x, k: 'Линейное уравнение' } },
-    fracLinear() { const a = irnd(2, 6), x = a * irnd(-4, 8), b = nz(-9, 9); return { t: `x/${a}${sgn(b)} = ${num(x / a + b)}`, c: 'Найдите x', a: x, k: 'Уравнение с дробью' } },
-    proportion() { const x = irnd(2, 12), k = irnd(2, 5), b = irnd(2, 9); return { t: `x / ${b} = ${x * k} / ${b * k}`, c: 'Найдите x', a: x, k: 'Пропорция' } },
-    quadBig() { let p, q; do { p = irnd(-7, 9); q = irnd(-7, 9) } while (p === q); const s = -(p + q), pr = p * q; const big = Math.max(p, q); return { t: `x²${s ? sgn(s).replace(/(\d+)$/, '$1x').replace(' 1x', ' x') : ''}${pr ? sgn(pr) : ''} = 0`, c: 'Больший корень', a: big, k: 'Квадратное уравнение' } },
-    quadSmall() { let p, q; do { p = irnd(-8, 8); q = irnd(-8, 8) } while (p === q); const s = -(p + q), pr = p * q; return { t: `x²${s ? sgn(s).replace(/(\d+)$/, '$1x').replace(' 1x', ' x') : ''}${pr ? sgn(pr) : ''} = 0`, c: 'Меньший корень', a: Math.min(p, q), k: 'Квадратное уравнение' } },
-    quadPure() { const n = irnd(2, 13), neg = Math.random() < .5; return { t: `x² = ${n * n}`, c: neg ? 'Отрицательный корень' : 'Положительный корень', a: neg ? -n : n, k: 'Квадратное уравнение' } },
-    percent() { const p = pick([5, 10, 15, 20, 25, 30, 40, 50, 60, 75]), base = 100 / gcd(p, 100), N = base * irnd(1, Math.max(1, Math.floor(400 / base))); return { t: `${p}% от ${N}`, c: 'Вычислите', a: N * p / 100, k: 'Проценты' } },
-    discount() { const p = pick([10, 20, 25, 30, 40, 50]), N = (100 / gcd(p, 100)) * irnd(2, 20); return { t: `${N} ₽ − скидка ${p}%`, c: 'Новая цена, ₽', a: N - N * p / 100, k: 'Проценты' } },
-    powers() { const a = irnd(2, 3), m = a === 2 ? irnd(3, 6) : irnd(2, 4), b = irnd(2, 5), n = b <= 3 ? irnd(2, 3) : 2; return { t: `${a}${SUP[m]} − ${b}${SUP[n]}`, c: 'Вычислите', a: a ** m - b ** n, k: 'Степени' } },
-    negPow() { const b = irnd(2, 4), n = irnd(2, 3), c = irnd(-15, 20); return { t: `(${M}${b})${SUP[n]}${sgn(c)}`, c: 'Вычислите', a: (-b) ** n + c, k: 'Степени' } },
-    powRule() { const a = pick([2, 3]), m = irnd(3, 6), n = irnd(2, 3), r = m + n - irnd(2, 3); return { t: `${a}${SUP[m]} · ${a}${SUP[n]} : ${a}${SUP[m + n - r]}`, c: 'Вычислите', a: a ** r, k: 'Степени' } },
-    roots() { const a = irnd(4, 15), b = irnd(2, 9); return { t: `√${a * a} − √${b * b}`, c: 'Вычислите', a: a - b, k: 'Корни' } },
-    roots2() { const a = irnd(2, 6), b = irnd(2, 6); return { t: `√(${a * a} · ${b * b})`, c: 'Вычислите', a: a * b, k: 'Корни' } },
-    roots3() { const s = irnd(2, 11), b = irnd(2, 9); return { t: `(√${s})² + √${b * b}`, c: 'Вычислите', a: s + b, k: 'Корни' } },
-    fractions() { const d1 = pick([2, 3, 4, 5, 6]), n1 = irnd(1, d1 - 1), d2 = pick([2, 3, 4]), n2 = irnd(1, d2 - 1), L = lcm(d1, d2) * irnd(1, 3); return { t: `(${n1}/${d1} + ${n2}/${d2}) · ${L}`, c: 'Вычислите', a: n1 * L / d1 + n2 * L / d2, k: 'Дроби' } },
-    fracOf() { const d = pick([3, 4, 5, 6, 7, 8]), n = irnd(1, d - 1), N = d * irnd(2, 12); return { t: `${n}/${d} от ${N}`, c: 'Вычислите', a: n * N / d, k: 'Дроби' } },
-    absEq() { const b = irnd(1, 9), r = irnd(2, 12), neg = Math.random() < .5; return { t: `|x${sgn(-b)}| = ${r}`, c: neg ? 'Меньший корень' : 'Больший корень', a: neg ? b - r : b + r, k: 'Модуль' } },
-    absVal() { const a = irnd(2, 15), b = irnd(1, 9), c = irnd(b + 1, 20); return { t: `|${M}${a}| + |${b} − ${c}|`, c: 'Вычислите', a: a + c - b, k: 'Модуль' } },
-    order() { const a = irnd(2, 9), b = irnd(2, 12), c = irnd(-9, 9); return { t: `${a * b} : ${a}${sgn(c)} · 2`, c: 'Вычислите', a: b + 2 * c, k: 'Порядок действий' } },
-    negMul() { const a = irnd(2, 7), b = irnd(1, 6), c = irnd(b + 1, 12); return { t: `${M}${a} · (${b} − ${c})`, c: 'Вычислите', a: -a * (b - c), k: 'Порядок действий' } },
-    system() { const x = irnd(-3, 12), y = irnd(-3, 9); return { t: `x + y = ${num(x + y)};  x − y = ${num(x - y)}`, c: 'Найдите x', a: x, k: 'Система уравнений' } },
-    progression() { const a1 = irnd(-5, 9), d = nz(-4, 6), n = irnd(4, 9); return { t: `a₁ = ${num(a1)},  d = ${num(d)}`, c: `Найдите a${'₀₁₂₃₄₅₆₇₈₉'[n]}`, a: a1 + (n - 1) * d, k: 'Прогрессия' } },
+    linear() { const a = irnd(2, 9), x = irnd(-6, 12), b = nz(-20, 20), c = a * x + b; return { t: `${kx(a)}${sgn(b)} = ${num(c)}`, c: 'Найдите x', a: x, k: 'Линейные уравнения', s: `${a}x = ${num(c)} ${b > 0 ? M : '+'} ${Math.abs(b)} = ${num(c - b)}  →  x = ${num(c - b)} : ${a} = ${num(x)}` } },
+    linear2() { let a, c; do { a = irnd(2, 7); c = irnd(1, 6) } while (a === c); const x = irnd(-5, 10), b = nz(-6, 6), d = a * (x + b) - c * x; if (!d) return T.linear2(); return { t: `${a}(x${sgn(b)}) = ${kx(c)}${sgn(d)}`, c: 'Найдите x', a: x, k: 'Линейные уравнения', s: `${a}x${sgn(a * b)} = ${kx(c)}${sgn(d)}  →  ${a - c === 1 ? '' : num(a - c)}x = ${num(d - a * b)}  →  x = ${num(x)}` } },
+    linear3() { const x = irnd(-8, 12), a = irnd(2, 6), b = irnd(1, 9); if (x === b) return T.linear3(); return { t: `${a}(x${sgn(-b)}) = ${num(a * (x - b))}`, c: 'Найдите x', a: x, k: 'Линейные уравнения', s: `x ${M} ${b} = ${num(a * (x - b))} : ${a} = ${num(x - b)}  →  x = ${num(x)}` } },
+    fracLinear() { const a = irnd(2, 6), q = nz(-4, 8), x = a * q, b = nz(-9, 9); return { t: `x/${a}${sgn(b)} = ${num(q + b)}`, c: 'Найдите x', a: x, k: 'Уравнения с дробями', s: `x/${a} = ${num(q + b)} ${b > 0 ? M : '+'} ${Math.abs(b)} = ${num(q)}  →  x = ${a} · ${par(q)} = ${num(x)}` } },
+    proportion() { const x = irnd(2, 12), k = irnd(2, 5), b = irnd(2, 9); if (gcd(x, b) !== 1) return T.proportion(); return { t: `x/${b} = ${x * k}/${b * k}`, c: 'Найдите x', a: x, k: 'Пропорции', s: `x = ${b} · ${x * k} : ${b * k} = ${x}` } },
+    quadBig() { return quad(true) }, quadSmall() { return quad(false) },
+    quadPure() { const n = irnd(2, 13), neg = Math.random() < .5; return { t: `x² = ${n * n}`, c: neg ? 'Отрицательный корень' : 'Положительный корень', a: neg ? -n : n, k: 'Квадратные уравнения', s: `x = ±√${n * n} = ±${n}` } },
+    percent() { const p = pick([5, 10, 15, 20, 25, 30, 40, 50, 60, 75]), base = 100 / gcd(p, 100), N = base * irnd(1, Math.max(1, Math.floor(400 / base))); return { t: `${p}% от ${N}`, c: 'Вычислите', a: N * p / 100, k: 'Проценты', s: `${N} · ${p} : 100 = ${N * p / 100}` } },
+    discount() { const p = pick([10, 20, 25, 30, 40, 50]), N = (100 / gcd(p, 100)) * irnd(2, 20), d = N * p / 100; return { t: `${N} ₽, скидка ${p}%`, c: 'Цена со скидкой, ₽', a: N - d, k: 'Проценты', s: `скидка: ${N} · ${p} : 100 = ${d};  ${N} ${M} ${d} = ${N - d}` } },
+    powers() { const a = irnd(2, 3), m = a === 2 ? irnd(3, 6) : irnd(2, 4), b = irnd(2, 5), n = b <= 3 ? irnd(2, 3) : 2; if (a === b) return T.powers(); return { t: `${a}${SUP[m]} ${M} ${b}${SUP[n]}`, c: 'Вычислите', a: a ** m - b ** n, k: 'Степени', s: `${a ** m} ${M} ${b ** n} = ${num(a ** m - b ** n)}` } },
+    negPow() { const b = irnd(2, 4), n = irnd(2, 3), c = nz(-15, 20), v = (-b) ** n; return { t: `(${M}${b})${SUP[n]}${sgn(c)}`, c: 'Вычислите', a: v + c, k: 'Степени', s: `(${M}${b})${SUP[n]} = ${num(v)};  ${num(v)}${sgn(c)} = ${num(v + c)}` } },
+    powRule() { const a = pick([2, 3]), m = irnd(3, a === 2 ? 6 : 4), n = irnd(2, 3), q = irnd(2, 3), r = m + n - q; if (q === n || q === m) return T.powRule(); return { t: `${a}${SUP[m]} · ${a}${SUP[n]} : ${a}${SUP[q]}`, c: 'Вычислите', a: a ** r, k: 'Степени', s: `${a}${SUP[m]}⁺${SUP[n]}⁻${SUP[q]} = ${a}${SUP[r] || '^' + r} = ${a ** r}` } },
+    roots() { const a = irnd(4, 15), b = irnd(2, 9); if (a === b) return T.roots(); return { t: `√${a * a} ${M} √${b * b}`, c: 'Вычислите', a: a - b, k: 'Корни', s: `${a} ${M} ${b} = ${num(a - b)}` } },
+    roots2() { const a = irnd(2, 6), b = irnd(2, 6); return { t: `√(${a * a} · ${b * b})`, c: 'Вычислите', a: a * b, k: 'Корни', s: `√${a * a} · √${b * b} = ${a} · ${b} = ${a * b}` } },
+    roots3() { const s = pick([2, 3, 5, 6, 7, 10, 11, 13]), b = irnd(2, 9); return { t: `(√${s})² + √${b * b}`, c: 'Вычислите', a: s + b, k: 'Корни', s: `(√${s})² = ${s},  √${b * b} = ${b};  ${s} + ${b} = ${s + b}` } },
+    fractions() { let d1, d2; do { d1 = pick([2, 3, 4, 5, 6]); d2 = pick([2, 3, 4, 5]) } while (d1 === d2); const n1 = coprime(d1), n2 = coprime(d2), L = lcm(d1, d2) * irnd(1, 3), A = n1 * L / d1, B = n2 * L / d2; return { t: `(${n1}/${d1} + ${n2}/${d2}) · ${L}`, c: 'Вычислите', a: A + B, k: 'Дроби', s: `${n1}/${d1} · ${L} + ${n2}/${d2} · ${L} = ${A} + ${B} = ${A + B}` } },
+    fracOf() { const d = pick([3, 4, 5, 6, 7, 8]), n = coprime(d), N = d * irnd(2, 12); return { t: `${n}/${d} от ${N}`, c: 'Вычислите', a: n * N / d, k: 'Дроби', s: `${N} : ${d} · ${n} = ${N / d} · ${n} = ${n * N / d}` } },
+    decimals() { const a = irnd(2, 9), N = 10 * irnd(2, 9), b = irnd(11, 25), K = pick([2, 4, 5, 6, 8]), p = a * N / 10, q = b * K / 10; if (!Number.isInteger(q) || b % 10 === 0) return T.decimals(); return { t: `${dec(a)} · ${N} + ${dec(b)} · ${K}`, c: 'Вычислите', a: p + q, k: 'Десятичные дроби', s: `${dec(a)} · ${N} = ${p},  ${dec(b)} · ${K} = ${q};  ${p} + ${q} = ${p + q}` } },
+    absEq() { const b = irnd(1, 9), r = irnd(2, 12), neg = Math.random() < .5; return { t: `|x ${M} ${b}| = ${r}`, c: neg ? 'Меньший корень' : 'Больший корень', a: neg ? b - r : b + r, k: 'Модуль', s: `x ${M} ${b} = ${r} или x ${M} ${b} = ${M}${r}  →  x = ${b + r} или x = ${num(b - r)}` } },
+    absVal() { const a = irnd(2, 15), b = irnd(1, 9), c = irnd(b + 1, 20); return { t: `|${M}${a}| + |${b} ${M} ${c}|`, c: 'Вычислите', a: a + c - b, k: 'Модуль', s: `${a} + ${c - b} = ${a + c - b}` } },
+    order() { const a = irnd(2, 9), b = irnd(2, 12), c = nz(-9, 9); return { t: `${a * b} : ${a}${sgn(c)} · 2`, c: 'Вычислите', a: b + 2 * c, k: 'Порядок действий', s: `сначала : и ·:  ${a * b} : ${a} = ${b},  ${Math.abs(c)} · 2 = ${Math.abs(2 * c)};  ${b}${sgn(2 * c)} = ${num(b + 2 * c)}` } },
+    negMul() { const a = irnd(2, 7), b = irnd(1, 6), c = irnd(b + 1, 12); return { t: `${M}${a} · (${b} ${M} ${c})`, c: 'Вычислите', a: -a * (b - c), k: 'Порядок действий', s: `${b} ${M} ${c} = ${num(b - c)};  ${M}${a} · (${num(b - c)}) = ${num(-a * (b - c))}` } },
+    system() { const x = irnd(-3, 12), y = nz(-3, 9); return { t: `x + y = ${num(x + y)};  x ${M} y = ${num(x - y)}`, c: 'Найдите x', a: x, k: 'Системы уравнений', s: `сложим: 2x = ${num(2 * x)}  →  x = ${num(x)}` } },
+    progression() { const a1 = irnd(-5, 9), d = nz(-4, 6), n = irnd(4, 9), an = a1 + (n - 1) * d; return { t: `a${SUB(1)} = ${num(a1)},  d = ${num(d)}`, c: `Найдите a${SUB(n)}`, a: an, k: 'Прогрессии', s: `a${SUB(n)} = a${SUB(1)} + ${n - 1}d = ${num(a1)} + ${n - 1} · ${par(d)} = ${num(an)}` } },
   };
-  function gcd(a, b) { return b ? gcd(b, a % b) : Math.abs(a) }
-  function lcm(a, b) { return a / gcd(a, b) * b }
-  // фиксированный банк (из прежней версии + новые)
-  const FIX = [['3x + 5 = 20', 'Найдите x', 5], ['12 − 2x = 4', 'Найдите x', 4], ['5(x − 2) = 3x + 4', 'Найдите x', 7], ['x² − 5x + 6 = 0', 'Больший корень', 3], ['x/4 + 1 = 4', 'Найдите x', 12],
-    ['2³ + 3²', 'Вычислите', 17], ['√144', 'Вычислите', 12], ['15% от 80', 'Вычислите', 12], ['4/(x − 1) = 2', 'Найдите x', 3], ['0,6 · 50', 'Вычислите', 30], ['(−3)² − 2 · 4', 'Вычислите', 1],
-    ['7x − 9 = 3x + 11', 'Найдите x', 5], ['2(x + 3) = 18', 'Найдите x', 6], ['180 : 15 + 6', 'Вычислите', 18], ['x² − 49 = 0', 'Положительный корень', 7], ['3(x + 1) − 2x = 9', 'Найдите x', 6],
-    ['40% от 35', 'Вычислите', 14], ['x² + 2x − 15 = 0', 'Меньший корень', -5], ['|x + 4| = 6', 'Меньший корень', -10], ['(2⁵ − 2³) : 3', 'Вычислите', 8], ['0,25 · 64 − 1,5 · 6', 'Вычислите', 7],
-    ['6 − 3(x − 2) = 0', 'Найдите x', 4], ['x² = 6x', 'Ненулевой корень', 6], ['(√13 − 3)(√13 + 3)', 'Вычислите', 4], ['1,2 · 15 − 2,5 · 4', 'Вычислите', 8], ['2x + 7 = −x − 8', 'Найдите x', -5]]
-    .map(([t, c, a]) => ({ t, c, a, k: 'Банк' }));
+  function quad(big) {
+    let p, q; do { p = irnd(-8, 9); q = irnd(-8, 9) } while (p === q || p === -q || !p || !q);
+    const s = -(p + q), pr = p * q, sx = s === 1 ? ' + x' : s === -1 ? ` ${M} x` : sgn(s) + 'x';
+    return { t: `x²${sx}${sgn(pr)} = 0`, c: big ? 'Больший корень' : 'Меньший корень', a: big ? Math.max(p, q) : Math.min(p, q), k: 'Квадратные уравнения', s: `по теореме Виета: x₁ + x₂ = ${num(p + q)},  x₁ · x₂ = ${num(pr)}  →  корни ${num(Math.min(p, q))} и ${num(Math.max(p, q))}` };
+  }
+  // фиксированный банк (прежний массив Q + новые), с разбором
+  const FIX = [['3x + 5 = 20', 'Найдите x', 5, '3x = 15  →  x = 5'], ['12 − 2x = 4', 'Найдите x', 4, '2x = 12 − 4 = 8  →  x = 4'], ['5(x − 2) = 3x + 4', 'Найдите x', 7, '5x − 10 = 3x + 4  →  2x = 14  →  x = 7'],
+    ['x² − 5x + 6 = 0', 'Больший корень', 3, 'по теореме Виета: корни 2 и 3'], ['x/4 + 1 = 4', 'Найдите x', 12, 'x/4 = 3  →  x = 12'], ['2³ + 3²', 'Вычислите', 17, '8 + 9 = 17'], ['√144 − √25', 'Вычислите', 7, '12 − 5 = 7'],
+    ['15% от 80', 'Вычислите', 12, '80 · 15 : 100 = 12'], ['4/(x − 1) = 2', 'Найдите x', 3, 'x − 1 = 4 : 2 = 2  →  x = 3'], ['0,6 · 50', 'Вычислите', 30, '0,6 · 50 = 30'], ['(−3)² − 2 · 4', 'Вычислите', 1, '9 − 8 = 1'],
+    ['7x − 9 = 3x + 11', 'Найдите x', 5, '4x = 20  →  x = 5'], ['2(x + 3) = 18', 'Найдите x', 6, 'x + 3 = 9  →  x = 6'], ['180 : 15 + 6', 'Вычислите', 18, '12 + 6 = 18'], ['x² − 49 = 0', 'Положительный корень', 7, 'x² = 49  →  x = ±7'],
+    ['3(x + 1) − 2x = 9', 'Найдите x', 6, '3x + 3 − 2x = 9  →  x = 6'], ['40% от 35', 'Вычислите', 14, '35 · 40 : 100 = 14'], ['x² + 2x − 15 = 0', 'Меньший корень', -5, 'по теореме Виета: корни −5 и 3'],
+    ['|x + 4| = 6', 'Меньший корень', -10, 'x + 4 = 6 или x + 4 = −6  →  x = 2 или x = −10'], ['(2⁵ − 2³) : 3', 'Вычислите', 8, '(32 − 8) : 3 = 24 : 3 = 8'], ['0,25 · 64 − 1,5 · 6', 'Вычислите', 7, '16 − 9 = 7'],
+    ['6 − 3(x − 2) = 0', 'Найдите x', 4, '6 − 3x + 6 = 0  →  3x = 12  →  x = 4'], ['x² = 6x', 'Ненулевой корень', 6, 'x(x − 6) = 0  →  x = 0 или x = 6'], ['(√13 − 3)(√13 + 3)', 'Вычислите', 4, '(√13)² − 3² = 13 − 9 = 4'],
+    ['1,2 · 15 − 2,5 · 4', 'Вычислите', 8, '18 − 10 = 8'], ['2x + 7 = −x − 8', 'Найдите x', -5, '3x = −15  →  x = −5']]
+    .map(([t, c, a, s]) => ({ t, c, a, s, k: 'Разное' }));
   const POOL = [
-    ['linear', 'linear2', 'linear3', 'fracLinear', 'percent', 'powers', 'roots', 'order', 'fracOf', 'absVal', 'negMul', 'roots3', 'discount', 'FIX'],
-    ['linear2', 'quadBig', 'quadSmall', 'quadPure', 'system', 'absEq', 'fractions', 'negPow', 'roots2', 'progression', 'proportion', 'powRule', 'FIX'],
+    ['linear', 'linear3', 'fracLinear', 'percent', 'powers', 'roots', 'order', 'fracOf', 'absVal', 'negMul', 'roots3', 'discount', 'decimals', 'FIX'],
+    ['linear2', 'quadBig', 'quadSmall', 'quadPure', 'system', 'absEq', 'fractions', 'negPow', 'roots2', 'progression', 'proportion', 'powRule', 'decimals', 'FIX'],
   ];
-  const used = new Set();
+  const used = new Set(), topicsUsed = [];
   function next(level = 0) {
-    for (let tries = 0; tries < 60; tries++) {
-      const k = pick(POOL[cl(level, 0, 1)]); const p = k === 'FIX' ? pick(FIX) : T[k]();
-      if (!Number.isInteger(p.a) || Math.abs(p.a) > 999 || used.has(p.t)) continue; used.add(p.t); return p;
+    for (let tries = 0; tries < 80; tries++) {
+      // темы чередуются: одна и та же не идёт два раза подряд
+      const k = pick(POOL[cl(level, 0, 1)]); if (topicsUsed.slice(-2).includes(k) && tries < 40) continue;
+      const p = k === 'FIX' ? pick(FIX) : T[k]();
+      if (!Number.isInteger(p.a) || Math.abs(p.a) > 999 || used.has(p.t)) continue; used.add(p.t); topicsUsed.push(k); return p;
     }
     return pick(FIX);
   }
-  return { next, T, FIX, reset() { used.clear() } };
+  return { next, T, FIX, reset() { used.clear(); topicsUsed.length = 0 } };
 })();
 
 // ===== world.js =====
@@ -391,14 +414,16 @@ const World = {
   drawBack(t) {
     this.t = t;
     this.layer(IM.bg_far, .667, .2, -190);
-    this.layer(IM.bg_mid, .667, .6, W.FLOOR_TOP - 466);
+    this.layer(IM.bg_mid, .667, .5, W.FLOOR_TOP - 466);
     // ворота стоят в плоскости стены, но едут вместе с полом (они на краю арены)
     for (const s of [-1, 1]) { const img = s < 0 ? IM.gate_left : IM.gate_right, k = .52, w = img.width * k, h = img.height * k, x = sx(this.gateX(s)); if (x > -w && x < VW + w) ctx.drawImage(img, x - w / 2, W.FLOOR_TOP + 34 - h, w, h) }
     this.layer(IM.floor, .62, 1, W.FLOOR_TOP);
     // мягкая тень у основания стены
     const gr = ctx.createLinearGradient(0, W.FLOOR_TOP, 0, W.FLOOR_TOP + 60); gr.addColorStop(0, 'rgba(5,7,16,.55)'); gr.addColorStop(1, 'rgba(5,7,16,0)'); ctx.fillStyle = gr; ctx.fillRect(0, W.FLOOR_TOP, VW, 60);
   },
-  drawFront() { this.layer(IM.fg, .667, 1.25, VH - 280 + 46, .95) },
+  drawFront() { this.layer(IM.fg, .667, 1.3, VH - 280 + 46, .95) },
+  // искры жаровен — в шаге симуляции (их число не зависит от частоты кадров экрана)
+  update(dt) { for (const p of this.props) if (p.fire && Math.random() < dt * 15) { const k = p.s * zs(p.z), h = IM.props[p.kind].height * k; FX.ember(p.x + rnd(-10, 10), p.z, h * .92 + 20) } },
   // свет жаровен на полу и стене
   drawLights(t) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -416,7 +441,6 @@ const World = {
       const fi = IM.props.flame, t = this.t, fk = k * .9, fw = fi.width * fk, fh = fi.height * fk, top = y - h * .92;
       const sy = 1 + .1 * Math.sin(t * 11 + p.x) + .05 * Math.sin(t * 27), sxk = 1 + .05 * Math.sin(t * 7 + 1);
       ctx.save(); ctx.translate(x, top + fh * .2); ctx.scale(sxk, sy); ctx.globalAlpha = .95; ctx.drawImage(fi, -fw / 2, -fh, fw, fh); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .25 + .1 * Math.sin(t * 13); ctx.drawImage(fi, -fw / 2, -fh, fw, fh); ctx.restore();
-      if (Math.random() < .25) FX.ember(p.x + rnd(-10, 10), p.z, (y - top) + fh * .4);
     }
     if (p === this.monolith && Soul.drawMonolith) Soul.drawMonolith(p, x, y, w, h, k);
   },
@@ -438,6 +462,11 @@ const FX = {
   chips(x, z, h, n = 8, sp = 300, col) {
     for (let i = 0; i < n; i++) { const a = rnd(-PI, 0), v = rnd(.3, 1) * sp; this.P.push({ k: 'chip', x, z: z + rnd(-.02, .02), h, vx: Math.cos(a) * v, vz: rnd(-.1, .1), vh: -Math.sin(a) * v, t: 0, life: rnd(.8, 1.6), s: rnd(2, 6), r: rnd(0, TAU), vr: rnd(-12, 12), col: col || pick(['#7b8090', '#5d6271', '#9ea3b0', '#4a4e5a']), g: 1100 }) }
   },
+  // радиальные градиенты рисуются заранее в маленькие спрайты (дешевле, чем создавать градиент на каждую частицу)
+  _sp: {},
+  puff(col) { return this._sp['p' + col] || (this._sp['p' + col] = this._grad([[0, `rgba(${col},.9)`], [1, `rgba(${col},0)`]])) },
+  glow(col) { return this._sp['g' + col] || (this._sp['g' + col] = this._grad([[0, 'rgba(255,255,255,.85)'], [.35, `rgba(${col},.45)`], [1, `rgba(${col},0)`]])) },
+  _grad(stops) { const c = mkCanvas(64, 64), x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); for (const [o, v] of stops) g.addColorStop(o, v); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c },
   ember(x, z, h) { this.P.push({ k: 'ember', x, z, h, vx: rnd(-15, 15), vz: 0, vh: rnd(50, 110), t: 0, life: rnd(.5, 1.1), g: -20 }) },
   smoke(x, z, h, n = 6, col = '20,18,28', sz = 30) { for (let i = 0; i < n; i++) this.P.push({ k: 'smoke', x: x + rnd(-20, 20), z, h: h + rnd(-20, 20), vx: rnd(-40, 40), vz: 0, vh: rnd(20, 70), t: 0, life: rnd(.6, 1.2), s: sz * rnd(.6, 1.3), col, g: -10 }) },
   poison(x, z) { for (let i = 0; i < 14; i++) this.P.push({ k: 'smoke', x: x + rnd(-40, 40), z: z + rnd(-.03, .03), h: rnd(0, 30), vx: rnd(-50, 50), vz: 0, vh: rnd(5, 40), t: 0, life: rnd(1, 2.2), s: rnd(22, 46), col: '80,150,60', g: -5 }) },
@@ -503,12 +532,12 @@ const FX = {
       else if (p.k === 'chip') { ctx.globalAlpha = Math.min(1, (1 - k) * 3); ctx.fillStyle = p.col; ctx.save(); ctx.translate(x, y); ctx.rotate(p.r); ctx.fillRect(-p.s, -p.s * .7, p.s * 2, p.s * 1.4); ctx.restore() }
       else if (p.k === 'ember') { ctx.globalAlpha = 1 - k; ctx.fillStyle = k < .5 ? '#bfe6ff' : '#4d8dff'; ctx.fillRect(x - 1.5, y - 1.5, 3, 3) }
       else if (p.k === 'mote') { ctx.globalAlpha = (1 - k) * .9; ctx.fillStyle = '#b8f6ff'; ctx.fillRect(x - 1.5, y - 1.5, 3, 3) }
-      else if (p.k === 'smoke') { const r = p.s * (1 + k); ctx.globalAlpha = .4 * (1 - k) * Math.min(1, p.t * 6); const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(${p.col},.9)`); g.addColorStop(1, `rgba(${p.col},0)`); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, 2 * r, 2 * r) }
+      else if (p.k === 'smoke') { const r = p.s * (1 + k); ctx.globalAlpha = .4 * (1 - k) * Math.min(1, p.t * 6); ctx.drawImage(this.puff(p.col), x - r, y - r, 2 * r, 2 * r) }
     }
     ctx.globalAlpha = 1;
     for (const c of this.chunks) { const x = c.wx - Cam.x, k = c.t / c.life; ctx.save(); ctx.globalAlpha = c.ash ? (1 - k) * .9 : Math.min(1, (1 - k) * 4); ctx.translate(x, c.y); ctx.rotate(c.r); if (c.ash) ctx.scale(1 - k * .6, 1 - k * .6); ctx.drawImage(c.c, -c.w / 2, -c.h / 2); ctx.restore() }
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (const f of this.flashes) { const a = 1 - f.t / f.life, x = sx(f.x), y = zy(f.z) - f.h, r = f.r * (1 + .8 * (1 - a)), g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(255,255,255,${.85 * a})`); g.addColorStop(.35, `rgba(${f.col},${.45 * a})`); g.addColorStop(1, `rgba(${f.col},0)`); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, 2 * r, 2 * r) }
+    for (const f of this.flashes) { const a = 1 - f.t / f.life, x = sx(f.x), y = zy(f.z) - f.h, r = f.r * (1 + .8 * (1 - a)); ctx.globalAlpha = a; ctx.drawImage(this.glow(f.col), x - r, y - r, 2 * r, 2 * r); ctx.globalAlpha = 1 }
     ctx.restore();
   },
 };
@@ -518,10 +547,10 @@ const FX = {
 // лодыжки и локтя, одежда, оружие, культи. Перенесено из src/characters/walkers.tpl.html (drawChar), геометрия вынесена
 // в rigGeom(), чтобы по тем же точкам считать попадания. Локальные координаты: начало — таз, +x — вперёд, y — вниз.
 const DRESS = {
-  ghoul: { name: 'Гуль', gait: 'ghoul', cloth: [[.52, .80, 'cloth']] },
-  knight: { name: 'Падший рыцарь', gait: 'knight', clothB: [.30, .78], clothF: [.70, .80], weapon: { off: -.95 } },
+  ghoul: { name: 'Гуль', gait: 'ghoul', size: .96, cloth: [[.52, .80, 'cloth']] },
+  knight: { name: 'Падший рыцарь', gait: 'knight', size: 1.1, clothB: [.30, .78], clothF: [.70, .80], weapon: { off: -.95 } },
   doctor: { name: 'Чумной доктор', gait: 'doctor', cloth: [[.48, .74, 'cloth']], flask: 1 },
-  goatman: { name: 'Козлорог', gait: 'goatman', cloth: [[.55, .80, 'cloth']] },
+  goatman: { name: 'Козлорог', gait: 'goatman', size: 1.32, cloth: [[.55, .80, 'cloth']] },
   guardian: { name: 'Каменный страж', gait: 'guardian', boss: 1 },
   executioner: { name: 'Каменный палач', gait: 'executioner', boss: 1, axe: 1 },
 };
@@ -529,11 +558,13 @@ const RIG = {};
 function rigDef(id) {
   if (RIG[id]) return RIG[id];
   const P = ASSETS.ch[id], I = IM.ch[id], d = DRESS[id], l = P.legN, k = P._k;
-  return RIG[id] = { id, P, I, ...d, k, L1: dist(l.root, l.joint), L2: dist(l.joint, l.end), foot: l.sole - l.end[1], scale: W.CS / k * (d.boss ? 1.7 : 1), ov: 12 * k / .5 };
+  return RIG[id] = { id, P, I, ...d, k, L1: dist(l.root, l.joint), L2: dist(l.joint, l.end), foot: l.sole - l.end[1], scale: W.CS / k * (d.boss ? 1.7 : d.size || 1), ov: 12 * k / .5 };
 }
 // экранные координаты персонажа (для рисования и попаданий)
-function rigXf(ch) { const s = ch.R.scale * zs(ch.z) * (ch.sMul || 1); return { X: sx(ch.x), Y: zy(ch.z) - (ch.pose.hip + ch.R.foot) * s + (ch.dy || 0), s, f: ch.face } }
-function rigToWorld(ch, p, xf = rigXf(ch)) { return { x: ch.x + xf.f * xf.s * p[0], y: xf.Y + xf.s * p[1] } }
+function rigXf(ch) { const s = ch.R.scale * zs(ch.z) * (ch.sMul || 1); const tk = ch.turnT > 0 ? ch.turnT / ch.turnD : 0, f = ch.face * (1 - 2 * tk) || .02; return { X: sx(ch.x) + f * s * (ch.hx || 0), Y: zy(ch.z) - (ch.pose.hip + ch.R.foot) * s + (ch.dy || 0), s, f } }
+// разворот «через ребро»: при смене взгляда спрайт сжимается до ребра и раскрывается в другую сторону
+function turnTick(ch, dt, dur) { if (ch.pf !== undefined && ch.pf !== ch.face) { ch.turnT = dur; ch.turnD = dur } ch.pf = ch.face; ch.turnT = Math.max(0, (ch.turnT || 0) - dt) }
+function rigToWorld(ch, p, xf = rigXf(ch)) { return { x: ch.x + xf.f * xf.s * ((ch.hx || 0) + p[0]), y: xf.Y + xf.s * p[1] } }
 function armChain(Pa, sh, ru, rf) {
   const U = dist(Pa.root, Pa.joint), Fa = dist(Pa.joint, Pa.end);
   const el = [sh[0] - Math.sin(ru) * U, sh[1] + Math.cos(ru) * U], wr = [el[0] - Math.sin(rf) * Fa, el[1] + Math.cos(rf) * Fa];
@@ -731,7 +762,7 @@ const ATK=[
 const BK=1300,BD=54,WMIN=-.55,WMAX=.95;
 function frame(v0,dt){dt=cl(dt,1/240,.05);if(!Number.isFinite(st.Pf)||!Number.isFinite(st.Pfv)){st.Pf=null;st.Pfv=0}let v=v0,D=0,AT=-1;st.t+=dt;
  if(st.dsh>=0){st.dsh+=dt;D=sm(st.dsh/.05)*(1-sm((st.dsh-.18)/.1));v=Math.max(v,VB*(1.3+2*D));if(st.dsh>.34)st.dsh=-1}
- const A_=ATK[st.ak|0];if(st.atk>=0){const hs=A_.hs,sl=st.atk>=hs[0]&&st.atk<hs[1]?.06:1;st.atk+=dt*sl;if(sl==1&&st.atk>hs[0]&&st.atk-dt<hs[0])st.atk=hs[0];AT=st.atk;if(AT>A_.T)st.atk=-1}
+ const A_=ATK[st.ak|0];if(st.atk>=0){const hs=A_.hs,sl=st.atk>=hs[0]&&st.atk<hs[1]?(st.contact===false?1:.06):1;st.atk+=dt*sl*(st.as||1);if(sl==1&&st.atk>hs[0]&&st.atk-dt<hs[0])st.atk=hs[0];AT=st.atk;if(AT>A_.T)st.atk=-1}
  const vm=Math.min(v,2.6*VB),g=cl(spr('gs',sm((vm/VB-1.1)/.5),dt,36,12),0,1),m=sm(vm/(VB*.3)),beta=lp(BW,.33,g),S=lp(SW*REACH,SR*REACH,g),step=beta*S,lift=lp(LW0,LF,g)*REACH;
  const KA=AT>=0?atkKey(A_,AT):null,W=KA?sm(AT/.09)*(1-sm((AT-(A_.T-.22))/.22)):0,shk=KA&&AT>=A_.hs[0]&&AT<A_.hs[1]?Math.sin(st.t*110)*3.5:0;let hit1=false;if(KA&&AT>=A_.hs[0]&&!st.hd){st.hd=1;hit1=true}
  st.X+=v*dt;{const sb=sm((25-vm)/17),f0=fr(st.F),tgp=Math.abs(f0-.3)<Math.abs(f0-.8)?.3:.8,sr=cl((tgp-f0)*4,-.9,.9);st.F+=lp(vm/S,sr,sb)*dt}
@@ -759,10 +790,10 @@ function frame(v0,dt){dt=cl(dt,1/240,.05);if(!Number.isFinite(st.Pf)||!Number.is
  const Kq=14,Pcap=smin(Lg.map(l=>-l.ay+Math.sqrt(Math.max(0,LC*LC-l.ax*l.ax))),Kq),Pt=smin([Pbob,Pcap],Kq);
  // вниз таз идёт сразу (ограничение длиной ноги), вверх — с ограничением скорости и ускорения, без рывка после смены походки
  if(st.Pf==null){st.Pf=Pt;st.Pfv=0}{const vd=(Pt-st.Pf)/dt;if(vd<=0){st.Pfv=Math.min(st.Pfv,vd);st.Pf=Pt}else{const AM=(4.8+95*(1-g)*sm((m-.9)/.1))*REACH,vc=Math.min(.5*REACH,Math.sqrt(2*AM*(Pt-st.Pf)),st.Pfv+AM*dt);st.Pfv=Math.min(vd,Math.max(vc,0));st.Pf+=st.Pfv*dt}}const Pwalk=st.Pf;
- const Prun=smin([Pr,Praw+1],8);let P=lp(Pwalk,Prun,g)-D*.07*REACH+(m<1?(Math.sin(st.t*1.8)-1)*.12*(1-m):0);if(LGw>.001)P=lp(P,PLc,LGw);P+=shk*.5;
+ const Prun=smin([Pr,Praw+1],8);let P=lp(Pwalk,Prun,g)-D*.07*REACH+(m<1?(Math.sin(st.t*1.8)-1)*7*(1-m):0);if(LGw>.001)P=lp(P,PLc,LGw);P+=shk*.5;
  const gs=sm(g/.6),sw=AT>=0?(AT<.2?sm(AT/.2):AT<.3?1:0):0,hy=-P,legs=Lg.map((l,li)=>{const k=ik(0,hy,l.ax,l.ay,LS[li],dt,m*gs*(l.u>=l.beta?sm((l.u-l.beta)/.06):1-sm(l.u/(.2*l.beta))),l.u>=l.beta?1:1-sm(l.u/(.2*l.beta)));return{...l,...k,r1:rot(k.kx,k.ky-hy),r2:rot(k.ax-k.kx,k.ay-k.ky),r3:l.a}});
  const AS=0,LNa=KA?KA.ln*W:0;
- const lean=lp(lp(.03,.08,m),.4,g)+.012*Math.sin(st.F*TAU*2)*m+D*.38+LNa-(st.hurtL||0);st.Pa+=(P-st.Pa)*Math.min(1,dt*2.5);
+ const lean=lp(lp(.03,.08,m),.4,g)+.012*Math.sin(st.F*TAU*2)*m+.028*Math.sin(st.t*1.8+.7)*(1-m)+D*.38+LNa-(st.hurtL||0);st.Pa+=(P-st.Pa)*Math.min(1,dt*2.5);
  const dyn=D*.38+LNa*.55,hrot=.03-lean+.5*dyn,hdy=0; // голова едет вместе с телом (шея), а взгляд держится в одну точку: поворот головы гасит наклон корпуса
  const sx=J.body.sh[0]-J.body.hip[0],sy=J.body.sh[1]-J.body.hip[1],shx=sx*Math.cos(lean)-sy*Math.sin(lean),shy=sx*Math.sin(lean)+sy*Math.cos(lean);
  const ox=oxA,tg=.04+.26*cl(vm/VB,0,2.4)+D*.5+(KA?KA.cp*W:0)+.03*Math.sin(st.F*TAU*2);spr('ca',tg,dt,60,9);
@@ -775,9 +806,10 @@ function frame(v0,dt){dt=cl(dt,1/240,.05);if(!Number.isFinite(st.Pf)||!Number.is
   if(KA){const fxb=cl(ru-rf,0,2.7);if(n){ru=lp(ru,KA.ru,W);rf=ru-cl(lp(fxb,KA.ru-KA.rf,W),0,2.7);wT=lp(0,KA.w,W);ya=KA.ya*W}else{ru=lp(ru,KA.fru,W);rf=ru-cl(lp(fxb,KA.ffx,W),0,2.7)}}
   const lx=j.el[0]-j.sh[0],ly=j.el[1]-j.sh[1],ex=shx+lx*Math.cos(ru)-ly*Math.sin(ru),ey=hy+shy+lx*Math.sin(ru)+ly*Math.cos(ru);const fdx=j.fist[0]-j.el[0],fdy=j.fist[1]-j.el[1],fy=ey+fdx*Math.sin(rf)+fdy*Math.cos(rf);
   // клинок тяжёлый: угол клинка догоняет кисть пружиной с инерцией; кисть доворачивается только в пределах возможного, клинок не уходит под землю
-  if(n){if(KA){if(!st.bo){st.bo=1;st.bl=rf;st.blw=0}st.blw+=(BK*(rf+wT-st.bl)-BD*st.blw)*dt;st.bl+=st.blw*dt;
+  if(n){const gT=KA?0:lp(.62,.32,cl(m+g,0,1));st.gw=st.gw==null?gT:st.gw+(gT-st.gw)*Math.min(1,dt*7);
+   if(KA){if(!st.bo){st.bo=1;st.bl=rf+st.gw;st.blw=0}st.blw+=(BK*(rf+wT-st.bl)-BD*st.blw)*dt;st.bl+=st.blw*dt;
    const ph=st.bl,yv=Math.cos(ya),Lb=SWH*.82,sy_=Math.sin(ph),lim=(-10-fy)/Lb;let phc=ph;if(sy_>lim&&Math.hypot(Math.cos(ph)*yv,sy_)>.3){const a_=Math.asin(cl(lim,-1,1));phc=Math.cos(ph)>=0?a_:Math.PI-a_}
-   w=cl(phc-rf,WMIN,WMAX);st.bl=rf+w}else st.bo=0}
+   w=cl(phc-rf,WMIN,WMAX);st.bl=rf+w}else{st.bo=0;w=st.gw}}
   return{ru,rf,w,ya,ex,ey}});
  return{Pr,Praw,Pbob,Pcap,PN,m,g,D,hy,P,legs,lean,shx,shy,arm,v,cx,cy,ca:Math.max(st.ca,lean+.06),sb:st.sb,sf:st.sf,hrot,hdy,ox,shk,AS,AT,ak:st.ak|0,hit1,LGw,X:st.X}}
 // ---------------- рисование ----------------
@@ -826,7 +858,7 @@ function critic(){const dt=1/60,T=30,pf=t=>t<2?0:t<5?lp(0,1,(t-2)/3):t<8?1:t<10?
   ['Полуприсед: сгиб колена (шаг)',mean(Fx_),'°',25,sc(mean(Fx_),25)],['Макс. сгиб опорного колена',Math.max(...Fx_),'°',35,sc(Math.max(...Fx_),35)],['Взгляд: поворот головы (шаг)',Math.max(...Hd_)-Math.min(...Hd_),'°',1,sc(Math.max(...Hd_)-Math.min(...Hd_),1)],['Взгляд: поворот головы (бег)',Math.max(...Gr_)-Math.min(...Gr_),'°',1,sc(Math.max(...Gr_)-Math.min(...Gr_),1)],['Рывок таза (шаг)',Pa_,'ед/кадр²',2,sc(Pa_,2)],['Колебание таза (бег)',rg/(L1+L2)*100,'% ноги',9,sc(rg/(L1+L2)*100,9)],['Фаза полёта (бег)',fl,'с',.05,fl>.05?10:Math.round(fl/.05*100)/10],['Рывок сустава (ускорение)',M.jump,'рад/кадр²',.03,sc(M.jump,.03)],['… только бег',M.jumpR,'рад/кадр²',.03,sc(M.jumpR,.03)],['Руки против ног',c,'корр.',-.7,c<-.7?10:sc(c+1.7,1)]];
  return{R,jk:M.jk,jt:M.jt,score:Math.min(...R.map(r=>r[4]))}}
 // ================= игра =================
-const H={fs:[{},{}],dir:null,x:1000,z:.62,hp:100,maxhp:100,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,f:null,hist:[],swing:0,hitSet:new Set(),blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},t:0,kbv:0,flash:0,alpha:1,stepAcc:0,hidden:false};
+const H={fs:[{},{}],dir:null,qk:-1,pf:1,turnT:0,dyD:0,x:1000,z:.62,hp:100,maxhp:100,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,f:null,hist:[],swing:0,hitSet:new Set(),blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},t:0,kbv:0,flash:0,alpha:1,stepAcc:0,hidden:false};
 function reset(x,z){Object.assign(H,{fs:[{},{}],dir:null,x,z,hp:H.maxhp,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,hist:[],blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},kbv:0,flash:0,alpha:1,hidden:false});
  Object.assign(st,{X:0,F:.3,t:0,atk:-1,dsh:-1,Pa:0,Pf:null,Pfv:0,hurtL:0});LS.forEach(q=>{q.pu=0;q.lt=null;q.se=null;q.se0=null;q.ts=null});FACE=1;H.f=frame(0,DT)}
 function hit(k){if(st.atk<0&&!H.dead){st.atk=0;st.ak=k;st.hd=0;st.bo=0;H.swing++;H.hitSet=new Set();Snd.swing(k);return true}return false}
@@ -843,7 +875,8 @@ function update(dt,inp){
  let want=tg;if(H.SV*tg<0||(Math.abs(H.SV)<.04&&tg*FACE<0))want=0;
  const acc=(Math.abs(want)<Math.abs(H.SV)?(atk?5.5:4.2):2.6)*dt;H.SV+=cl(want-H.SV,-acc,acc);if(Math.abs(H.SV)<.04&&tg*FACE<0)FACE=-FACE;
  H.SZ+=cl(tz-H.SZ,-3.2*dt,3.2*dt);if(Math.abs(H.SZ)<1e-3&&!tz)H.SZ=0;
- if(inp.dash)dash();if(inp.combo)cbHit();if(inp.atk>=0)hit(inp.atk);
+ st.as=1.2;st.contact=st.atk>=0?H.hitSet.size>0:undefined;
+ if(inp.dash){if(st.atk>=0&&st.atk>ATK[st.ak].hs[1]){st.atk=Math.max(st.atk,ATK[st.ak].T-.22)}dash()}if(inp.combo)cbHit();if(inp.atk>=0&&!hit(inp.atk))H.qk=inp.atk;
  H.calm=(H.calm||0)+dt;if(H.calm>4&&!H.dead&&H.hp<H.maxhp)H.hp=Math.min(H.maxhp,H.hp+2.5*dt); // вне боя здоровье понемногу возвращается
  H.hurt=Math.max(0,H.hurt-dt);st.hurtL=.28*sm(H.hurt/.25);H.inv=Math.max(0,H.inv-dt);H.flash=Math.max(0,H.flash-dt*4);
  const k=Math.hypot(H.SV,H.SZ),X0=st.X,s=W.CS*zs(H.z);let mv={x:0,z:0};
@@ -855,7 +888,11 @@ function update(dt,inp){
    if(stn){if(!F.st||F.x==null){F.x=ex;F.z=ez}F.px=F.x;F.pz=F.z}else{if(F.st){F.cx=(F.x??ex)-ex;F.cz=(F.z??ez)-ez}const q=cl((l.u-l.beta)/(1-l.beta),0,1),kk=1-sm(q);F.px=ex+(F.cx||0)*kk;F.pz=ez+(F.cz||0)*kk}F.st=stn;
    const lx=(F.px-bx)*FACE/s,dy=(F.pz-bz)*ZPX/s;l.ax+=lx-l.rel;l.ay+=dy})};
  const f=frame(k*VB,dt);legHook=null;H.f=f;
- if(H.combo.q&&st.atk<0)cbHit();if(st.atk>=0)H.combo.last=H.t;
+ if(H.combo.q&&st.atk<0)cbHit();if(H.qk>=0&&st.atk<0){hit(H.qk);H.qk=-1}if(st.atk>=0)H.combo.last=H.t;
+ // рывок — короткий прыжок: стопы в воздухе, встают на новое место при приземлении
+ H.dyD=-16*f.D;if(f.D>.02)H.fs.forEach(F=>{F.x=null;F.st=false});
+ // разворот — «через ребро» за доли секунды
+ if(FACE!==H.pf){H.turnT=.12;H.pf=FACE}H.turnT=Math.max(0,(H.turnT||0)-dt);
  H.x+=mv.x;H.z+=mv.z;
  // отброс — подскок назад: тело в воздухе, стопы переставляются при приземлении
  if(H.kbv){H.x+=H.kbv*dt;H.kbv*=Math.exp(-dt*9);H.dy=-Math.min(14,Math.abs(H.kbv)*.07);H.fs.forEach(F=>{F.x=null;F.st=false});if(Math.abs(H.kbv)<16){H.kbv=0;H.dy=0}}
@@ -865,13 +902,14 @@ function update(dt,inp){
  // клинок в мире — только в окне удара (след клинка)
  H.prevBlade=H.blade;H.blade=null;
  if(st.atk>=0){const A_=ATK[st.ak];if(st.atk>=A_.tr[0]-.03&&st.atk<=A_.tr[1]+.01){const b=bladeLocal(f),p=toWorld(b.bx,b.by),q=toWorld(b.tx,b.ty);H.blade={x1:p.x,y1:p.y,x2:q.x,y2:q.y,z:H.z,ak:st.ak,swing:H.swing,hit1:f.hit1}}}
+ H.alpha=H.soul?1-.6*Soul.fadeFor(H.x):1; // тело не загораживает душу
  H.hist.push({f,x:H.x,z:H.z,face:FACE});if(H.hist.length>14)H.hist.shift();
  return f}
-function damage(n,fromX,kb=1){if(H.dead||H.inv>0||H.soul)return false;H.calm=0;H.hp=Math.max(0,H.hp-n);H.inv=.7;H.hurt=.35;H.flash=1;H.kbv=Math.sign(H.x-fromX||1)*kb*170;Snd.hurt();Cam.kick(5+n*.35);FX.sparks(H.x,H.z,110,8,'255,140,120',260);if(H.hp<=0)H.dead=1;return true}
+function damage(n,fromX,kb=1){if(H.dead||H.inv>0||H.soul)return false;n*=Game.dmgK||1;H.calm=0;H.hp=Math.max(0,H.hp-n);H.inv=.7;H.hurt=.35;H.flash=1;H.kbv=Math.sign(H.x-fromX||1)*kb*170;Snd.hurt();Cam.kick(5+n*.35);FX.sparks(H.x,H.z,110,8,'255,140,120',260);if(H.hp<=0)H.dead=1;return true}
 // рисование в мире
 function drawAt(f,x,z,face,alpha,rec){
  SC=W.CS*zs(z);GX=0;GY=0;const F0=FACE;FACE=face;
- ctx.save();ctx.translate(sx(x),zy(z)+(H.dy||0));if(face<0)ctx.scale(-1,1);ctx.globalAlpha=alpha;drawChar(f,rec);
+ ctx.save();ctx.translate(sx(x),zy(z)+(H.dy||0)+(H.dyD||0));const tk=(H.turnT||0)/.12;ctx.scale((face<0?-1:1)*(rec?(1-2*tk):1)||.02,1);ctx.globalAlpha=alpha;drawChar(f,rec);
  if(rec){
   tips=tips.filter(p=>st.t-p.t<.16);if(f.AT>=ATK[f.ak].tr[0]&&f.AT<ATK[f.ak].tr[1]&&tips.length>1){ctx.save();ctx.lineCap='round';for(let i=1;i<tips.length;i++){const a=tips[i-1],b=tips[i],al=1-(st.t-b.t)/.16;ctx.strokeStyle=`rgba(190,225,255,${.7*al})`;ctx.lineWidth=16*al*SC/.3;ctx.shadowColor='#6fb4ff';ctx.shadowBlur=12;ctx.beginPath();ctx.moveTo(a.x*SC,a.y*SC);ctx.lineTo(b.x*SC,b.y*SC);ctx.stroke()}ctx.restore()}
   if(st.fl&&st.t-st.fl.t<.16){const a=1-(st.t-st.fl.t)/.16,X=st.fl.x*SC,Y=st.fl.y*SC,r=70*SC/.3*(1+.8*(1-a)),gr=ctx.createRadialGradient(X,Y,0,X,Y,r);gr.addColorStop(0,`rgba(255,255,255,${.9*a})`);gr.addColorStop(.35,`rgba(170,215,255,${.5*a})`);gr.addColorStop(1,'rgba(120,180,255,0)');ctx.fillStyle=gr;ctx.fillRect(X-r,Y-r,2*r,2*r)}}
@@ -897,13 +935,13 @@ function segDist(p1, p2, q1, q2) { // расстояние между отрез
   const P = [p1[0] + d1[0] * s, p1[1] + d1[1] * s], Q = [q1[0] + d2[0] * t, q1[1] + d2[1] * t]; return { d: Math.hypot(P[0] - Q[0], P[1] - Q[1]), p: P };
 }
 const ETYPES = {
-  ghoul: { hp: 30, dmg: 5, range: 112, wind: .38, strike: .12, rec: .45, cd: [1.3, 2.2], score: 10, pois: 0,
-    wp: { ru: 1.0, rf: .5, lean: .12, far: -.6 }, sp: { ru: -1.85, rf: -2.25, lean: .38, far: .9, lunge: .22 } },
-  knight: { hp: 70, dmg: 10, range: 150, wind: .7, strike: .15, rec: .7, cd: [1.8, 2.7], score: 25, poise: .5,
-    wp: { ru: -2.75, rf: -3.35, lean: -.08, far: .3 }, sp: { ru: -1.05, rf: -1.3, lean: .2, far: -.3, lunge: .08 } },
+  ghoul: { hp: 30, dmg: 5, range: 118, wind: .38, strike: .12, rec: .45, cd: [1.3, 2.2], score: 10, pois: 0,
+    wp: { ru: 1.0, rf: .5, lean: .12, far: -.6, crouch: .1 }, sp: { ru: -1.85, rf: -2.25, lean: .38, far: .9, lunge: .3, crouch: .06 } },
+  knight: { hp: 70, dmg: 10, range: 168, wind: .7, strike: .15, rec: .7, cd: [1.8, 2.7], score: 25, poise: .5,
+    wp: { ru: -2.75, rf: -3.35, lean: -.1, far: .3, crouch: .03 }, sp: { ru: -1.05, rf: -1.3, lean: .22, far: -.3, lunge: .14, crouch: .08 } },
   doctor: { hp: 36, dmg: 7, range: 520, wind: .6, strike: .12, rec: .55, cd: [2.4, 3.4], score: 20, ranged: 1,
-    wp: { ru: 1.35, rf: 2.3, lean: -.12, far: -.4 }, sp: { ru: -2.4, rf: -2.7, lean: .18, far: .4, lunge: 0 } },
-  goatman: { hp: 100, dmg: 14, range: 420, wind: .85, strike: 0, rec: 1.1, cd: [3.0, 4.2], score: 35, poise: 1, charge: 1,
+    wp: { ru: 1.35, rf: 2.3, lean: -.14, far: -.4, crouch: .04 }, sp: { ru: -2.4, rf: -2.7, lean: .2, far: .4, lunge: .06, crouch: .03 } },
+  goatman: { hp: 100, dmg: 14, range: 440, wind: .85, strike: 0, rec: 1.1, cd: [3.0, 4.2], score: 35, poise: 1, charge: 1,
     wp: { ru: .75, rf: .4, lean: .5, far: .75 }, sp: { ru: .5, rf: .2, lean: .55, far: .5, lunge: 0 } },
 };
 const Enemies = {
@@ -921,18 +959,18 @@ const Enemies = {
     const dxp = tx - e.x, dzp = (tz - e.z) * ZPX, d = Math.hypot(dxp, dzp), c = e.c;
     let dir = 0; if (d > (opt.tol ?? 10)) dir = Math.abs(dxp) > 12 ? Math.sign(dxp) : e.face; if (opt.dir !== undefined) dir = opt.dir;
     const x0 = c.x; e.pose = Walker.update(c, dt, { dir: opt.hold ? 0 : dir, run: opt.run, speedK: opt.speedK, hold: opt.hold, runK: opt.runK, accK: opt.accK, lean: opt.lean, crouch: opt.crouch });
-    e.face = c.face; const p = Math.abs(c.x - x0), s = e.R.scale * zs(e.z);
+    e.face = c.face; turnTick(e, dt, .16); const p = Math.abs(c.x - x0), s = e.R.scale * zs(e.z);
     // торможение у цели — по прежнему направлению (иначе тело уезжает вбок от стоящих стоп)
     let mdir = null; if (p > 0) { let ax, az; if (d > 6) { const n = Math.hypot(Math.abs(dxp), dzp); ax = Math.abs(dxp) / n; az = dzp / n; e.mv = { ax, az } } else ({ ax, az } = e.mv || { ax: 1, az: 0 }); e.x += p * s * e.face * ax; e.z = cl(e.z + p * s * az / ZPX, 0, 1); mdir = { x: e.face * ax, z: az } }
     depthLegs(e, mdir);
-    for (const ev of c.events) { const R = e.R; if (c.g.heavy > .2) { Snd.step(ev.power * .5, 0); FX.dust(e.x, e.z, 2 + 4 * c.g.dust, .2 + .4 * c.g.dust) } }
+    for (const ev of c.events) { if (c.g.heavy > .2) { Snd.step(ev.power * .5, 0); FX.dust(e.x, e.z, 2 + 4 * c.g.dust, .2 + .4 * c.g.dust) } else if (Math.abs(e.x - Hero.H.x) < 600 && Math.random() < .6) Snd.step(.05, 0) }
     // одежда — пружина от скорости
     e.clothv += ((-c.v * .0012 - e.cloth) * 60 - e.clothv * 8) * dt; e.cloth += e.clothv * dt;
   },
   // ---------- ИИ ----------
   update(dt) {
     const h = Hero.H, side = { '-1': [], '1': [] };
-    for (const e of this.list) if (e.st !== 'dead' && !e.T.ranged) side[e.x < h.x ? -1 : 1].push(e);
+    for (const e of this.list) if (e.st !== 'dead' && e.st !== 'dying' && !e.T.ranged) side[e.x < h.x ? -1 : 1].push(e);
     for (const k in side) side[k].sort((a, b) => Math.abs(a.x - h.x) - Math.abs(b.x - h.x)).forEach((e, i) => e.slot = i);
     for (const e of this.list) this.think(e, dt);
     this.list = this.list.filter(e => e.st !== 'gone');
@@ -949,18 +987,19 @@ const Enemies = {
       case 'enter': { e.alpha = Math.min(1, e.alpha + dt * 2); this.move(e, dt, e.x + (e.x < W.ARENA / 2 ? 200 : -200), .3 + e.slotZ); if (e.t > 1.1) { e.st = 'move'; e.t = 0 } break }
       case 'move': {
         let tx, tz = cl(h.z + (T.ranged ? 0 : (e.slot || 0) % 2 ? e.slotZ * .6 : 0), .03, 1), run = false;
-        if (T.ranged) { const want = 360, sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * want; if (tx < W.XMIN || tx > W.XMAX) tx = h.x - sd * want; tz = cl(h.z + e.slotZ, .03, 1) }
-        else if (T.charge) { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * 300 } else { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * (T.range * .78 + (e.slot || 0) * 70); run = adx > 420 && e.type === 'ghoul' }
+        if (T.ranged) { const want = 360, sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * want; if (tx < W.XMIN || tx > W.XMAX) tx = h.x - sd * want; tz = cl(h.z + e.slotZ, .03, 1);
+          const flee = adx < want - 60; e.flee = flee ? (e.flee || 0) + dt : Math.max(0, (e.flee || 0) - dt * .5); if (e.flee > 2.2) { e.stand = 3.5; e.flee = 0 } if (e.stand > 0) { e.stand -= dt; tx = e.x } }
+        else if (T.charge) { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * 300 } else { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * (Math.max(T.range * .8, 104 * (e.R.size || 1)) + (e.slot || 0) * 75); run = adx > 420 && e.type === 'ghoul' }
         const close = !T.ranged && adx < T.range * .85 && Math.abs(dz) < .15 && (e.slot || 0) < 2;
         // уже рядом — не пятиться, а стоять лицом к герою (разворот короткими шагами)
         if (close) this.move(e, dt, e.x, tz, { dir: facing ? 0 : Math.sign(toH), speedK: .08, tol: 6 }); else this.move(e, dt, tx, tz, { run, tol: 14 });
-        const inRange = T.ranged ? adx > 200 && adx < T.range : T.charge ? adx < T.range && adx > 150 && Math.abs(dz) < .14 : adx < T.range && Math.abs(dz) < .1;
+        const inRange = T.ranged ? adx > 110 && adx < T.range : T.charge ? adx < T.range && adx > 150 && Math.abs(dz) < .14 : adx < T.range && Math.abs(dz) < .1;
         const busy = this.list.filter(o => o !== e && (o.st === 'wind' || o.st === 'strike')).length;
         if (target && e.cd <= 0 && inRange && facing && busy < 2 && (e.slot || 0) < 2 && Math.abs(e.c.v) < e.R.L1 * 3) { e.st = 'wind'; e.t = 0; e.aim = { x: h.x, z: h.z }; if (T.charge) Snd.whoosh() }
         break;
       }
       case 'wind': {
-        this.move(e, dt, e.x, e.z, { hold: true }); ov = { k: 'wp', w: sm(e.t / T.wind) };
+        this.move(e, dt, e.x, e.z, { hold: true, crouch: (T.wp.crouch || 0) * sm(e.t / T.wind) }); ov = { k: 'wp', w: sm(e.t / T.wind) };
         if (T.charge) { e.dy = Math.sin(e.t * 40) * 1.5; e.aim = { x: h.x, z: h.z } }
         if (e.t >= T.wind) { e.st = 'strike'; e.t = 0; e.done = 0; e.dy = 0; if (T.charge) { e.chDir = Math.sign(e.aim.x - e.x) || e.face; e.chZ = e.aim.z; e.chEnd = e.aim.x + e.chDir * 160 } else Snd.swing(1) }
         break;
@@ -972,17 +1011,19 @@ const Enemies = {
           if (Math.sign(e.chEnd - e.x) !== e.chDir || e.t > 1.6 || e.x <= W.XMIN || e.x >= W.XMAX) { e.st = 'rec'; e.t = 0; Cam.kick(4); FX.dust(e.x, e.z, 8, .6) }
           break;
         }
-        this.move(e, dt, e.x, e.z, { hold: true }); ov = { k: 'sp', w: sm(e.t / T.strike) };
+        this.move(e, dt, e.x, e.z, { hold: true, crouch: lp(T.wp.crouch || 0, T.sp.crouch || 0, sm(e.t / T.strike)) }); ov = { k: 'sp', w: sm(e.t / T.strike) };
         if (e.t >= T.strike && !e.done) { e.done = 1; this.release(e) }
         if (e.t >= T.strike) { e.st = 'rec'; e.t = 0 }
         break;
       }
-      case 'rec': { this.move(e, dt, e.x, e.z, { hold: true }); ov = { k: 'sp', w: 1 - sm(e.t / T.rec) }; if (e.t >= T.rec) { e.st = 'move'; e.t = 0; e.cd = rnd(...T.cd); e.flaskOut = 0 } break }
+      case 'rec': { this.move(e, dt, e.x, e.z, { hold: true, crouch: (T.sp.crouch || 0) * (1 - sm(e.t / T.rec)) }); ov = { k: 'sp', w: 1 - sm(e.t / T.rec) }; if (e.t >= T.rec) { e.st = 'move'; e.t = 0; e.cd = rnd(...T.cd); e.flaskOut = 0 } break }
       case 'hurt': { this.move(e, dt, e.x, e.z, { hold: true }); if (e.t > .32) { e.st = 'move'; e.t = 0 } break }
+      case 'dying': { this.move(e, dt, e.x, e.z, { hold: true, crouch: .3 * sm(e.t / .38) }); e.pose.lean -= .55 * sm(e.t / .38); e.pose.arms.forEach((a, i) => { a.ru = lp(a.ru, i ? .9 : .6, sm(e.t / .38)); a.rf = a.ru - .4 }); if (e.t > .38) { e.G = rigGeom(e); this.ash(e) } break }
       case 'dead': break;
     }
     // поза: руки и корпус к ключу атаки
     const po = e.pose; if (ov && ov.w > 0) { const K = T[ov.k], w = ov.w, a = po.arms[0], b = po.arms[1]; a.ru = lp(a.ru, K.ru, w); a.rf = lp(a.rf, K.rf, w); b.ru = lp(b.ru, K.far, w); b.rf = lp(b.rf, K.far - .4, w); po.lean += K.lean * w; e.lunge = (K.lunge || 0) * w } else e.lunge = 0;
+    e.hx = e.lunge * (e.R.L1 + e.R.L2) * .4; if (e.hx) po.legs = po.legs.map(l => ({ ...l, ...Walker.ik2(l.ax - e.hx, l.ay, e.R.L1, e.R.L2, e.c.g.digi ? -1 : 1) }));
     if (e.st === 'hurt') po.lean -= .25 * (1 - sm(e.t / .32));
     e.G = rigGeom(e);
   },
@@ -999,7 +1040,7 @@ const Enemies = {
     const hd = rigToWorld(e, G.arms[0].hand, xf), el = rigToWorld(e, G.arms[0].el, xf); pts.push([el, hd]);
     if (Math.abs(h.z - e.z) > .12 || h.soul) return;
     const hx = h.x, body = [[hx, zy(h.z) - 10], [hx, zy(h.z) - Hero.height() * .92]], R = 34 * zs(h.z);
-    for (const [a, b] of pts) { const r = segDist([a.x + e.lunge * e.face * xf.s * 100, a.y], [b.x + e.lunge * e.face * xf.s * 100, b.y], body[0], body[1]); if (r.d < R) { if (Hero.damage(T.dmg, e.x, 1)) FX.sparks(r.p[0], h.z, zy(h.z) - r.p[1], 10, '255,120,100', 300); break } }
+    for (const [a, b] of pts) { const r = segDist([a.x, a.y], [b.x, b.y], body[0], body[1]); if (r.d < R) { if (Hero.damage(T.dmg, e.x, 1)) FX.sparks(r.p[0], h.z, zy(h.z) - r.p[1], 10, '255,120,100', 300); break } }
   },
   updProj(dt) {
     const h = Hero.H;
@@ -1022,7 +1063,7 @@ const Enemies = {
   bladeHits(b) {
     let any = false;
     for (const e of this.list) {
-      if (e.st === 'dead' || e.st === 'enter' && e.alpha < .7 || Math.abs(e.z - b.z) > .15 || Hero.H.hitSet.has(e)) continue;
+      if (e.st === 'dead' || e.st === 'dying' || e.st === 'gone' || e.st === 'enter' && e.alpha < .7 || Math.abs(e.z - b.z) > .15 || Hero.H.hitSet.has(e)) continue;
       for (const [a, c, r] of this.hurtCapsules(e)) { const q = segDist([b.x1, b.y1], [b.x2, b.y2], a, c); if (q.d < r + 6) { this.damage(e, b, q.p); any = true; break } }
     }
     return any;
@@ -1034,8 +1075,8 @@ const Enemies = {
     if (e.hp <= 0) return this.kill(e);
     if (!e.T.poise || (e.st === 'move' || e.st === 'wind') && Math.random() > e.T.poise) { if (e.st !== 'strike' || !e.T.charge) { e.st = 'hurt'; e.t = 0; e.flaskOut = 0 } }
   },
-  kill(e) {
-    e.st = 'dead'; Game.score += e.T.score; Snd.death();
+  kill(e) { e.st = 'dying'; e.t = 0; e.kbv *= .5; Game.score += e.T.score; Snd.death() },
+  ash(e) {
     // персонаж рассыпается пеплом: рисуем его во внеэкранный холст и режем на куски
     const xf = rigXf(e), hgt = e.R.P.torso.h * 2.6 * xf.s, w = hgt * 1.3, x0 = xf.X - w / 2, y0 = zy(e.z) - hgt * 1.08;
     const cv = renderToCanvas(() => drawRig(e), x0, y0, w, hgt * 1.15);
@@ -1049,7 +1090,7 @@ const Enemies = {
   },
   draw(e) {
     if (e.st === 'gone') return; if (!e.G) e.G = rigGeom(e);
-    const xf = rigXf(e); ctx.save(); ctx.globalAlpha = e.alpha; ctx.translate(e.lunge * e.face * xf.s * 100, 0); drawRig(e);
+    ctx.save(); ctx.globalAlpha = e.alpha * (1 - .6 * Soul.fadeFor(e.x)); drawRig(e);
     if (e.flash > 0) { ctx.globalAlpha = e.flash * .75 * e.alpha; drawRig(e, { v: 'W' }) }
     if (e.st === 'wind' && e.T.charge) { ctx.globalAlpha = .3 + .3 * Math.sin(e.t * 30); drawRig(e, { v: 'W', only: 'armN' }) }
     ctx.restore();
@@ -1064,17 +1105,17 @@ const Enemies = {
 const LIMBS = ['armN', 'armF', 'legN', 'legF'];
 const LIMB_NAME = { armN: 'Ближняя рука', armF: 'Дальняя рука', legN: 'Ближняя нога', legF: 'Дальняя нога' };
 const BOSSDEF = {
-  guardian: { hp: { armN: 130, armF: 130, legN: 150, legF: 150 }, atks: ['slam', 'sweep', 'stomp', 'wave'], cd: [1.4, 2.4], speedK: 1 },
-  executioner: { hp: { armN: 125, armF: 125, legN: 145, legF: 145 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [1.0, 1.9], speedK: 1.15 },
+  guardian: { hp: { armN: 95, armF: 95, legN: 105, legF: 105 }, atks: ['slam', 'sweep', 'stomp', 'wave'], cd: [2.6, 3.6], speedK: 1 },
+  executioner: { hp: { armN: 90, armF: 90, legN: 100, legF: 100 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [2.2, 3.2], speedK: 1.15 },
 };
 // ключи атак: wk — поза замаха; hit — высота цели над полом ('g' — пол, 'c' — грудь героя); D — желаемая дальность (доля длины руки)
 const BATK = {
-  slam: { arm: 1, wind: .95, strike: .24, hold: .8, rec: .6, dmg: 24, th: .82, r: 78, wk: { ru: -3.35, flex: .7, crouch: .05, lean: -.2 }, D: .62 },
-  sweep: { arm: 1, wind: .7, strike: .2, hold: .3, rec: .55, dmg: 16, th: .42, r: 72, wk: { ru: 1.35, flex: .3, crouch: .06, lean: -.14 }, D: .72 },
-  wave: { arm: 1, wind: .8, strike: .2, hold: .55, rec: .55, dmg: 14, th: 0, r: 60, wk: { ru: -3.2, flex: .6, crouch: .02, lean: -.15 }, D: .5, far: 1 },
-  chop: { arm: 1, axe: 1, wind: 1.0, strike: .2, hold: 1.1, rec: .7, dmg: 30, th: 0, r: 80, wk: { ru: -3.5, flex: .9, crouch: 0, lean: -.22, axeC: 2.3 }, axeHit: 1.35, D: .62 },
-  cleave: { arm: 1, axe: 1, wind: .75, strike: .22, hold: .3, rec: .6, dmg: 20, th: .45, r: 80, wk: { ru: 1.2, flex: .5, crouch: .03, lean: -.12, axeC: .9 }, axeHit: 1.55, D: .78 },
-  stomp: { leg: 1, wind: .8, strike: .15, hold: .35, rec: .5, dmg: 20, radius: 200 },
+  slam: { arm: 1, wind: .95, strike: .24, hold: .8, rec: .6, dmg: 14, th: .82, r: 78, wk: { ru: -3.35, flex: .7, crouch: .05, lean: -.2 }, D: .62 },
+  sweep: { arm: 1, wind: .7, strike: .2, hold: .3, rec: .55, dmg: 10, th: .42, r: 72, wk: { ru: 1.35, flex: .3, crouch: .06, lean: -.14 }, D: .72 },
+  wave: { arm: 1, wind: .8, strike: .2, hold: .55, rec: .55, dmg: 9, th: 0, r: 60, wk: { ru: -3.2, flex: .6, crouch: .02, lean: -.15 }, D: .5, far: 1 },
+  chop: { arm: 1, axe: 1, wind: 1.0, strike: .2, hold: 1.1, rec: .7, dmg: 18, th: 0, r: 80, wk: { ru: -3.5, flex: .9, crouch: 0, lean: -.22, axeC: 2.3 }, axeHit: 1.35, D: .62 },
+  cleave: { arm: 1, axe: 1, wind: .75, strike: .22, hold: .16, rec: .7, dmg: 12, th: .45, r: 80, wk: { ru: 1.2, flex: .5, crouch: .03, lean: -.12, axeC: .9 }, axeHit: 1.55, D: .78 },
+  stomp: { leg: 1, wind: .85, strike: .15, hold: .35, rec: .5, dmg: 12, radius: 200 },
 };
 const Boss = {
   b: null, waves: [],
@@ -1162,7 +1203,7 @@ const Boss = {
           B.planT = .16;
           const T = this.targetFor(B, A), pl = A.leg ? (nLeg > 1 ? { ok: 1 } : null) : this.plan(B, A, T);
           if (!pl && A.far) { B.next = null; B.cd = .3; break }
-          if (pl && (A.far || A.leg || Math.abs(h.z - B.z) < .2)) { this.startAtk(B, A, T, pl); break }
+          if (pl && (A.far || A.leg || Math.abs(h.z - B.z) < .07)) { if (!A.far && !A.leg) T.z = B.z; this.startAtk(B, A, T, pl); break }
         }
         break;
       }
@@ -1170,7 +1211,7 @@ const Boss = {
       case 'stagger': ctl.hold = true; ctl.lean = -.22 * Math.sin(PI * cl(B.t / 1.2, 0, 1)); if (B.t > 1.2) { B.st = 'move'; B.t = 0; B.cd = .8 } break;
       case 'dying': ctl.hold = true; ctl.lean = .3 * sm(B.t / 1.5); B.dy = 40 * sm(B.t / 1.6); if (B.t > 1.6 && !B.gone) this.crumble(B); break;
     }
-    if (B.st === 'move' || B.st === 'enter') { const dx = ctl.tx - B.x; ctl.dir = Math.abs(dx) > 30 ? Math.sign(dx) : (Math.abs((ctl.tz - B.z) * ZPX) > 20 ? B.face : 0); if (B.st === 'move' && Math.abs(dx) <= 30 && Math.sign(h.x - B.x) !== B.face && Math.abs(h.x - B.x) > 40) ctl.dir = Math.sign(h.x - B.x) }
+    if (B.st === 'move' || B.st === 'enter') { const dx = ctl.tx - B.x; ctl.dir = Math.abs(dx) > 30 ? Math.sign(dx) : (Math.abs((ctl.tz - B.z) * ZPX) > 9 ? B.face : 0); if (B.st === 'move' && Math.abs(dx) <= 30 && Math.sign(h.x - B.x) !== B.face && Math.abs(h.x - B.x) > 40) ctl.dir = Math.sign(h.x - B.x) }
     this.locomote(B, dt, ctl);
     // палач держит топор на плече, когда не бьёт (это же — исходная поза замаха)
     const po = B.pose;
@@ -1178,6 +1219,10 @@ const Boss = {
     if (B.st === 'atk' && B.atk && !B.atk.A.leg) this.applyArm(B);
     if (legOv) { const lg = po.legs[legOv.li], lift = Math.max(0, legOv.lift), r = Walker.ik2(lg.ax + legOv.dx, po.hip - lift, B.R.L1, B.R.L2, 1); Object.assign(lg, r, { st: lift < 1, lift, footRot: -.35 * cl(lift / (L * .3), 0, 1) }) }
     B.G = rigGeom(B);
+    // след оружия: точка удара по кадрам фазы удара
+    if (B.atk && !B.atk.A.leg && (B.atk.ph === 'strike' || (B.atk.ph === 'hold' && B.atk.t < .05))) { const P = this.effPoint(B, B.G, B.atk.pl.ai); (B.trail || (B.trail = [])).push({ x: P.x, y: P.y, t: B.t }) } if (B.trail) B.trail = B.trail.filter(p => B.t - p.t < .22);
+    // каменная крошка сыплется с культей
+    for (const l of LIMBS) if (!B.limbs[l].alive && Math.random() < dt * 12) { const G = B.G, p = l.startsWith('arm') ? G.arms[l === 'armN' ? 0 : 1].sh : G.legs[l === 'legN' ? 0 : 1].hip, q = rigToWorld(B, p); FX.chips(q.x, B.z, zy(B.z) - q.y + 10, 1, 60) }
     if (B.atk && B.atk.impact && !B.atk.done) this.impact(B);
     this.updWaves(dt);
   },
@@ -1185,13 +1230,13 @@ const Boss = {
   choose(B) {
     const ai = this.armIdx(B), nLeg = this.legsAlive(B), h = Hero.H, far = Math.abs(h.x - B.x) > 640 || (B.gait === 'sit' && Math.abs(h.x - B.x) > 360);
     let list = B.D.atks.filter(k => { const A = BATK[k]; if (A.arm && ai < 0) return false; if (A.axe && (!B.R.axe)) return false; if (A.leg && (nLeg < 2)) return false; if (!A.axe && B.R.axe && A.arm && !A.far) return false; return true });
-    const mk = k => (B.R.axe && k === 'wave') ? { ...BATK.chop, far: 1, D: .45, dmg: 14, r: 60, key: k } : { ...BATK[k], key: k };
+    const mk = k => (B.R.axe && k === 'wave') ? { ...BATK.chop, far: 1, D: .45, dmg: 9, r: 60, key: k } : { ...BATK[k], key: k };
     if (far) { const w = list.filter(k => BATK[k].far).map(mk).find(A => this.plan(B, A, this.targetFor(B, A))); if (w) return w; if (list.includes('stomp')) return mk('stomp') }
     list = list.filter(k => !BATK[k].far || Math.random() < .2); if (!list.length) return null;
     return mk(pick(list));
   },
   startAtk(B, A, T, pl) {
-    B.st = 'atk'; B.t = 0; B.atk = { A, T, pl, ph: 'wind', t: 0, z0: B.z, done: 0 }; B.next = null; B.nextT = 0;
+    B.st = 'atk'; B.t = 0; B.atk = { A, T, pl, ph: 'wind', t: 0, z0: B.z, done: 0 }; B.next = null; B.nextT = 0; B.trail = []; Snd.windup(B.id === 'guardian' ? 1 : .8);
     if (!A.leg) B.atk.mark = FX.mark(T.x, T.z, A.wind + A.strike + .05, A.th ? '255,170,80' : '255,90,60', A.r);
     else B.atk.mark = FX.mark(B.x, B.z, A.wind + A.strike + .05, '255,120,60', A.radius);
   },
@@ -1199,7 +1244,6 @@ const Boss = {
     const k = B.atk, A = k.A, h = Hero.H, L = this.L(B); k.t += dt; ctl.hold = true; let arm = null, leg = null;
     const ph = k.ph, wk = A.wk || {}, P = k.pl;
     // z босса подтягивается к точке удара к моменту удара (выпад)
-    if (!A.leg && !A.far) B.z = lp(k.z0, k.T.z, sm(Math.min(1, (ph === 'wind' ? k.t / A.wind * .7 : ph === 'strike' ? .7 + .3 * k.t / A.strike : 1))));
     const e = ph === 'wind' ? sm(k.t / A.wind) : ph === 'strike' ? Math.pow(cl(k.t / A.strike, 0, 1), 2.2) : ph === 'hold' ? 1 : 1 - sm(k.t / A.rec);
     if (A.leg) { // топот: нога поднимается и бьёт в землю там же, где стояла
       const li = B.limbs.legN.alive ? 0 : 1, lift = ph === 'wind' ? L * .42 * sm(k.t / A.wind) : ph === 'strike' ? L * .42 * (1 - Math.pow(k.t / A.strike, 2)) : 0;
@@ -1209,7 +1253,7 @@ const Boss = {
       ctl.crouch = ph === 'wind' ? lp(0, wk.crouch, e) : ph === 'rec' ? lp(0, P.crouch, e) : lp(wk.crouch, P.crouch, e);
       ctl.lean = ph === 'wind' ? lp(0, wk.lean, e) : ph === 'rec' ? lp(0, P.lean, e) : lp(wk.lean, P.lean, e);
     }
-    if (ph === 'wind' && k.t >= A.wind) { k.ph = 'strike'; k.t = 0; Snd.swing(2) }
+    if (ph === 'wind' && k.t >= A.wind) { k.ph = 'strike'; k.t = 0; if (A.axe) Snd.axe(); else Snd.swing(2) }
     else if (ph === 'strike' && k.t >= A.strike) { k.ph = 'hold'; k.t = 0; k.impact = 1 }
     else if (ph === 'hold' && k.t >= A.hold) { k.ph = 'rec'; k.t = 0 }
     else if (ph === 'rec' && k.t >= A.rec) { B.st = 'move'; B.t = 0; B.cd = rnd(...B.D.cd); B.atk = null }
@@ -1225,7 +1269,7 @@ const Boss = {
       for (const ev of c.events) this.stepFx(B, ev.foot);
     } else if (B.gait === 'hop') this.hopStep(B, dt, ctl);
     else this.sitStep(B, dt, ctl);
-    B.pose.baseLean = B.pose.lean; if (ctl.leanAbs) B.pose.lean += ctl.lean; else B.pose.lean += ctl.lean || 0;
+    B.pose.baseLean = B.pose.lean; B.pose.lean += ctl.lean || 0; turnTick(B, dt, .34);
     B.x = cl(B.x, W.XMIN - 40, W.XMAX + 40);
   },
   stepFx(B, foot) {
@@ -1235,7 +1279,7 @@ const Boss = {
   hopStep(B, dt, ctl) {
     const c = B.c, L = this.L(B), s = this.s(B), li = B.limbs.legN.alive ? 0 : 1; c.t += dt;
     const hp = B.hop || (B.hop = { u: 0, on: 0, fx: B.x, x0: B.x, z0: B.z });
-    const moving = ctl.dir !== 0 && !ctl.hold; if (moving && !hp.on) { hp.on = 1; hp.u = 0; hp.x0 = B.x; hp.z0 = B.z; hp.dir = ctl.dir; hp.dz = cl((ctl.tz - B.z), -.12, .12) }
+    const moving = ctl.dir !== 0 && !ctl.hold; if (moving && !hp.on) { hp.on = 1; hp.u = 0; hp.x0 = B.x; hp.z0 = B.z; hp.dir = ctl.dir; hp.dz = cl((ctl.tz - B.z), -.12, .12); hp.mark = FX.mark(B.x + hp.dir * L * .55 * s, cl(B.z + hp.dz, .1, .96), .9, '255,140,70', 150) }
     if (moving && hp.dir !== B.face) { B.face = hp.dir }
     let hipH = L * .88 - L * .006 * (1 + Math.sin(c.t * 1.6)) - (ctl.hold ? (ctl.crouch || 0) * L : 0), lift = 0, lean = .05, fx = hp.fx;
     const len = L * .55 * s;
@@ -1243,7 +1287,7 @@ const Boss = {
       hp.u += dt / 1.25; const u = hp.u;
       if (u < .35) { const e = sm(u / .35); hipH = lp(L * .88, L * .7, e); lean = .05 + .2 * e }
       else if (u < .7) { const q = (u - .35) / .35, e = sm(q); B.x = hp.x0 + hp.dir * len * e; B.z = cl(hp.z0 + hp.dz * e, .1, .96); hipH = L * .7 + L * .32 * Math.sin(PI * q); lift = L * .2 * Math.sin(PI * q); fx = lp(hp.fx, hp.x0 + hp.dir * len, e); lean = .25 - .15 * q }
-      else { if (!hp.landed) { hp.landed = 1; hp.fx = B.x; this.stepFx(B, li); Cam.kick(16); FX.ring(B.x, B.z, 260, .6); if (fdist(Hero.H.x, Hero.H.z, B.x, B.z) < 150) Hero.damage(12, B.x, 1.5) } fx = hp.fx; hipH = lp(L * .66, L * .88, sm((u - .7) / .3)); lean = .1 * (1 - (u - .7) / .3) }
+      else { if (!hp.landed) { hp.landed = 1; hp.fx = B.x; this.stepFx(B, li); Cam.kick(16); FX.ring(B.x, B.z, 260, .6); if (fdist(Hero.H.x, Hero.H.z, B.x, B.z) < 150) Hero.damage(8, B.x, 1.5) } fx = hp.fx; hipH = lp(L * .66, L * .88, sm((u - .7) / .3)); lean = .1 * (1 - (u - .7) / .3) }
       if (u >= 1) { hp.on = 0; hp.landed = 0; hp.fx = B.x }
     } else hp.fx = lp(hp.fx, B.x, 0); // опорная стопа стоит
     if (!hp.on) hp.fx = hp.fx ?? B.x;
@@ -1292,7 +1336,7 @@ const Boss = {
   updWaves(dt) {
     const h = Hero.H;
     for (const w of this.waves) { w.t += dt; w.x += w.dir * w.v * dt; w.acc += dt; if (w.acc > .06) { w.acc = 0; FX.chips(w.x, w.z, 0, 4, 240); FX.dust(w.x, w.z, 2, .5); if (Math.random() < .35) FX.crack(w.x, w.z, .5, 3) }
-      if (!w.hit && Math.abs(h.x - w.x) < 36 && Math.abs(h.z - w.z) < .1) { if (Hero.damage(14, w.x - w.dir * 50, 1.2)) w.hit = 1 }
+      if (!w.hit && Math.abs(h.x - w.x) < 36 && Math.abs(h.z - w.z) < .1) { if (Hero.damage(9, w.x - w.dir * 50, 1.2)) w.hit = 1 }
       if (w.x < W.XMIN || w.x > W.XMAX) w.t = w.life }
     this.waves = this.waves.filter(w => w.t < w.life);
   },
@@ -1317,8 +1361,9 @@ const Boss = {
   },
   hitLimb(part, b, at, real = true) {
     const B = this.b, lm = B.limbs[part], dmg = [12, 10, 11][b.ak] * (b.ak === 2 && Hero.H.combo.n === 0 ? 1.3 : 1);
-    Snd.stoneHit(); FX.chips(at[0], B.z, zy(B.z) - at[1], 7, 320); FX.sparks(at[0], B.z, zy(B.z) - at[1], 6, '230,230,255', 260); Cam.kick(4); Game.hitStop(.06);
-    if (!real) { Critic.fake++; return } // душа вне тела: тело дерётся только для вида
+    Snd.stoneHit(); FX.chips(at[0], B.z, zy(B.z) - at[1], 7, 320); FX.sparks(at[0], B.z, zy(B.z) - at[1], 6, '230,230,255', 260);
+    if (!real) { Critic.fake++; return } // душа вне тела: тело дерётся только для вида (без стоп-кадра и тряски — душа не дёргается)
+    Cam.kick(4); Game.hitStop(.06);
     lm.hp -= dmg; B.flash[part] = 1; Game.stats.hits++;
     if (lm.hp <= 0) this.breakLimb(B, part);
   },
@@ -1344,7 +1389,7 @@ const Boss = {
     lm.alive = true; lm.max = Math.max(40, Math.round(lm.max * B.regrowK)); lm.hp = lm.max; lm.regrow = 1; B.missing[part] = false;
     if (B.R.axe && part === 'armN') B.weaponArm = 0;
     if (B.st === 'dying') { B.st = 'move'; B.t = 0 }
-    Snd.breakStone(); FX.flash(B.x, B.z, 300, 220, '255,120,90', .4); Cam.kick(10);
+    Snd.regrow(); FX.flash(B.x, B.z, 300, 220, '255,120,90', .4); Cam.kick(10);
   },
   crumble(B) {
     B.gone = 1; const xf = rigXf(B), hgt = B.R.P.torso.h * 2.4 * xf.s, w = hgt * 1.2, x0 = xf.X - w / 2, y0 = zy(B.z) - hgt * 1.05;
@@ -1359,10 +1404,10 @@ const Boss = {
     for (const w of this.waves) list.push({ z: w.z, draw: () => { const x = sx(w.x), y = zy(w.z), k = 1 - w.t / w.life; ctx.fillStyle = `rgba(90,96,112,${k})`; for (let i = 0; i < 4; i++) { const xx = x - w.dir * i * 22, hh = (30 - i * 6) * (1 + .2 * Math.sin(w.t * 30 + i)); ctx.beginPath(); ctx.moveTo(xx - 12, y); ctx.lineTo(xx - 3, y - hh); ctx.lineTo(xx + 4, y - hh * .7); ctx.lineTo(xx + 12, y); ctx.fill() } } });
   },
   draw(B) {
-    if (B.gone) return; ctx.save(); ctx.globalAlpha = B.alpha; const flash = {}; for (const l of LIMBS) { const lm = B.limbs[l]; if (lm.alive) flash[l] = Math.max(B.flash[l] || 0, lm.regrow) * .7 } drawRig(B, { flash });
+    if (B.gone) return; ctx.save(); ctx.globalAlpha = B.alpha * (1 - .65 * Soul.fadeFor(B.x)); const flash = {}; for (const l of LIMBS) { const lm = B.limbs[l]; if (lm.alive) flash[l] = Math.max(B.flash[l] || 0, lm.regrow) * .7 } drawRig(B, { flash });
     ctx.restore();
-    // светящиеся трещины на культях
-    for (const l of LIMBS) if (!B.limbs[l].alive && Math.random() < .25) { const G = B.G, p = l.startsWith('arm') ? G.arms[l === 'armN' ? 0 : 1].sh : G.legs[l === 'legN' ? 0 : 1].hip, q = rigToWorld(B, p); FX.chips(q.x, B.z, zy(B.z) - q.y + 10, 1, 60) }
+    // след оружия в ударе
+    if (B.trail && B.trail.length > 1) { ctx.save(); ctx.lineCap = 'round'; for (let i = 1; i < B.trail.length; i++) { const a = B.trail[i - 1], b = B.trail[i], al = 1 - (B.t - b.t) / .22; if (al <= 0) continue; ctx.strokeStyle = B.R.axe ? `rgba(255,170,110,${.55 * al})` : `rgba(200,220,255,${.45 * al})`; ctx.lineWidth = (B.R.axe ? 22 : 30) * al; ctx.beginPath(); ctx.moveTo(sx(a.x), a.y); ctx.lineTo(sx(b.x), b.y); ctx.stroke() } ctx.restore() }
   },
 };
 
@@ -1371,31 +1416,40 @@ const Boss = {
 // (E — подобрать / положить, Q — вернуть последний или бросить) и складывает ответ на монолите. Тело героя в это время
 // дерётся само, но урона не наносит. Верно — конечность остаётся разрушенной; неверно — собирается обратно с меньшим HP.
 const Soul = {
-  on: false, ph: 'off', shards: [], carried: [], placed: [], t: 0, T: 0, TMAX: 95, x: 0, z: .5, h: 60, vx: 0, vz: 0, face: 1, alpha: 0, msg: null, hint: 0,
+  on: false, ph: 'off', shards: [], carried: [], placed: [], t: 0, T: 0, TMAX: 95, FAST: 35, x: 0, z: .5, h: 60, vx: 0, vz: 0, face: 1, alpha: 0, msg: null, hint: 0, mode: 'limb',
   reset() { this.on = false; this.ph = 'off'; this.shards = []; this.carried = []; this.placed = []; this.msg = null },
   ansStr(a) { return (a < 0 ? '−' : '') + Math.abs(a) },
+  // разрушена конечность босса: осколки летят из неё
   begin(B, part, pos, last) {
-    const p = this.prob = Problems.next(Game.level), s = this.ansStr(p.a); this.part = part; this.B = B; this.last = last; this.slots = s.length;
-    this.on = true; this.ph = 'out'; this.t = 0; this.T = this.TMAX; this.carried = []; this.placed = []; this.msg = null; this.res = null;
+    this.start({ mode: 'limb', B, part, pos, last });
+    if (!Game.soulSeen) { Game.soulSeen = 1; UI.banner('Душа покинула тело', 'Собери осколки с цифрами ответа (E) и сложи их на монолите', '#bfefff', 4.2) }
+    else UI.banner('Душа вне тела', LIMB_NAME[part] + ' разбита — реши задачу на монолите', '#bfefff', 2.2);
+  },
+  // печать монолита между волнами: задача без босса, награда — здоровье
+  seal() {
+    const M = World.monolith; this.start({ mode: 'seal', pos: { x: M.x, z: .05, h: 300 }, spread: 650 });
+    UI.banner('Печать монолита', 'Реши задачу — монолит вернёт силы и откроет ворота', '#bfefff', 3.2);
+  },
+  start(o) {
+    const p = this.prob = Problems.next(Game.level), s = this.ansStr(p.a), pos = o.pos;
+    Object.assign(this, { mode: o.mode, part: o.part || null, B: o.B || null, last: o.last, slots: s.length, on: true, ph: 'out', t: 0, T: this.TMAX, carried: [], placed: [], msg: null, res: null, used: 0 });
     // осколки: цифры ответа + приманки (соседние цифры — типичные ошибки)
     const ds = [...s], dec = [], nDec = cl(8 - ds.length, 3, 5);
     for (let i = 0; i < nDec; i++) { const base = ds.filter(c => c !== '−'); let d = base.length && Math.random() < .6 ? (+pick(base) + pick([-1, 1, 2, -2]) + 10) % 10 : irnd(0, 9); dec.push('' + d) }
     if (p.a > 0 && Math.random() < .5) dec.push('−'); // минус-приманка, если ответ положительный
-    const all = shuffle([...ds, ...dec]), M = World.monolith.x, spots = [];
+    const all = shuffle([...ds, ...dec]), M = World.monolith.x, spots = [], spread = o.spread || 950;
     this.shards = all.map(d => {
       let tx, tz, tries = 0;
-      do { tx = cl(pos.x + rnd(-950, 950), W.XMIN + 60, W.XMAX - 60); tz = rnd(.1, .95); tries++ } while (tries < 40 && (Math.abs(tx - M) < 170 || spots.some(q => fdist(q[0], q[1], tx, tz) < 120)));
+      do { tx = cl(pos.x + rnd(-spread, spread), W.XMIN + 60, W.XMAX - 60); tz = rnd(.12, .95); tries++ } while (tries < 60 && (Math.abs(tx - M) < 180 || spots.some(q => fdist(q[0], q[1], tx, tz) < 130)));
       spots.push([tx, tz]); const tt = rnd(.9, 1.4), g = 900;
       return { d, x: pos.x, z: pos.z, h: pos.h, vx: (tx - pos.x) / tt, vz: (tz - pos.z) / tt, vh: (0 - pos.h) / tt + .5 * g * tt, g, t: 0, tt, landed: false, r: 0, vr: rnd(-12, 12), ph: rnd(0, TAU) };
     });
     const H = Hero.H; H.soul = true; this.x = H.x; this.z = H.z; this.h = Hero.height() * .55; this.vx = 0; this.vz = 0; this.face = Hero.FACE; this.alpha = 0;
     Snd.soulOut(); Snd.setMode('soul'); Game.stats.tasks++;
-    // первый выход души — объяснить механику; дальше — короткое напоминание
-    if (!Game.soulSeen) { Game.soulSeen = 1; UI.banner('Душа покинула тело', 'Найди осколки с цифрами ответа (E) и сложи их на монолите', '#bfefff', 4.2) }
-    else UI.banner('Душа вне тела', LIMB_NAME[part] + ' разбита — реши задачу на монолите', '#bfefff', 2.2);
   },
-  atMonolith() { return Math.abs(this.x - World.monolith.x) < 140 && this.z < .32 },
-  nearShard() { let best = null, bd = 92; for (const s of this.shards) if (s.landed && !s.carried && !s.placed) { const d = fdist(this.x, this.z, s.x, s.z); if (d < bd) { bd = d; best = s } } return best },
+  atMonolith() { return Math.abs(this.x - World.monolith.x) < 150 && this.z < .34 },
+  nearShard() { let best = null, bd = 95; for (const s of this.shards) if (s.landed && !s.carried && !s.placed) { const d = fdist(this.x, this.z, s.x, s.z); if (d < bd) { bd = d; best = s } } return best },
+  full() { return this.placed.length >= this.slots },
   update(dt) {
     if (!this.on) return; this.t += dt; const H = Hero.H;
     // полёт осколков
@@ -1403,54 +1457,83 @@ const Soul = {
     for (const s of this.shards) if (s.back) { s.t += dt; const k = sm(s.t / 1); s.x = lp(s.bx, s.tx, k); s.z = lp(s.bz, s.tz, k); s.h = lp(s.bh, s.th, k) + Math.sin(PI * k) * 120; if (s.t >= 1) s.gone = 1 }
     if (this.ph === 'out') { const k = sm(this.t / .8); this.alpha = k * .92; this.h = lp(Hero.height() * .55, 70, k); if (Math.random() < .6) FX.soulMote(this.x + rnd(-20, 20), this.z, this.h + rnd(0, 80)); if (this.t > .8) { this.ph = 'free'; this.t = 0 } }
     else if (this.ph === 'free') {
-      this.T -= dt; const a = Input.axis(), sp = a.run ? 400 : 300, ax = a.x * sp, az = a.z * (a.run ? 1.2 : .95);
+      this.T -= dt; this.used += dt; const a = Input.axis(), sp = a.run ? 400 : 300, ax = a.x * sp, az = a.z * (a.run ? 1.2 : .95);
       this.vx = lp(this.vx, ax, 1 - Math.exp(-dt * 9)); this.vz = lp(this.vz, az, 1 - Math.exp(-dt * 9));
       this.x = cl(this.x + this.vx * dt, W.XMIN, W.XMAX); this.z = cl(this.z + this.vz * dt, 0, 1); if (Math.abs(this.vx) > 20) this.face = Math.sign(this.vx);
       this.h = 70 + 10 * Math.sin(this.t * 2.2); if (Math.random() < .35) FX.soulMote(this.x - this.face * rnd(0, 30), this.z, this.h + rnd(-10, 60));
-      if (Input.hit('KeyE')) this.use(); if (Input.hit('KeyQ')) this.undo();
+      if (Input.hit('KeyE')) this.use(); if (Input.hit('KeyQ')) this.undo(); if (Input.hit('KeyR')) this.rotate();
+      if (this.T <= 10 && Math.floor(this.T + dt) !== Math.floor(this.T)) Snd.tick();
       if (this.T <= 0) { this.T = 0; this.finish(false, 'Время вышло') }
-    } else if (this.ph === 'result') { if (this.t > 2.4) { this.ph = 'return'; this.t = 0; this.fx = this.x; this.fz = this.z; this.fh = this.h; Snd.soulIn() } }
+    } else if (this.ph === 'result') {
+      // после ошибки — разбор решения; дальше по E/Enter или сам через несколько секунд
+      const minT = this.res ? 1.6 : 2.2, maxT = this.res ? 2.4 : 9;
+      if (this.t > maxT || (this.t > minT && (Input.hit('KeyE') || Input.hit('Space')))) { this.ph = 'return'; this.t = 0; this.fx = this.x; this.fz = this.z; this.fh = this.h; Snd.soulIn() }
+    }
     else if (this.ph === 'return') {
       const k = sm(this.t / .9); this.x = lp(this.fx, H.x, k); this.z = lp(this.fz, H.z, k); this.h = lp(this.fh, Hero.height() * .55, k); this.alpha = .92 * (1 - k * .8);
-      if (this.t >= .9) { this.on = false; this.ph = 'off'; H.soul = false; H.inv = 1.2; Snd.setMode(Boss.b ? 'boss' : 'wave'); Boss.limbResult(this.part, this.res); this.shards = []; this.placed = []; this.carried = []; FX.flash(H.x, H.z, Hero.height() * .5, 120, '140,240,255', .3) }
+      if (this.t >= .9) {
+        this.on = false; this.ph = 'off'; H.soul = false; H.inv = 1.2; Snd.setMode(Boss.b ? 'boss' : 'wave'); this.shards = []; this.placed = []; this.carried = []; FX.flash(H.x, H.z, Hero.height() * .5, 120, '140,240,255', .3);
+        if (this.mode === 'limb') Boss.limbResult(this.part, this.res); else Game.sealDone(this.res);
+      }
     }
     this.hint = Math.max(0, this.hint - dt);
     this.shards = this.shards.filter(s => !s.gone);
   },
+  // E: у монолита — положить первую цифру из рук; все ячейки заполнены — проверить; в поле — подобрать
   use() {
-    if (this.atMonolith() && this.carried.length) { const s = this.carried.shift(); s.carried = false; s.placed = true; this.placed.push(s); Snd.place(); FX.flash(World.monolith.x, World.monolith.z, 200, 60, '120,220,255', .2); if (this.placed.length >= this.slots) this.check(); return }
+    if (this.atMonolith()) {
+      if (this.full()) return this.check();
+      if (this.carried.length) { const s = this.carried.shift(); s.carried = false; s.placed = true; this.placed.push(s); Snd.place(); FX.flash(World.monolith.x, World.monolith.z, 200, 60, '120,220,255', .2); return }
+    }
     const s = this.nearShard(); if (s && this.carried.length < 3) { s.carried = true; this.carried.push(s); Snd.pickup(); FX.flash(s.x, s.z, 20, 40, '140,230,255', .15); return }
     this.hint = 1.2; Snd.tick();
   },
+  // Q: у монолита — забрать последнюю положенную цифру в конец рук; в поле — бросить последнюю из рук
   undo() {
-    if (this.atMonolith() && this.placed.length) { const s = this.placed.pop(); s.placed = false; if (this.carried.length < 3) { s.carried = true; this.carried.unshift(s) } else { s.landed = true; s.x = this.x + rnd(-60, 60); s.z = .35; s.h = 0 } Snd.tick(); return }
+    if (this.atMonolith() && this.placed.length) { const s = this.placed.pop(); s.placed = false; if (this.carried.length < 3) { s.carried = true; this.carried.push(s) } else { s.landed = true; s.x = World.monolith.x + rnd(-170, 170); s.z = .4; s.h = 0 } Snd.tick(); return }
     if (this.carried.length) { const s = this.carried.pop(); s.carried = false; s.landed = true; s.x = this.x; s.z = this.z; s.h = 0; FX.dust(s.x, s.z, 2, .2); Snd.tick() }
   },
+  // R: поменять порядок цифр в руках (первая уходит в конец)
+  rotate() { if (this.carried.length > 1) { this.carried.push(this.carried.shift()); Snd.tick() } },
   check() {
     const v = this.placed.map(s => s.d).join(''), ok = v === this.ansStr(this.prob.a);
     this.finish(ok, ok ? 'Верно!' : 'Неверно');
   },
   finish(ok, text) {
-    this.res = ok; this.ph = 'result'; this.t = 0; this.msg = { text, ok, ans: this.ansStr(this.prob.a) };
-    if (ok) { Snd.correct(); Game.stats.solved++; FX.flash(World.monolith.x, World.monolith.z, 220, 200, '120,230,255', .6); for (const s of this.placed) s.gone = 1 }
-    else { Snd.wrong(); FX.flash(World.monolith.x, World.monolith.z, 220, 200, '255,90,70', .6); Cam.kick(6);
-      // все осколки летят обратно к культе
-      const B = this.B, G = B && B.G; let tx = B ? B.x : this.x, th = 200;
-      if (G) { const p = this.part.startsWith('arm') ? G.arms[this.part === 'armN' ? 0 : 1].sh : G.legs[this.part === 'legN' ? 0 : 1].hip, q = rigToWorld(B, p); tx = q.x; th = zy(B.z) - q.y }
-      for (const s of this.shards) { s.back = 1; s.t = 0; s.bx = s.carried || s.placed ? (s.placed ? World.monolith.x : this.x) : s.x; s.bz = s.placed ? World.monolith.z + .1 : s.carried ? this.z : s.z; s.bh = s.placed ? 200 : s.carried ? this.h : s.h; s.tx = tx; s.tz = B ? B.z : this.z; s.th = th; s.carried = s.placed = false; s.landed = false }
+    const fast = ok && this.used <= this.FAST, k = this.prob.k || 'Задачи', st = Game.stats.topics[k] || (Game.stats.topics[k] = { n: 0, ok: 0 }); st.n++; if (ok) st.ok++;
+    this.res = ok; this.ph = 'result'; this.t = 0; this.msg = { text, ok, fast, ans: this.ansStr(this.prob.a), sol: this.prob.s || '' };
+    if (ok) {
+      Snd.correct(); Game.stats.solved++; FX.flash(World.monolith.x, World.monolith.z, 220, 200, '120,230,255', .6); for (const s of this.placed) s.gone = 1;
+      // награда: здоровье за верный ответ, больше — за быстрый
+      const heal = 30 + (fast ? 20 : 0); Game.heal(heal); Game.score += 100 + (fast ? 100 : 0); this.msg.heal = heal;
+    } else {
+      Snd.wrong(); FX.flash(World.monolith.x, World.monolith.z, 220, 200, '255,90,70', .6); Cam.kick(6);
+      const B = this.B, G = B && B.G; let tx = World.monolith.x, th = 300, tz = World.monolith.z;
+      if (this.mode === 'limb' && G) { const p = this.part.startsWith('arm') ? G.arms[this.part === 'armN' ? 0 : 1].sh : G.legs[this.part === 'legN' ? 0 : 1].hip, q = rigToWorld(B, p); tx = q.x; th = zy(B.z) - q.y; tz = B.z }
+      // осколки летят обратно (к культе — конечность соберётся; к монолиту — печать)
+      for (const s of this.shards) { s.back = 1; s.t = 0; s.bx = s.carried || s.placed ? (s.placed ? World.monolith.x : this.x) : s.x; s.bz = s.placed ? World.monolith.z + .1 : s.carried ? this.z : s.z; s.bh = s.placed ? 200 : s.carried ? this.h : s.h; s.tx = tx; s.tz = tz; s.th = th; s.carried = s.placed = false; s.landed = false }
       this.carried = []; this.placed = [];
     }
   },
   // ---------- рисование ----------
   drawables(list) {
     for (const s of this.shards) if (!s.carried && !s.placed) list.push({ z: s.z, draw: () => this.drawShard(s, s.x, s.z, s.h, 1), shadow: s.landed ? () => drawShadow(s.x, s.z, 18, .3) : null });
-    if (this.on && this.ph !== 'off') list.push({ z: this.z + .001, draw: () => this.drawSoul() });
   },
+  // душа и её осколки — поверх всех персонажей (её не должно загораживать)
+  drawTop() { if (this.on && this.ph !== 'off') this.drawSoul() },
+  // пол в форме души притушён: светятся только осколки
+  drawFloorDim() { if (!this.on) return; const a = this.ph === 'out' ? sm(this.t / .8) : this.ph === 'return' ? 1 - sm(this.t / .9) : 1; ctx.fillStyle = `rgba(3,6,16,${.38 * a})`; ctx.fillRect(0, W.FLOOR_TOP + 20, VW, VH - W.FLOOR_TOP) },
+  // насколько прозрачным делать персонажа рядом с душой или монолитом (0 — не трогать)
+  fadeFor(x) { if (!this.on || this.ph === 'off') return 0; const a = Math.abs(x - this.x), b = Math.abs(x - World.monolith.x); return Math.max(cl(1 - (a - 90) / 260, 0, 1), this.atMonolith() || Math.abs(this.x - World.monolith.x) < 400 ? cl(1 - (b - 120) / 260, 0, 1) : 0) },
   drawShard(s, x, z, h, k0, glow = 1) {
     const t = performance.now() / 1000, i = s.d === '−' ? 10 : +s.d, img = IM.shards[i], k = .74 * zs(z) * k0, X = sx(x), Y = zy(z) - h - img.height * k * .5 - (s.landed ? 8 + 5 * Math.sin(t * 2.4 + s.ph) : 0);
     if (X < -60 || X > VW + 60) return;
     const near = this.on && this.ph === 'free' && this.nearShard() === s;
-    if (glow) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const r = (near ? 70 : 54) * zs(z) * k0 * (1 + .12 * Math.sin(t * 4 + s.ph)), g = ctx.createRadialGradient(X, Y, 0, X, Y, r); g.addColorStop(0, `rgba(110,200,255,${near ? .62 : .4})`); g.addColorStop(1, 'rgba(60,140,255,0)'); ctx.fillStyle = g; ctx.fillRect(X - r, Y - r, 2 * r, 2 * r); ctx.restore() }
+    if (glow) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const r = (near ? 70 : 54) * zs(z) * k0 * (1 + .12 * Math.sin(t * 4 + s.ph)), g = ctx.createRadialGradient(X, Y, 0, X, Y, r); g.addColorStop(0, `rgba(110,200,255,${near ? .62 : .4})`); g.addColorStop(1, 'rgba(60,140,255,0)'); ctx.fillStyle = g; ctx.fillRect(X - r, Y - r, 2 * r, 2 * r);
+      if (s.landed) { const bw = 16 * zs(z), bh = 150 * zs(z), bg = ctx.createLinearGradient(0, Y - bh, 0, Y); bg.addColorStop(0, 'rgba(90,190,255,0)'); bg.addColorStop(1, `rgba(120,210,255,${.22 + .1 * Math.sin(t * 3 + s.ph)})`); ctx.fillStyle = bg; ctx.fillRect(X - bw / 2, Y - bh, bw, bh) }
+      ctx.restore() }
+    // тёмная обводка: цифра на осколке отличается от резьбы на плитах пола
+    if (glow) { ctx.save(); ctx.globalAlpha = .55; ctx.translate(X, Y); ctx.rotate(s.landed ? 0 : s.r); const kk = k * 1.12; ctx.drawImage(img, -img.width * kk / 2, -img.height * kk / 2, img.width * kk, img.height * kk); ctx.restore() }
     ctx.save(); ctx.translate(X, Y); ctx.rotate(s.landed ? 0 : s.r); ctx.drawImage(img, -img.width * k / 2, -img.height * k / 2, img.width * k, img.height * k);
     if (s.d === '−') { ctx.fillStyle = 'rgba(150,225,255,.95)'; ctx.shadowColor = '#5fc8ff'; ctx.shadowBlur = 8; ctx.fillRect(-img.width * k * .26, -img.height * k * .06, img.width * k * .52, img.height * k * .13) }
     ctx.restore();
@@ -1483,13 +1566,12 @@ const Soul = {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(60,140,220,${act ? .12 + .05 * Math.sin(tt * 2) : .03})`; ctx.fillRect(px, py, pw, ph); ctx.restore();
     if (!act) return;
     ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#bfefff'; ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10;
-    const lines = wrapEq(this.prob.t, pw - 10, 15); let fy = py + 18;
-    ctx.font = `600 11px ${FONT_UI}`; ctx.fillStyle = '#86c9e8'; ctx.fillText(this.prob.c, px + pw / 2, fy); fy += 18;
+    const lines = wrapEq(this.prob.t, pw - 8, 19); let fy = py + 18;
+    ctx.font = `600 13px ${FONT_UI}`; ctx.fillStyle = '#86c9e8'; ctx.fillText(this.prob.c, px + pw / 2, fy); fy += 19;
     ctx.fillStyle = '#d8f6ff'; for (const l of lines.lines) { ctx.font = `700 ${lines.size}px ${FONT_EQ}`; ctx.fillText(l, px + pw / 2, fy); fy += lines.size + 4 }
     // ячейки ответа
     const n = this.slots, cw = Math.min(26, (pw - 10) / n), x0 = px + pw / 2 - cw * n / 2, cy = py + ph - 26;
     for (let i = 0; i < n; i++) { ctx.strokeStyle = 'rgba(140,220,255,.6)'; ctx.lineWidth = 1.5; ctx.shadowBlur = 0; ctx.strokeRect(x0 + i * cw + 2, cy - 12, cw - 4, 26); const s = this.placed[i]; if (s) this.drawShardAt(s, x0 + i * cw + cw / 2, cy + 1, (cw - 2) / 74) }
-    if (this.msg) { ctx.font = `700 14px ${FONT_UI}`; ctx.fillStyle = this.msg.ok ? '#8dffb3' : '#ff8a7a'; ctx.shadowColor = this.msg.ok ? '#2bff7a' : '#ff3b2b'; ctx.shadowBlur = 12; ctx.fillText(this.msg.text, px + pw / 2, py + ph + 18) }
     ctx.restore();
   },
   drawShardAt(s, X, Y, k) { const i = s.d === '−' ? 10 : +s.d, img = IM.shards[i]; ctx.drawImage(img, X - img.width * k / 2, Y - img.height * k / 2, img.width * k, img.height * k); if (s.d === '−') { ctx.fillStyle = '#bfefff'; ctx.fillRect(X - img.width * k * .26, Y - img.height * k * .06, img.width * k * .52, img.height * k * .13) } },
@@ -1559,68 +1641,110 @@ const UI = {
   hud() {
     const H = Hero.H, G = Game;
     // здоровье
-    this.panel(16, 14, 300, 50); this.text('Здоровье', 28, 33, 15, '#aeb9cf'); this.text(`${Math.ceil(H.hp)}`, 304, 33, 15, '#f1d7d2', FONT_UI, 'right');
-    this.bar(28, 40, 276, 12, H.hp / H.maxhp, '#e0574a', '#8e2420');
+    this.panel(16, 14, 300, 52); this.text('Здоровье', 28, 34, 16, '#aeb9cf'); this.text(`${Math.ceil(H.hp)}`, 304, 34, 16, '#f1d7d2', FONT_UI, 'right');
+    this.bar(28, 42, 276, 13, H.hp / H.maxhp, '#e0574a', '#8e2420'); if (G.healFx > 0) { ctx.globalAlpha = G.healFx; this.text(`+${G.healAmt}`, 320, 54, 18, '#9dffb8', FONT_UI, 'left', 700); ctx.globalAlpha = 1 }
     // очки и решённые задачи
-    this.panel(VW - 236, 14, 220, 50); this.text(`Очки: ${G.score}`, VW - 224, 34, 16, '#e6d9b8'); this.text(`Решено: ${G.stats.solved} из ${G.stats.tasks}`, VW - 224, 55, 14, '#9fd8f0');
-    this.text(Snd.muted ? 'M — звук выкл' : 'M — звук', VW - 28, 34, 12, '#7f8aa0', FONT_UI, 'right', 500);
+    this.panel(VW - 236, 14, 220, G.stats.tasks ? 52 : 34); this.text(`Очки: ${G.score}`, VW - 224, 36, 17, '#e6d9b8'); if (G.stats.tasks) this.text(`Решено: ${G.stats.solved} из ${G.stats.tasks}`, VW - 224, 58, 15, '#9fd8f0');
+    this.text(Snd.muted ? 'M — звук выкл' : 'M — звук', VW - 28, 36, 13, '#7f8aa0', FONT_UI, 'right', 500);
     // волна или босс
     const B = Boss.b;
     if (B && B.st !== 'dying') {
-      const w = 520, x = VW / 2 - w / 2; this.panel(x, 12, w, 70); this.text(DRESS[B.id].name, VW / 2, 34, 20, '#e9e2d0', FONT_TITLE, 'center', 700);
-      LIMBS.forEach((l, i) => { const lm = B.limbs[l], bx = x + 14 + i * 125, k = lm.alive ? lm.hp / lm.max : 0; this.text(LIMB_NAME[l], bx, 54, 12, lm.alive ? '#b9c3d6' : '#5f6779', FONT_UI, 'left', 500);
-        this.bar(bx, 60, 112, 9, k, lm.regrow > 0 ? '#ffb27a' : '#9fb3cf', lm.regrow > 0 ? '#a0522d' : '#56657d'); if (!lm.alive) { ctx.strokeStyle = '#7ad6ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx + 2, 64); ctx.lineTo(bx + 110, 64); ctx.stroke() } });
-    } else if (G.phase && G.phase.type === 'wave') { const n = Enemies.alive() + G.queue.length; this.panel(VW / 2 - 120, 12, 240, 40); this.text(`${G.phase.name} · врагов: ${n}`, VW / 2, 39, 18, '#e6e0cf', FONT_TITLE, 'center', 700) }
+      const w = 540, x = VW / 2 - w / 2; this.panel(x, 12, w, 74); this.text(DRESS[B.id].name, VW / 2, 35, 21, '#e9e2d0', FONT_TITLE, 'center', 700);
+      LIMBS.forEach((l, i) => { const lm = B.limbs[l], bx = x + 14 + i * 130, k = lm.alive ? lm.hp / lm.max : 0; this.text(LIMB_NAME[l], bx, 56, 14, lm.alive ? '#b9c3d6' : '#5f6779', FONT_UI, 'left', 500);
+        this.bar(bx, 63, 116, 10, k, lm.regrow > 0 ? '#ffb27a' : '#9fb3cf', lm.regrow > 0 ? '#a0522d' : '#56657d'); if (!lm.alive) { ctx.strokeStyle = '#7ad6ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx + 2, 68); ctx.lineTo(bx + 114, 68); ctx.stroke() } });
+    } else if (G.phase && G.phase.type === 'wave' && !Soul.on) { const n = Enemies.alive() + G.queue.length; if (n) { this.panel(VW / 2 - 130, 12, 260, 40); this.text(`${G.phase.name} · врагов: ${n}`, VW / 2, 39, 19, '#e6e0cf', FONT_TITLE, 'center', 700) } }
     // форма души: табличка с уравнением
     if (Soul.on && Soul.prob) this.soulTablet();
     // подсказка управления в начале
-    if (this.helpT < 14 && !Soul.on) { const a = Math.min(1, (14 - this.helpT) / 2); ctx.globalAlpha = a; this.panel(16, VH - 66, 640, 50, .6);
-      this.text('A/D — шаг · Shift — бег · W/S — вглубь/ближе · Space — рывок', 28, VH - 45, 14, '#c9d3e6', FONT_UI, 'left', 500); this.text('ЛКМ — серия из трёх ударов · J/K/L — удары · Enter — пауза', 28, VH - 25, 14, '#c9d3e6', FONT_UI, 'left', 500); ctx.globalAlpha = 1 }
+    if (this.helpT < 16 && !Soul.on) { const a = Math.min(1, (16 - this.helpT) / 2); ctx.globalAlpha = a; this.panel(16, VH - 70, 680, 54, .62);
+      this.text('A/D — шаг · Shift — бег · W/S — вглубь/ближе · Space — рывок', 28, VH - 47, 16, '#c9d3e6', FONT_UI, 'left', 500); this.text('ЛКМ — серия из трёх ударов · J/K/L — удары · Enter — пауза', 28, VH - 25, 16, '#c9d3e6', FONT_UI, 'left', 500); ctx.globalAlpha = 1 }
     // баннеры
-    for (const b of this.banners) { const k = b.t / b.life, a = Math.min(1, b.t * 4) * Math.min(1, (b.life - b.t) * 2.5), y = VH * .36 - 10 * k; ctx.globalAlpha = a; this.text(b.text, VW / 2, y, 52, b.col, FONT_TITLE, 'center', 700); if (b.sub) this.text(b.sub, VW / 2, y + 36, 20, '#b8c4da', FONT_UI, 'center', 500); ctx.globalAlpha = 1 }
+    for (const b of this.banners) { const k = b.t / b.life, a = Math.min(1, b.t * 4) * Math.min(1, (b.life - b.t) * 2.5), y = (Soul.on ? VH * .5 : VH * .34) - 10 * k; ctx.globalAlpha = a; this.text(b.text, VW / 2, y, 52, b.col, FONT_TITLE, 'center', 700); if (b.sub) this.text(b.sub, VW / 2, y + 36, 21, '#c2cde2', FONT_UI, 'center', 500); ctx.globalAlpha = 1 }
   },
   soulTablet() {
-    const S = Soul, w = 430, h = 92, x = VW / 2 - w / 2, y = Boss.b ? 90 : 60;
-    ctx.save(); rr(x, y, w, h, 10); ctx.fillStyle = this.pat(); ctx.fill(); ctx.fillStyle = 'rgba(8,12,24,.8)'; ctx.fill(); ctx.strokeStyle = 'rgba(120,200,255,.55)'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
-    this.text(S.prob.c, x + 16, y + 22, 14, '#8fcbe6', FONT_UI, 'left', 600);
-    ctx.save(); ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 12; this.text(S.prob.t, VW / 2, y + 52, 26, '#dcf6ff', FONT_EQ, 'center', 700); ctx.restore();
+    const S = Soul, w = 470, h = 124, x = VW / 2 - w / 2, y = Boss.b ? 94 : 60;
+    ctx.save(); rr(x, y, w, h, 10); ctx.fillStyle = this.pat(); ctx.fill(); ctx.fillStyle = 'rgba(8,12,24,.84)'; ctx.fill(); ctx.strokeStyle = 'rgba(120,200,255,.55)'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+    this.text(S.prob.c, x + 16, y + 24, 16, '#8fcbe6', FONT_UI, 'left', 600);
+    // уравнение: дроби — столбиком, как в бланке ОГЭ
+    ctx.save(); ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10; mathText(S.prob.t, VW / 2, y + 60, 26, '#dcf6ff', 'center', w - 40); ctx.restore();
     // ячейки ответа
-    const n = S.slots, cw = 30, x0 = VW / 2 - n * cw / 2, cy = y + 74;
-    for (let i = 0; i < n; i++) { ctx.strokeStyle = 'rgba(140,220,255,.55)'; ctx.lineWidth = 1.5; ctx.strokeRect(x0 + i * cw + 3, cy - 12, cw - 6, 24); const s = S.placed[i]; if (s) Soul.drawShardAt(s, x0 + i * cw + cw / 2, cy, .36) }
+    const n = S.slots, cw = 34, x0 = VW / 2 - n * cw / 2, cy = y + 104, full = S.full();
+    for (let i = 0; i < n; i++) { ctx.strokeStyle = full ? 'rgba(160,255,200,.8)' : 'rgba(140,220,255,.55)'; ctx.lineWidth = 1.5; ctx.strokeRect(x0 + i * cw + 3, cy - 14, cw - 6, 28); const s = S.placed[i]; if (s) Soul.drawShardAt(s, x0 + i * cw + cw / 2, cy, .42) }
     // время души
-    const k = S.T / S.TMAX; this.bar(x + w - 120, y + 12, 104, 8, k, k > .3 ? '#7fe3ff' : '#ff9a7a', k > .3 ? '#2c8fbf' : '#b0402a'); this.text(`${Math.ceil(S.T)} с`, x + w - 16, y + 36, 13, '#a9d9ee', FONT_UI, 'right', 600);
-    // в руках
-    if (S.carried.length) { this.text('В руках:', x + 16, y + 80, 13, '#9fb8cc', FONT_UI, 'left', 500); S.carried.forEach((s, i) => Soul.drawShardAt(s, x + 82 + i * 26, y + 75, .3)) }
-    // подсказка внизу
-    const at = S.atMonolith(), near = S.nearShard();
-    const tip = S.ph !== 'free' ? '' : at && S.carried.length ? 'E — положить осколок на монолит · Q — вернуть последний' : near && S.carried.length < 3 ? 'E — подобрать осколок' : S.carried.length >= 3 ? 'Руки заняты — неси осколки к монолиту (Q — бросить)' : 'Собери цифры ответа и неси к монолиту в центре арены';
-    if (tip) { this.panel(VW / 2 - 300, VH - 56, 600, 36, .7); this.text(tip, VW / 2, VH - 32, 16, S.hint > 0 ? '#ffd27a' : '#cfe9f6', FONT_UI, 'center', 600) }
-    if (S.msg && S.ph === 'result') { this.text(S.msg.text, VW / 2, VH * .42, 48, S.msg.ok ? '#8dffb3' : '#ff8a7a', FONT_TITLE, 'center', 700); if (!S.msg.ok) this.text(`Верный ответ: ${S.msg.ans}`, VW / 2, VH * .42 + 38, 22, '#e8eef8', FONT_UI, 'center', 600) }
-    // стрелка к монолиту, если он за краем экрана
-    const mx = sx(World.monolith.x); if (mx < 0 || mx > VW) { const right = mx > VW, ax = right ? VW - 30 : 30, ay = zy(.1) - 160; ctx.fillStyle = 'rgba(140,220,255,.85)'; ctx.beginPath(); ctx.moveTo(ax + (right ? 14 : -14), ay); ctx.lineTo(ax - (right ? 8 : -8), ay - 12); ctx.lineTo(ax - (right ? 8 : -8), ay + 12); ctx.fill(); this.text('монолит', ax + (right ? -16 : 16), ay + 30, 13, '#9fd8f0', FONT_UI, right ? 'right' : 'left', 600) }
+    const k = S.T / S.TMAX; this.bar(x + w - 124, y + 14, 108, 8, k, k > .3 ? '#7fe3ff' : '#ff9a7a', k > .3 ? '#2c8fbf' : '#b0402a'); this.text(`${Math.ceil(S.T)} с`, x + w - 16, y + 39, 15, S.T < 10 ? '#ffb59a' : '#a9d9ee', FONT_UI, 'right', 600);
+    // в руках: первая цифра ляжет следующей
+    if (S.carried.length) { this.text('В руках:', x + 16, y + 110, 15, '#9fb8cc', FONT_UI, 'left', 500); S.carried.forEach((s, i) => { if (!i) { ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 2; ctx.strokeRect(x + 84 + i * 30, y + 92, 26, 26) } Soul.drawShardAt(s, x + 97 + i * 30, y + 105, .34) }) }
+    // подсказка внизу — по состоянию
+    const at = S.atMonolith(), near = S.nearShard(), nx = S.carried[0] ? `«${S.carried[0].d}»` : '';
+    const tip = S.ph !== 'free' ? '' : at && full ? 'E — проверить ответ · Q — забрать последнюю цифру'
+      : at && S.carried.length ? `E — положить ${nx} в следующую ячейку · R — поменять порядок · Q — забрать последнюю`
+      : at && S.placed.length ? 'Q — забрать последнюю цифру · принеси недостающие цифры'
+      : near && S.carried.length < 3 ? `E — подобрать «${near.d}»` : S.carried.length >= 3 ? 'Руки заняты — неси цифры к монолиту (Q — бросить последнюю)'
+      : 'Собери цифры ответа и неси к монолиту в центре арены';
+    if (tip) { const tw = Math.min(VW - 40, 720); this.panel(VW / 2 - tw / 2, VH - 58, tw, 40, .74); this.text(tip, VW / 2, VH - 31, 18, S.hint > 0 ? '#ffd27a' : '#cfe9f6', FONT_UI, 'center', 600) }
+    if (S.msg && S.ph === 'result') {
+      const m = S.msg, cy2 = VH * .40; this.panel(VW / 2 - 330, cy2 - 58, 660, m.ok ? 92 : 150, .82);
+      this.text(m.text, VW / 2, cy2, 44, m.ok ? '#8dffb3' : '#ff8a7a', FONT_TITLE, 'center', 700);
+      if (m.ok) this.text(`+${m.heal} здоровья${m.fast ? ' · быстрый ответ!' : ''}`, VW / 2, cy2 + 26, 19, '#c9f7d8', FONT_UI, 'center', 600);
+      else { this.text(`Верный ответ: ${m.ans}`, VW / 2, cy2 + 30, 22, '#e8eef8', FONT_UI, 'center', 700); if (m.sol) mathText(m.sol, VW / 2, cy2 + 62, 18, '#b9d8ea', 'center', 620); if (S.t > 2.2) this.text('E — дальше', VW / 2, cy2 + 84, 14, '#8a97ad', FONT_UI, 'center', 500) }
+    }
+    // стрелки к монолиту и к осколкам за краем экрана
+    const edge = (wx, z, label, col) => { const X = sx(wx); if (X >= 0 && X <= VW) return; const right = X > VW, ax = right ? VW - 26 : 26, ay = cl(zy(z) - 60, 140, VH - 90); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(ax + (right ? 14 : -14), ay); ctx.lineTo(ax - (right ? 8 : -8), ay - 12); ctx.lineTo(ax - (right ? 8 : -8), ay + 12); ctx.fill(); this.text(label, ax + (right ? -18 : 18), ay + 6, 15, col, FONT_UI, right ? 'right' : 'left', 700) };
+    if (S.ph === 'free') { for (const s of S.shards) if (s.landed && !s.carried && !s.placed) edge(s.x, s.z, s.d, 'rgba(150,220,255,.8)'); edge(World.monolith.x, .1, 'монолит', 'rgba(255,225,150,.9)') }
   },
   overlay(a = .62) { ctx.fillStyle = `rgba(5,6,12,${a})`; ctx.fillRect(0, 0, VW, VH) },
   title(t, loadK) {
-    this.overlay(.55); const y = 230;
+    this.overlay(.55); const y = 200;
     ctx.save(); ctx.shadowColor = '#3f8cff'; ctx.shadowBlur = 24; this.text('Арена осколков', VW / 2, y, 86, '#e8eefc', FONT_TITLE, 'center', 700); ctx.restore();
-    this.text('Разбей каменных стражей. Собери ответ из осколков.', VW / 2, y + 48, 22, '#b6c3db', FONT_UI, 'center', 500);
-    const lines = [['A / D, ← / →', 'шаг влево и вправо'], ['Shift', 'бег'], ['W / S, ↑ / ↓', 'вглубь и ближе'], ['Space', 'рывок'], ['ЛКМ', 'серия из трёх ударов'], ['J / K / L', 'удар сверху, вбок, снизу'], ['E · Q', 'душой: подобрать / вернуть осколок'], ['Enter · M', 'пауза · звук']];
-    this.panel(VW / 2 - 250, y + 76, 500, lines.length * 25 + 22, .6);
-    lines.forEach(([k, v], i) => { this.text(k, VW / 2 - 20, y + 104 + i * 25, 16, '#ffd98a', FONT_UI, 'right', 700); this.text(v, VW / 2 + 0, y + 104 + i * 25, 16, '#d5ddec', FONT_UI, 'left', 500) });
-    const blink = .55 + .45 * Math.sin(t * 3.2);
-    if (loadK < 1) this.text(`Загрузка… ${Math.round(loadK * 100)}%`, VW / 2, VH - 60, 22, '#9fb0c8', FONT_UI, 'center', 600);
-    else { ctx.globalAlpha = blink; this.text('Enter — начать', VW / 2, VH - 56, 28, '#f3e7c4', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1 }
+    this.text('Разбей каменных стражей. Собери ответ из осколков.', VW / 2, y + 46, 22, '#b6c3db', FONT_UI, 'center', 500);
+    this.controls(y + 70);
+    // сложность
+    const D = [['Обычная', 'полный урон · 95 с на ответ'], ['Лёгкая', 'урон вдвое меньше · 130 с']], by = VH - 128;
+    D.forEach(([n, d], i) => { const sel = Game.diff === i, x = VW / 2 - 250 + i * 260; this.panel(x, by, 240, 54, sel ? .85 : .45); if (sel) { ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 2; rr(x, by, 240, 54, 6); ctx.stroke() } this.text(n, x + 120, by + 24, 20, sel ? '#ffe7b0' : '#9aa6bb', FONT_TITLE, 'center', 700); this.text(d, x + 120, by + 44, 13, sel ? '#cfd8e8' : '#7d889c', FONT_UI, 'center', 500) });
+    if (loadK < 1) this.text(`Загрузка… ${Math.round(loadK * 100)}%`, VW / 2, VH - 30, 22, '#9fb0c8', FONT_UI, 'center', 600);
+    else { ctx.globalAlpha = .55 + .45 * Math.sin(t * 3.2); this.text('← / → — сложность · Enter — начать', VW / 2, VH - 32, 24, '#f3e7c4', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1 }
   },
-  pause() { this.overlay(.6); this.text('Пауза', VW / 2, VH / 2 - 20, 64, '#e8eefc', FONT_TITLE, 'center', 700); this.text('Enter — продолжить · M — звук', VW / 2, VH / 2 + 30, 22, '#b6c3db', FONT_UI, 'center', 500) },
+  controls(y) {
+    const lines = [['A / D, ← / →', 'шаг влево и вправо'], ['Shift', 'бег'], ['W / S, ↑ / ↓', 'вглубь и ближе'], ['Space', 'рывок (уворот)'], ['ЛКМ', 'серия из трёх ударов'], ['J / K / L', 'удар сверху, вбок, снизу'], ['E · Q · R', 'душой: подобрать / вернуть / порядок'], ['Enter · M · − / +', 'пауза · звук · громкость']];
+    this.panel(VW / 2 - 270, y, 540, lines.length * 25 + 20, .6);
+    lines.forEach(([k, v], i) => { this.text(k, VW / 2 - 16, y + 28 + i * 25, 17, '#ffd98a', FONT_UI, 'right', 700); this.text(v, VW / 2 + 4, y + 28 + i * 25, 17, '#d5ddec', FONT_UI, 'left', 500) });
+  },
+  pause() { this.overlay(.62); this.text('Пауза', VW / 2, 170, 64, '#e8eefc', FONT_TITLE, 'center', 700); this.controls(200); this.text('Enter — продолжить', VW / 2, VH - 60, 24, '#f3e7c4', FONT_TITLE, 'center', 700); this.text(`Громкость: ${Math.round(Snd.vol * 100)}%`, VW / 2, VH - 30, 16, '#9aa6bb', FONT_UI, 'center', 500) },
   end(win, t) {
-    this.overlay(.66); const G = Game, s = G.stats, tm = Math.floor(G.time);
-    ctx.save(); ctx.shadowColor = win ? '#4fd6ff' : '#ff4a3a'; ctx.shadowBlur = 26; this.text(win ? 'Победа' : 'Поражение', VW / 2, 250, 84, win ? '#dff7ff' : '#ffd2cc', FONT_TITLE, 'center', 700); ctx.restore();
-    this.text(win ? 'Каменные стражи повержены. Арена молчит.' : 'Арена забрала героя. Попробуй снова.', VW / 2, 296, 22, '#b6c3db', FONT_UI, 'center', 500);
-    this.panel(VW / 2 - 210, 330, 420, 116, .6);
-    [['Решено задач', `${s.solved} из ${s.tasks}`], ['Разбито конечностей', `${s.broken}`], ['Время', `${Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`], ['Очки', `${G.score}`]].forEach(([k, v], i) => { this.text(k, VW / 2 - 190, 360 + i * 25, 18, '#aeb9cf', FONT_UI, 'left', 500); this.text(v, VW / 2 + 190, 360 + i * 25, 18, '#f0e6c8', FONT_UI, 'right', 700) });
-    ctx.globalAlpha = .55 + .45 * Math.sin(t * 3.2); this.text('Enter — сыграть снова', VW / 2, VH - 70, 28, '#f3e7c4', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1;
+    this.overlay(.68); const G = Game, s = G.stats, tm = Math.floor(G.time);
+    ctx.save(); ctx.shadowColor = win ? '#4fd6ff' : '#ff4a3a'; ctx.shadowBlur = 26; this.text(win ? 'Победа' : 'Поражение', VW / 2, 150, 84, win ? '#dff7ff' : '#ffd2cc', FONT_TITLE, 'center', 700); ctx.restore();
+    this.text(win ? 'Каменные стражи повержены. Арена молчит.' : 'Арена забрала героя. Этап можно пройти заново.', VW / 2, 194, 22, '#b6c3db', FONT_UI, 'center', 500);
+    this.panel(VW / 2 - 440, 222, 400, 128, .6);
+    [['Решено задач', `${s.solved} из ${s.tasks}`], ['Разбито конечностей', `${s.broken}`], ['Время', `${Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`], ['Очки', `${G.score}`]].forEach(([k, v], i) => { this.text(k, VW / 2 - 420, 254 + i * 26, 18, '#aeb9cf', FONT_UI, 'left', 500); this.text(v, VW / 2 - 60, 254 + i * 26, 18, '#f0e6c8', FONT_UI, 'right', 700) });
+    // темы: что получилось, что повторить
+    const tp = Object.entries(s.topics || {}); this.panel(VW / 2 + 20, 222, 420, Math.max(128, 44 + tp.length * 24), .6); this.text('Темы', VW / 2 + 40, 250, 18, '#d8e2f2', FONT_TITLE, 'left', 700);
+    if (!tp.length) this.text('Задач пока не было', VW / 2 + 40, 278, 16, '#8a97ad', FONT_UI, 'left', 500);
+    tp.forEach(([k, v], i) => { const good = v.ok === v.n; this.text(k, VW / 2 + 40, 278 + i * 24, 16, '#c3cde0', FONT_UI, 'left', 500); this.text(`${v.ok} из ${v.n}`, VW / 2 + 420, 278 + i * 24, 16, good ? '#9dffb8' : '#ffb39a', FONT_UI, 'right', 700) });
+    const weak = tp.filter(([k, v]) => v.ok < v.n).map(([k]) => k); if (weak.length) this.text('Повторить: ' + weak.slice(0, 3).join(', '), VW / 2, VH - 112, 18, '#ffcfae', FONT_UI, 'center', 600);
+    ctx.globalAlpha = .55 + .45 * Math.sin(t * 3.2);
+    if (win) this.text('Enter — сыграть снова', VW / 2, VH - 62, 28, '#f3e7c4', FONT_TITLE, 'center', 700);
+    else { this.text('Enter — заново с этого этапа', VW / 2, VH - 70, 28, '#f3e7c4', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1; this.text('N — новая игра', VW / 2, VH - 38, 18, '#aeb9cf', FONT_UI, 'center', 600) }
+    ctx.globalAlpha = 1;
   },
 };
+// текст с дробями «столбиком»: «3/4», «x/5», «4/(x − 1)» → числитель над знаменателем
+function mathText(str, x, y, size, col, align = 'left', maxW = 9999) {
+  for (let sz = size; sz >= 10; sz -= 2) {
+    const parts = [], re = /(\d+|x)\/(\d+|\([^()]*\))/g; let last = 0, m;
+    while ((m = re.exec(str))) { if (m.index > last) parts.push({ t: str.slice(last, m.index) }); parts.push({ n: m[1], d: m[2].replace(/^\((.*)\)$/, '$1') }); last = re.lastIndex }
+    if (last < str.length) parts.push({ t: str.slice(last) });
+    const fs = sz * .72; ctx.font = `700 ${sz}px ${FONT_EQ}`; let w = 0;
+    for (const p of parts) { if (p.t != null) { ctx.font = `700 ${sz}px ${FONT_EQ}`; p.w = ctx.measureText(p.t).width } else { ctx.font = `700 ${fs}px ${FONT_EQ}`; p.w = Math.max(ctx.measureText(p.n).width, ctx.measureText(p.d).width) + 6 } w += p.w }
+    if (w > maxW && sz > 10) continue;
+    let cx = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillStyle = col; ctx.strokeStyle = col;
+    for (const p of parts) {
+      if (p.t != null) { ctx.font = `700 ${sz}px ${FONT_EQ}`; ctx.fillText(p.t, cx, y) }
+      else { ctx.font = `700 ${fs}px ${FONT_EQ}`; ctx.textAlign = 'center'; const mx = cx + p.w / 2, my = y - sz * .3; ctx.fillText(p.n, mx, my - 3); ctx.fillText(p.d, mx, my + fs * .95); ctx.lineWidth = Math.max(1.5, sz / 14); ctx.beginPath(); ctx.moveTo(cx + 2, my); ctx.lineTo(cx + p.w - 2, my); ctx.stroke(); ctx.textAlign = 'left' }
+      cx += p.w;
+    }
+    return w;
+  }
+}
 function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath() }
 
 // ===== critic.js =====
@@ -1701,21 +1825,35 @@ const PHASES = [
   { type: 'boss', id: 'executioner', level: 1 },
 ];
 const Game = {
-  scene: 'load', t: 0, time: 0, score: 0, level: 0, stats: { solved: 0, tasks: 0, broken: 0, hits: 0 }, pi: -1, phase: null, queue: [], spawnT: 0, hs: 0, nextT: 0, loadK: 0, deadT: 0, test: false, side: 1,
+  scene: 'load', t: 0, time: 0, score: 0, level: 0, stats: { solved: 0, tasks: 0, broken: 0, hits: 0, topics: {} }, pi: -1, phase: null, queue: [], spawnT: 0, hs: 0, nextT: 0, loadK: 0, deadT: 0, test: false, side: 1,
+  diff: 0, dmgK: 1, healFx: 0, healAmt: 0, check: null, sealing: false,
   hitStop(d) { this.hs = Math.max(this.hs, d) },
+  heal(n) { const H = Hero.H, h0 = H.hp; H.hp = Math.min(H.maxhp, H.hp + n); this.healAmt = Math.round(H.hp - h0); if (this.healAmt > 0) this.healFx = 1.6 },
+  setDiff(d) { this.diff = d; this.dmgK = d ? .5 : 1; Soul.TMAX = d ? 130 : 95 },
+  reset0() { Snd.init(); FX.reset(); Enemies.reset(); Boss.reset(); Soul.reset(); this.setDiff(this.diff) },
   start() {
-    Snd.init(); Problems.reset(); FX.reset(); Enemies.reset(); Boss.reset(); Soul.reset();
-    Object.assign(this, { scene: 'play', time: 0, score: 0, level: 0, stats: { solved: 0, tasks: 0, broken: 0, hits: 0 }, pi: -1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0 });
+    this.reset0(); Problems.reset();
+    Object.assign(this, { scene: 'play', time: 0, score: 0, level: 0, stats: { solved: 0, tasks: 0, broken: 0, hits: 0, topics: {} }, pi: -1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false });
     Hero.reset(W.ARENA / 2 - 260, .62); Eye.reset(Hero.H.x - 60, .62); Cam.snap(Hero.H.x); UI.helpT = 0; this.next();
   },
-  next() {
+  // после поражения — заново с начала этапа: счёт и статистика — как были на входе в этап
+  retry() {
+    const c = this.check; if (!c) return this.start();
+    this.reset0(); Object.assign(this, { scene: 'play', time: c.time, score: c.score, level: c.level, stats: JSON.parse(JSON.stringify(c.stats)), pi: c.pi - 1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false });
+    Hero.reset(W.ARENA / 2 - 260, .62); Eye.reset(Hero.H.x - 60, .62); Cam.snap(Hero.H.x); this.next(true);
+  },
+  next(retry) {
     this.pi++; if (this.pi >= PHASES.length) { this.scene = 'win'; Snd.setMode('victory'); Snd.correct(); return }
-    const P = this.phase = PHASES[this.pi]; const H = Hero.H; H.hp = Math.min(H.maxhp, H.hp + (this.pi ? 40 : 0));
+    const P = this.phase = PHASES[this.pi]; if (!retry && this.pi) this.heal(40);
+    this.check = { pi: this.pi, score: this.score, level: P.level ?? this.level, stats: JSON.parse(JSON.stringify(this.stats)), time: this.time };
     if (P.type === 'wave') { this.queue = shuffle(Object.entries(P.spawn).flatMap(([k, n]) => Array(n).fill(k))); this.spawnT = 1.6; UI.banner(P.name, 'Враги выходят из ворот'); Snd.setMode('wave') }
     else { this.level = P.level; this.queue = []; this.bossT = 1.2; UI.banner(DRESS[P.id].name, 'Разбей конечности — собери ответ из осколков', '#f0e2c0', 3.2); Snd.setMode('boss') }
   },
-  bossDown(id) { this.score += 500; UI.banner('Страж повержен', '', '#bfefff', 2.6); this.nextT = 3 },
-  // тело героя, пока душа вне тела: подходит к боссу и рубит (для вида — урона нет)
+  bossDown(id) { this.score += 500; UI.banner(DRESS[id].name + ' повержен', '', '#bfefff', 2.6); this.nextT = 3 },
+  // волна отбита: печать монолита — задача без боя, верный ответ возвращает силы
+  waveDone() { this.sealing = true; Snd.seal(); Soul.seal(); if (!this.soulSeen) { this.soulSeen = 1; UI.banner('Печать монолита', 'Душа выходит из тела: собери цифры ответа (E) и сложи их на монолите', '#bfefff', 4.6) } },
+  sealDone(ok) { this.sealing = false; this.nextT = 1.2 },
+  // тело героя, пока душа вне тела: подходит к боссу и рубит (для вида — урона нет); без босса — стоит в стойке
   bodyAI() {
     const B = Boss.b, H = Hero.H; if (!B) return { x: 0, z: 0, atk: -1 };
     const side = Math.sign(H.x - B.x) || 1, tx = B.x + side * 170, dx = tx - H.x, fb = -side;
@@ -1726,10 +1864,13 @@ const Game = {
   },
   step(dt) {
     if (this.scene === 'load') return;
-    this.t += dt; UI.step(dt);
-    if (this.scene === 'title') { if (Input.hit('Enter') || Input.hit('Mouse0')) { if (this.loadK >= 1) this.start() } Hero.update(dt, { x: 0, z: 0, atk: -1 }); Eye.update(dt); FX.step(dt); Cam.x = (Math.sin(this.t * .05) * .5 + .5) * (W.ARENA - VW); return }
-    if (this.scene === 'win' || this.scene === 'lose') { FX.step(dt); if (Input.hit('Enter')) this.start(); return }
-    if (this.scene === 'pause') { if (Input.hit('Enter') || Input.hit('Escape')) this.scene = 'play'; if (Input.hit('KeyM')) Snd.toggleMute(); return }
+    this.t += dt; UI.step(dt); this.healFx = Math.max(0, this.healFx - dt);
+    if (Input.hit('Minus') || Input.hit('NumpadSubtract')) Snd.setVol(Snd.vol - .1); if (Input.hit('Equal') || Input.hit('NumpadAdd')) Snd.setVol(Snd.vol + .1);
+    if (this.scene === 'title') {
+      if (Input.hit('ArrowLeft') || Input.hit('KeyA')) this.setDiff(0); if (Input.hit('ArrowRight') || Input.hit('KeyD')) this.setDiff(1);
+      if (Input.hit('Enter') || Input.hit('Mouse0')) { if (this.loadK >= 1) this.start() } Hero.update(dt, { x: 0, z: 0, atk: -1 }); Eye.update(dt); World.update(dt); FX.step(dt); Cam.x = (Math.sin(this.t * .05) * .5 + .5) * (W.ARENA - VW); return }
+    if (this.scene === 'win' || this.scene === 'lose') { FX.step(dt); if (this.scene === 'lose' && Input.hit('KeyN')) this.start(); else if (Input.hit('Enter')) this.scene === 'lose' ? this.retry() : this.start(); return }
+    if (this.scene === 'pause') { if (Input.hit('Enter') || Input.hit('Escape')) { this.scene = 'play'; Input.clearPresses() } if (Input.hit('KeyM')) Snd.toggleMute(); return }
     if (Input.hit('Enter') || Input.hit('Escape')) { this.scene = 'pause'; return }
     if (Input.hit('KeyM')) Snd.toggleMute();
     let wdt = dt; if (this.hs > 0) { this.hs -= dt; wdt = dt * .12 }
@@ -1741,30 +1882,31 @@ const Game = {
     if (H.dead) inp = { x: 0, z: 0, atk: -1 };
     if (!this.deadT) Hero.update(wdt, inp);
     const b = H.blade; if (b && !H.dead) { Enemies.bladeHits(b); const r = Boss.bladeHits(b); if (r && r.part) Boss.hitLimb(r.part, b, r.p, !H.soul) }
-    Enemies.update(wdt); Boss.update(wdt); Soul.update(wdt); Eye.update(wdt); FX.step(wdt);
+    // душа живёт в реальном времени: стоп-кадры ударов тела её не тормозят
+    Enemies.update(wdt); Boss.update(wdt); Soul.update(dt); Eye.update(wdt); World.update(wdt); FX.step(wdt);
     // фазы
     const P = this.phase;
     if (P && P.type === 'wave') {
       this.spawnT -= dt; if (this.queue.length && Enemies.alive() < 4 && this.spawnT <= 0) { this.side = -this.side; Enemies.spawn(this.queue.shift(), Math.abs(H.x - W.GL) > 700 && Math.abs(H.x - W.GR) > 700 ? this.side : (H.x < W.ARENA / 2 ? 1 : -1)); this.spawnT = 1.5 }
-      if (!this.queue.length && !Enemies.list.length && !this.nextT) this.nextT = 1.6;
+      if (!this.queue.length && !Enemies.list.length && !this.nextT && !this.sealing && !Soul.on) { this.sealT = (this.sealT || 0) + dt; if (this.sealT > 1.2) { this.sealT = 0; this.waveDone() } }
     }
     if (P && P.type === 'boss' && this.bossT > 0) { this.bossT -= dt; if (this.bossT <= 0) Boss.spawn(P.id) }
     if (this.nextT > 0) { this.nextT -= dt; if (this.nextT <= 0) { this.nextT = 0; this.next() } }
     // камера
     if (Soul.on && Soul.ph !== 'off') Cam.update(dt, Soul.x, Soul.face * .4); else Cam.update(dt, H.x, Hero.FACE);
     // смерть героя: тело рассыпается пеплом
-    if (H.dead && !this.deadT) { this.deadT = 2.4; const s = W.CS * zs(H.z), hh = Hero.height() * 1.15, w = hh * 1.3, x0 = sx(H.x) - w / 2, y0 = zy(H.z) - hh; const cv = renderToCanvas(() => Hero.draw(), x0, y0, w, hh * 1.05); FX.shatter(cv, x0, y0, { grid: [6, 10], speed: 80, up: .5, life: 1.6, ash: 1 }); H.hidden = true; Snd.death(); Snd.setMode('defeat') }
+    if (H.dead && !this.deadT) { this.deadT = 2.4; const hh = Hero.height() * 1.15, w = hh * 1.3, x0 = sx(H.x) - w / 2, y0 = zy(H.z) - hh; const cv = renderToCanvas(() => Hero.draw(), x0, y0, w, hh * 1.05); FX.shatter(cv, x0, y0, { grid: [6, 10], speed: 80, up: .5, life: 1.6, ash: 1 }); H.hidden = true; Snd.heroDeath(); Snd.setMode('defeat') }
     if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) this.scene = 'lose' }
   },
   render() {
     const t = this.t;
     ctx.save(); ctx.translate(Cam.ox, Cam.oy);
-    World.drawBack(t); FX.drawGround(); World.drawLights(t);
+    World.drawBack(t); Soul.drawFloorDim(); FX.drawGround(); World.drawLights(t);
     const list = []; World.propDrawables(list); Enemies.drawables(list); Boss.drawables(list); Soul.drawables(list);
     if (this.scene !== 'load') { list.push({ z: Hero.H.z, draw: () => Hero.draw(), shadow: () => Hero.shadow() }); Eye.drawables(list) }
     for (const d of list) if (d.shadow) d.shadow();
     list.sort((a, b) => a.z - b.z); for (const d of list) d.draw();
-    FX.drawAir(); World.drawFront();
+    FX.drawAir(); Soul.drawTop(); World.drawFront();
     ctx.restore();
     // форма души: мир синеет и темнеет по краям
     if (Soul.on) { const a = Soul.ph === 'out' ? sm(Soul.t / .8) : Soul.ph === 'return' ? 1 - sm(Soul.t / .9) : 1; ctx.fillStyle = `rgba(20,60,110,${.16 * a})`; ctx.fillRect(0, 0, VW, VH) }
@@ -1783,6 +1925,9 @@ addEventListener('resize', fit); fit();
 cvs.addEventListener('mousedown', e => { if (e.button === 0) { Input.p.Mouse0 = 1; Snd.init() } e.preventDefault() });
 cvs.addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('keydown', () => Snd.init(), { once: false });
+// окно потеряло фокус — пауза (иначе бой идёт без игрока)
+const autoPause = () => { if (Game.scene === 'play' && !Game.test) Game.scene = 'pause' };
+addEventListener('blur', autoPause); document.addEventListener('visibilitychange', () => { if (document.hidden) autoPause() });
 let acc = 0, last = 0;
 function frame(ts) {
   const dt = last ? Math.min(.1, (ts - last) / 1000) : DT; last = ts;

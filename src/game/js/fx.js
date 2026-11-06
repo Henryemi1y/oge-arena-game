@@ -13,6 +13,11 @@ const FX = {
   chips(x, z, h, n = 8, sp = 300, col) {
     for (let i = 0; i < n; i++) { const a = rnd(-PI, 0), v = rnd(.3, 1) * sp; this.P.push({ k: 'chip', x, z: z + rnd(-.02, .02), h, vx: Math.cos(a) * v, vz: rnd(-.1, .1), vh: -Math.sin(a) * v, t: 0, life: rnd(.8, 1.6), s: rnd(2, 6), r: rnd(0, TAU), vr: rnd(-12, 12), col: col || pick(['#7b8090', '#5d6271', '#9ea3b0', '#4a4e5a']), g: 1100 }) }
   },
+  // радиальные градиенты рисуются заранее в маленькие спрайты (дешевле, чем создавать градиент на каждую частицу)
+  _sp: {},
+  puff(col) { return this._sp['p' + col] || (this._sp['p' + col] = this._grad([[0, `rgba(${col},.9)`], [1, `rgba(${col},0)`]])) },
+  glow(col) { return this._sp['g' + col] || (this._sp['g' + col] = this._grad([[0, 'rgba(255,255,255,.85)'], [.35, `rgba(${col},.45)`], [1, `rgba(${col},0)`]])) },
+  _grad(stops) { const c = mkCanvas(64, 64), x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); for (const [o, v] of stops) g.addColorStop(o, v); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c },
   ember(x, z, h) { this.P.push({ k: 'ember', x, z, h, vx: rnd(-15, 15), vz: 0, vh: rnd(50, 110), t: 0, life: rnd(.5, 1.1), g: -20 }) },
   smoke(x, z, h, n = 6, col = '20,18,28', sz = 30) { for (let i = 0; i < n; i++) this.P.push({ k: 'smoke', x: x + rnd(-20, 20), z, h: h + rnd(-20, 20), vx: rnd(-40, 40), vz: 0, vh: rnd(20, 70), t: 0, life: rnd(.6, 1.2), s: sz * rnd(.6, 1.3), col, g: -10 }) },
   poison(x, z) { for (let i = 0; i < 14; i++) this.P.push({ k: 'smoke', x: x + rnd(-40, 40), z: z + rnd(-.03, .03), h: rnd(0, 30), vx: rnd(-50, 50), vz: 0, vh: rnd(5, 40), t: 0, life: rnd(1, 2.2), s: rnd(22, 46), col: '80,150,60', g: -5 }) },
@@ -78,12 +83,12 @@ const FX = {
       else if (p.k === 'chip') { ctx.globalAlpha = Math.min(1, (1 - k) * 3); ctx.fillStyle = p.col; ctx.save(); ctx.translate(x, y); ctx.rotate(p.r); ctx.fillRect(-p.s, -p.s * .7, p.s * 2, p.s * 1.4); ctx.restore() }
       else if (p.k === 'ember') { ctx.globalAlpha = 1 - k; ctx.fillStyle = k < .5 ? '#bfe6ff' : '#4d8dff'; ctx.fillRect(x - 1.5, y - 1.5, 3, 3) }
       else if (p.k === 'mote') { ctx.globalAlpha = (1 - k) * .9; ctx.fillStyle = '#b8f6ff'; ctx.fillRect(x - 1.5, y - 1.5, 3, 3) }
-      else if (p.k === 'smoke') { const r = p.s * (1 + k); ctx.globalAlpha = .4 * (1 - k) * Math.min(1, p.t * 6); const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(${p.col},.9)`); g.addColorStop(1, `rgba(${p.col},0)`); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, 2 * r, 2 * r) }
+      else if (p.k === 'smoke') { const r = p.s * (1 + k); ctx.globalAlpha = .4 * (1 - k) * Math.min(1, p.t * 6); ctx.drawImage(this.puff(p.col), x - r, y - r, 2 * r, 2 * r) }
     }
     ctx.globalAlpha = 1;
     for (const c of this.chunks) { const x = c.wx - Cam.x, k = c.t / c.life; ctx.save(); ctx.globalAlpha = c.ash ? (1 - k) * .9 : Math.min(1, (1 - k) * 4); ctx.translate(x, c.y); ctx.rotate(c.r); if (c.ash) ctx.scale(1 - k * .6, 1 - k * .6); ctx.drawImage(c.c, -c.w / 2, -c.h / 2); ctx.restore() }
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (const f of this.flashes) { const a = 1 - f.t / f.life, x = sx(f.x), y = zy(f.z) - f.h, r = f.r * (1 + .8 * (1 - a)), g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(255,255,255,${.85 * a})`); g.addColorStop(.35, `rgba(${f.col},${.45 * a})`); g.addColorStop(1, `rgba(${f.col},0)`); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, 2 * r, 2 * r) }
+    for (const f of this.flashes) { const a = 1 - f.t / f.life, x = sx(f.x), y = zy(f.z) - f.h, r = f.r * (1 + .8 * (1 - a)); ctx.globalAlpha = a; ctx.drawImage(this.glow(f.col), x - r, y - r, 2 * r, 2 * r); ctx.globalAlpha = 1 }
     ctx.restore();
   },
 };

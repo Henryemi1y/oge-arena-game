@@ -86,7 +86,7 @@
     const smin = a => { const mn = Math.min(...a); return mn - Math.log(a.reduce((q, v) => q + Math.exp(-sk * (v - mn)), 0)) / sk };
     const hs = feet.filter(f => f.st).map(f => Math.sqrt(Math.max(0, Lw * Lw - f.x * f.x))), hm = feet.map(f => f.lift + Math.sqrt(Math.max(0, Lmax * Lmax - f.x * f.x)));
     let h = hs.length ? smin(hs) : Lw; const hmax = smin(hm);
-    h = lp(Lw, h, cl(cl(g.bob, 0, 2) * .5 + .5, 0, 1)); if (m < .05) h -= L * .004 * (1 + Math.sin(c.t * 1.6)) * (1 - m * 20);
+    h = lp(Lw, h, cl(cl(g.bob, 0, 2) * .5 + .5, 0, 1)); h -= L * .012 * (1 + Math.sin(c.t * 1.6)) * (1 - m); // дыхание в стойке
     // цель для таза скачет, когда стопа меняет опору; таз догоняет её пружиной без перерегулирования (второй порядок)
     if (c.hf == null) { c.hf = h; c.hfv = 0 } const w = 20; c.hfv += (w * w * (h - c.hf) - 2 * w * c.hfv) * dt; c.hf += c.hfv * dt;
     c.spv += (-c.sp * 140 - c.spv * 16) * dt; c.sp += c.spv * dt;
@@ -98,8 +98,8 @@
     // корпус отстаёт и наклоняется; руки — маятник против ног: ближняя рука идёт вперёд, когда ближняя стопа уходит назад
     // (размах рук насыщается мягко, через tanh, — без излома)
     c.lagv += ((c.sp * .02 - c.lag) * 90 - c.lagv * 12) * dt; c.lag += c.lagv * dt;
-    const s = Math.sin(TAU * c.F), lean = g.lean * (.3 + .7 * m) + c.lag + (g.twitch ? .03 * Math.sin(c.t * 23) * m : 0) + (input.lean || 0), half = Math.max(S * beta / 2, L * .05);
-    const armBase = g.armFwd || 0, arms = [0, 1].map(i => { const fw = 1.2 * Math.tanh(-feet[i].x / half / 1.2), sw = -fw * g.arm * m; const ru = armBase + sw + .04 * Math.sin(c.t * 1.3 + i); return { ru, rf: ru - g.elbow * (.6 + .4 * Math.log(1 + Math.exp(4 * fw)) / 4) } });
+    const s = Math.sin(TAU * c.F), lean = g.lean * (.3 + .7 * m) + c.lag + (g.twitch ? .03 * Math.sin(c.t * 23) * m : 0) + .025 * Math.sin(c.t * 1.6 + .8) * (1 - m) + (input.lean || 0), half = Math.max(S * beta / 2, L * .05);
+    const armBase = g.armFwd || 0, arms = [0, 1].map(i => { const fw = 1.2 * Math.tanh(-feet[i].x / half / 1.2), sw = -fw * g.arm * m; const ru = armBase + sw + .07 * Math.sin(c.t * 1.3 + i) * (1 - m * .6); return { ru, rf: ru - g.elbow * (.6 + .4 * Math.log(1 + Math.exp(4 * fw)) / 4) } });
     c.pose = { hip, legs, arms, lean, m, F: c.F, roll: .015 * s * m, S };
     return c.pose;
   }

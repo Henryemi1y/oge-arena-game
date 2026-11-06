@@ -53,13 +53,13 @@ fs.mkdirSync(OUT, { recursive: true });
         const S = __game.Soul, ans = S.ansStr(S.prob.a), want = right ? [...ans] : [...ans].map((c, i) => i === 0 && c !== '−' ? String((+c + 1) % 10) : c);
         const out = { prob: S.prob, ans, want: want.join('') }, used = new Set();
         for (const d of want) { const sh = S.shards.find(s => s.d === d && s.landed && !used.has(s) && !s.carried && !s.placed) || S.shards.find(s => !used.has(s) && s.landed && !s.carried && !s.placed); if (!sh) { out.missing = d; break } used.add(sh); S.x = sh.x; S.z = sh.z; __game.Input.p.KeyE = 1; __game.Game.step(1 / 60); if (S.carried.length >= 3) { S.x = __game.World.monolith.x; S.z = .15; while (S.carried.length) { __game.Input.p.KeyE = 1; __game.Game.step(1 / 60) } } }
-        out.carried = S.carried.map(s => s.d).join(''); return out;
+        out.carried = S.carried.map(s => s.d).join(''); S.x = __game.World.monolith.x; S.z = .15; for (let i = 0; i < 6 && S.carried.length; i++) { __game.Input.p.KeyE = 1; __game.Game.step(1 / 60) } if (S.full()) { __game.Input.p.KeyE = 1; __game.Game.step(1 / 60) } return out;
       }, [right]);
       if (tag) { await p.evaluate(() => { const S = __game.Soul; S.x = __game.World.monolith.x - 40; S.z = .2 }); await steps(4); await shot(tag + '_carry') }
-      await p.evaluate(() => { const S = __game.Soul; S.x = __game.World.monolith.x; S.z = .15; for (let i = 0; i < 4 && S.carried.length; i++) { __game.Input.p.KeyE = 1; __game.Game.step(1 / 60) } });
+      await p.evaluate(() => { const S = __game.Soul; S.x = __game.World.monolith.x; S.z = .15; for (let i = 0; i < 4 && S.carried.length; i++) { __game.Input.p.KeyE = 1; __game.Game.step(1 / 60) } if (S.ph === 'free' && S.full()) { __game.Input.p.KeyE = 1; __game.Game.step(1 / 60) } });
       await steps(30); if (tag) await shot(tag + '_result');
       const r = await p.evaluate(([part]) => { const S = __game.Soul, B = __game.Boss.b; return { res: S.res, msg: S.msg, limbAlive: B ? B.limbs[part].alive : null, limbHp: B ? [B.limbs[part].hp, B.limbs[part].max] : null } }, [part]);
-      await steps(240); const after = await p.evaluate(([part]) => { const B = __game.Boss.b, S = __game.Soul; return { soulOn: S.on, limbAlive: B ? B.limbs[part].alive : 'boss gone', hp: B ? B.limbs[part].hp : null, gait: B && B.gait, heroSoul: __game.Hero.H.soul } }, [part]);
+      await p.evaluate(() => { for (let i = 0; i < 700 && __game.Soul.on; i++) { if (__game.Soul.ph === 'result' && __game.Soul.t > 2.3) __game.Input.p.KeyE = 1; __game.Game.step(1 / 60) } }); await steps(20); const after = await p.evaluate(([part]) => { const B = __game.Boss.b, S = __game.Soul; return { soulOn: S.on, limbAlive: B ? B.limbs[part].alive : 'boss gone', hp: B ? B.limbs[part].hp : null, gait: B && B.gait, heroSoul: __game.Hero.H.soul } }, [part]);
       return { ...info, ...r, after };
     };
     R.flow = [];

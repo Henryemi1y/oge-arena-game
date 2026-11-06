@@ -2,31 +2,40 @@
 // (E — подобрать / положить, Q — вернуть последний или бросить) и складывает ответ на монолите. Тело героя в это время
 // дерётся само, но урона не наносит. Верно — конечность остаётся разрушенной; неверно — собирается обратно с меньшим HP.
 const Soul = {
-  on: false, ph: 'off', shards: [], carried: [], placed: [], t: 0, T: 0, TMAX: 95, x: 0, z: .5, h: 60, vx: 0, vz: 0, face: 1, alpha: 0, msg: null, hint: 0,
+  on: false, ph: 'off', shards: [], carried: [], placed: [], t: 0, T: 0, TMAX: 95, FAST: 35, x: 0, z: .5, h: 60, vx: 0, vz: 0, face: 1, alpha: 0, msg: null, hint: 0, mode: 'limb',
   reset() { this.on = false; this.ph = 'off'; this.shards = []; this.carried = []; this.placed = []; this.msg = null },
   ansStr(a) { return (a < 0 ? '−' : '') + Math.abs(a) },
+  // разрушена конечность босса: осколки летят из неё
   begin(B, part, pos, last) {
-    const p = this.prob = Problems.next(Game.level), s = this.ansStr(p.a); this.part = part; this.B = B; this.last = last; this.slots = s.length;
-    this.on = true; this.ph = 'out'; this.t = 0; this.T = this.TMAX; this.carried = []; this.placed = []; this.msg = null; this.res = null;
+    this.start({ mode: 'limb', B, part, pos, last });
+    if (!Game.soulSeen) { Game.soulSeen = 1; UI.banner('Душа покинула тело', 'Собери осколки с цифрами ответа (E) и сложи их на монолите', '#bfefff', 4.2) }
+    else UI.banner('Душа вне тела', LIMB_NAME[part] + ' разбита — реши задачу на монолите', '#bfefff', 2.2);
+  },
+  // печать монолита между волнами: задача без босса, награда — здоровье
+  seal() {
+    const M = World.monolith; this.start({ mode: 'seal', pos: { x: M.x, z: .05, h: 300 }, spread: 650 });
+    UI.banner('Печать монолита', 'Реши задачу — монолит вернёт силы и откроет ворота', '#bfefff', 3.2);
+  },
+  start(o) {
+    const p = this.prob = Problems.next(Game.level), s = this.ansStr(p.a), pos = o.pos;
+    Object.assign(this, { mode: o.mode, part: o.part || null, B: o.B || null, last: o.last, slots: s.length, on: true, ph: 'out', t: 0, T: this.TMAX, carried: [], placed: [], msg: null, res: null, used: 0 });
     // осколки: цифры ответа + приманки (соседние цифры — типичные ошибки)
     const ds = [...s], dec = [], nDec = cl(8 - ds.length, 3, 5);
     for (let i = 0; i < nDec; i++) { const base = ds.filter(c => c !== '−'); let d = base.length && Math.random() < .6 ? (+pick(base) + pick([-1, 1, 2, -2]) + 10) % 10 : irnd(0, 9); dec.push('' + d) }
     if (p.a > 0 && Math.random() < .5) dec.push('−'); // минус-приманка, если ответ положительный
-    const all = shuffle([...ds, ...dec]), M = World.monolith.x, spots = [];
+    const all = shuffle([...ds, ...dec]), M = World.monolith.x, spots = [], spread = o.spread || 950;
     this.shards = all.map(d => {
       let tx, tz, tries = 0;
-      do { tx = cl(pos.x + rnd(-950, 950), W.XMIN + 60, W.XMAX - 60); tz = rnd(.1, .95); tries++ } while (tries < 40 && (Math.abs(tx - M) < 170 || spots.some(q => fdist(q[0], q[1], tx, tz) < 120)));
+      do { tx = cl(pos.x + rnd(-spread, spread), W.XMIN + 60, W.XMAX - 60); tz = rnd(.12, .95); tries++ } while (tries < 60 && (Math.abs(tx - M) < 180 || spots.some(q => fdist(q[0], q[1], tx, tz) < 130)));
       spots.push([tx, tz]); const tt = rnd(.9, 1.4), g = 900;
       return { d, x: pos.x, z: pos.z, h: pos.h, vx: (tx - pos.x) / tt, vz: (tz - pos.z) / tt, vh: (0 - pos.h) / tt + .5 * g * tt, g, t: 0, tt, landed: false, r: 0, vr: rnd(-12, 12), ph: rnd(0, TAU) };
     });
     const H = Hero.H; H.soul = true; this.x = H.x; this.z = H.z; this.h = Hero.height() * .55; this.vx = 0; this.vz = 0; this.face = Hero.FACE; this.alpha = 0;
     Snd.soulOut(); Snd.setMode('soul'); Game.stats.tasks++;
-    // первый выход души — объяснить механику; дальше — короткое напоминание
-    if (!Game.soulSeen) { Game.soulSeen = 1; UI.banner('Душа покинула тело', 'Найди осколки с цифрами ответа (E) и сложи их на монолите', '#bfefff', 4.2) }
-    else UI.banner('Душа вне тела', LIMB_NAME[part] + ' разбита — реши задачу на монолите', '#bfefff', 2.2);
   },
-  atMonolith() { return Math.abs(this.x - World.monolith.x) < 140 && this.z < .32 },
-  nearShard() { let best = null, bd = 92; for (const s of this.shards) if (s.landed && !s.carried && !s.placed) { const d = fdist(this.x, this.z, s.x, s.z); if (d < bd) { bd = d; best = s } } return best },
+  atMonolith() { return Math.abs(this.x - World.monolith.x) < 150 && this.z < .34 },
+  nearShard() { let best = null, bd = 95; for (const s of this.shards) if (s.landed && !s.carried && !s.placed) { const d = fdist(this.x, this.z, s.x, s.z); if (d < bd) { bd = d; best = s } } return best },
+  full() { return this.placed.length >= this.slots },
   update(dt) {
     if (!this.on) return; this.t += dt; const H = Hero.H;
     // полёт осколков
@@ -34,54 +43,83 @@ const Soul = {
     for (const s of this.shards) if (s.back) { s.t += dt; const k = sm(s.t / 1); s.x = lp(s.bx, s.tx, k); s.z = lp(s.bz, s.tz, k); s.h = lp(s.bh, s.th, k) + Math.sin(PI * k) * 120; if (s.t >= 1) s.gone = 1 }
     if (this.ph === 'out') { const k = sm(this.t / .8); this.alpha = k * .92; this.h = lp(Hero.height() * .55, 70, k); if (Math.random() < .6) FX.soulMote(this.x + rnd(-20, 20), this.z, this.h + rnd(0, 80)); if (this.t > .8) { this.ph = 'free'; this.t = 0 } }
     else if (this.ph === 'free') {
-      this.T -= dt; const a = Input.axis(), sp = a.run ? 400 : 300, ax = a.x * sp, az = a.z * (a.run ? 1.2 : .95);
+      this.T -= dt; this.used += dt; const a = Input.axis(), sp = a.run ? 400 : 300, ax = a.x * sp, az = a.z * (a.run ? 1.2 : .95);
       this.vx = lp(this.vx, ax, 1 - Math.exp(-dt * 9)); this.vz = lp(this.vz, az, 1 - Math.exp(-dt * 9));
       this.x = cl(this.x + this.vx * dt, W.XMIN, W.XMAX); this.z = cl(this.z + this.vz * dt, 0, 1); if (Math.abs(this.vx) > 20) this.face = Math.sign(this.vx);
       this.h = 70 + 10 * Math.sin(this.t * 2.2); if (Math.random() < .35) FX.soulMote(this.x - this.face * rnd(0, 30), this.z, this.h + rnd(-10, 60));
-      if (Input.hit('KeyE')) this.use(); if (Input.hit('KeyQ')) this.undo();
+      if (Input.hit('KeyE')) this.use(); if (Input.hit('KeyQ')) this.undo(); if (Input.hit('KeyR')) this.rotate();
+      if (this.T <= 10 && Math.floor(this.T + dt) !== Math.floor(this.T)) Snd.tick();
       if (this.T <= 0) { this.T = 0; this.finish(false, 'Время вышло') }
-    } else if (this.ph === 'result') { if (this.t > 2.4) { this.ph = 'return'; this.t = 0; this.fx = this.x; this.fz = this.z; this.fh = this.h; Snd.soulIn() } }
+    } else if (this.ph === 'result') {
+      // после ошибки — разбор решения; дальше по E/Enter или сам через несколько секунд
+      const minT = this.res ? 1.6 : 2.2, maxT = this.res ? 2.4 : 9;
+      if (this.t > maxT || (this.t > minT && (Input.hit('KeyE') || Input.hit('Space')))) { this.ph = 'return'; this.t = 0; this.fx = this.x; this.fz = this.z; this.fh = this.h; Snd.soulIn() }
+    }
     else if (this.ph === 'return') {
       const k = sm(this.t / .9); this.x = lp(this.fx, H.x, k); this.z = lp(this.fz, H.z, k); this.h = lp(this.fh, Hero.height() * .55, k); this.alpha = .92 * (1 - k * .8);
-      if (this.t >= .9) { this.on = false; this.ph = 'off'; H.soul = false; H.inv = 1.2; Snd.setMode(Boss.b ? 'boss' : 'wave'); Boss.limbResult(this.part, this.res); this.shards = []; this.placed = []; this.carried = []; FX.flash(H.x, H.z, Hero.height() * .5, 120, '140,240,255', .3) }
+      if (this.t >= .9) {
+        this.on = false; this.ph = 'off'; H.soul = false; H.inv = 1.2; Snd.setMode(Boss.b ? 'boss' : 'wave'); this.shards = []; this.placed = []; this.carried = []; FX.flash(H.x, H.z, Hero.height() * .5, 120, '140,240,255', .3);
+        if (this.mode === 'limb') Boss.limbResult(this.part, this.res); else Game.sealDone(this.res);
+      }
     }
     this.hint = Math.max(0, this.hint - dt);
     this.shards = this.shards.filter(s => !s.gone);
   },
+  // E: у монолита — положить первую цифру из рук; все ячейки заполнены — проверить; в поле — подобрать
   use() {
-    if (this.atMonolith() && this.carried.length) { const s = this.carried.shift(); s.carried = false; s.placed = true; this.placed.push(s); Snd.place(); FX.flash(World.monolith.x, World.monolith.z, 200, 60, '120,220,255', .2); if (this.placed.length >= this.slots) this.check(); return }
+    if (this.atMonolith()) {
+      if (this.full()) return this.check();
+      if (this.carried.length) { const s = this.carried.shift(); s.carried = false; s.placed = true; this.placed.push(s); Snd.place(); FX.flash(World.monolith.x, World.monolith.z, 200, 60, '120,220,255', .2); return }
+    }
     const s = this.nearShard(); if (s && this.carried.length < 3) { s.carried = true; this.carried.push(s); Snd.pickup(); FX.flash(s.x, s.z, 20, 40, '140,230,255', .15); return }
     this.hint = 1.2; Snd.tick();
   },
+  // Q: у монолита — забрать последнюю положенную цифру в конец рук; в поле — бросить последнюю из рук
   undo() {
-    if (this.atMonolith() && this.placed.length) { const s = this.placed.pop(); s.placed = false; if (this.carried.length < 3) { s.carried = true; this.carried.unshift(s) } else { s.landed = true; s.x = this.x + rnd(-60, 60); s.z = .35; s.h = 0 } Snd.tick(); return }
+    if (this.atMonolith() && this.placed.length) { const s = this.placed.pop(); s.placed = false; if (this.carried.length < 3) { s.carried = true; this.carried.push(s) } else { s.landed = true; s.x = World.monolith.x + rnd(-170, 170); s.z = .4; s.h = 0 } Snd.tick(); return }
     if (this.carried.length) { const s = this.carried.pop(); s.carried = false; s.landed = true; s.x = this.x; s.z = this.z; s.h = 0; FX.dust(s.x, s.z, 2, .2); Snd.tick() }
   },
+  // R: поменять порядок цифр в руках (первая уходит в конец)
+  rotate() { if (this.carried.length > 1) { this.carried.push(this.carried.shift()); Snd.tick() } },
   check() {
     const v = this.placed.map(s => s.d).join(''), ok = v === this.ansStr(this.prob.a);
     this.finish(ok, ok ? 'Верно!' : 'Неверно');
   },
   finish(ok, text) {
-    this.res = ok; this.ph = 'result'; this.t = 0; this.msg = { text, ok, ans: this.ansStr(this.prob.a) };
-    if (ok) { Snd.correct(); Game.stats.solved++; FX.flash(World.monolith.x, World.monolith.z, 220, 200, '120,230,255', .6); for (const s of this.placed) s.gone = 1 }
-    else { Snd.wrong(); FX.flash(World.monolith.x, World.monolith.z, 220, 200, '255,90,70', .6); Cam.kick(6);
-      // все осколки летят обратно к культе
-      const B = this.B, G = B && B.G; let tx = B ? B.x : this.x, th = 200;
-      if (G) { const p = this.part.startsWith('arm') ? G.arms[this.part === 'armN' ? 0 : 1].sh : G.legs[this.part === 'legN' ? 0 : 1].hip, q = rigToWorld(B, p); tx = q.x; th = zy(B.z) - q.y }
-      for (const s of this.shards) { s.back = 1; s.t = 0; s.bx = s.carried || s.placed ? (s.placed ? World.monolith.x : this.x) : s.x; s.bz = s.placed ? World.monolith.z + .1 : s.carried ? this.z : s.z; s.bh = s.placed ? 200 : s.carried ? this.h : s.h; s.tx = tx; s.tz = B ? B.z : this.z; s.th = th; s.carried = s.placed = false; s.landed = false }
+    const fast = ok && this.used <= this.FAST, k = this.prob.k || 'Задачи', st = Game.stats.topics[k] || (Game.stats.topics[k] = { n: 0, ok: 0 }); st.n++; if (ok) st.ok++;
+    this.res = ok; this.ph = 'result'; this.t = 0; this.msg = { text, ok, fast, ans: this.ansStr(this.prob.a), sol: this.prob.s || '' };
+    if (ok) {
+      Snd.correct(); Game.stats.solved++; FX.flash(World.monolith.x, World.monolith.z, 220, 200, '120,230,255', .6); for (const s of this.placed) s.gone = 1;
+      // награда: здоровье за верный ответ, больше — за быстрый
+      const heal = 30 + (fast ? 20 : 0); Game.heal(heal); Game.score += 100 + (fast ? 100 : 0); this.msg.heal = heal;
+    } else {
+      Snd.wrong(); FX.flash(World.monolith.x, World.monolith.z, 220, 200, '255,90,70', .6); Cam.kick(6);
+      const B = this.B, G = B && B.G; let tx = World.monolith.x, th = 300, tz = World.monolith.z;
+      if (this.mode === 'limb' && G) { const p = this.part.startsWith('arm') ? G.arms[this.part === 'armN' ? 0 : 1].sh : G.legs[this.part === 'legN' ? 0 : 1].hip, q = rigToWorld(B, p); tx = q.x; th = zy(B.z) - q.y; tz = B.z }
+      // осколки летят обратно (к культе — конечность соберётся; к монолиту — печать)
+      for (const s of this.shards) { s.back = 1; s.t = 0; s.bx = s.carried || s.placed ? (s.placed ? World.monolith.x : this.x) : s.x; s.bz = s.placed ? World.monolith.z + .1 : s.carried ? this.z : s.z; s.bh = s.placed ? 200 : s.carried ? this.h : s.h; s.tx = tx; s.tz = tz; s.th = th; s.carried = s.placed = false; s.landed = false }
       this.carried = []; this.placed = [];
     }
   },
   // ---------- рисование ----------
   drawables(list) {
     for (const s of this.shards) if (!s.carried && !s.placed) list.push({ z: s.z, draw: () => this.drawShard(s, s.x, s.z, s.h, 1), shadow: s.landed ? () => drawShadow(s.x, s.z, 18, .3) : null });
-    if (this.on && this.ph !== 'off') list.push({ z: this.z + .001, draw: () => this.drawSoul() });
   },
+  // душа и её осколки — поверх всех персонажей (её не должно загораживать)
+  drawTop() { if (this.on && this.ph !== 'off') this.drawSoul() },
+  // пол в форме души притушён: светятся только осколки
+  drawFloorDim() { if (!this.on) return; const a = this.ph === 'out' ? sm(this.t / .8) : this.ph === 'return' ? 1 - sm(this.t / .9) : 1; ctx.fillStyle = `rgba(3,6,16,${.38 * a})`; ctx.fillRect(0, W.FLOOR_TOP + 20, VW, VH - W.FLOOR_TOP) },
+  // насколько прозрачным делать персонажа рядом с душой или монолитом (0 — не трогать)
+  fadeFor(x) { if (!this.on || this.ph === 'off') return 0; const a = Math.abs(x - this.x), b = Math.abs(x - World.monolith.x); return Math.max(cl(1 - (a - 90) / 260, 0, 1), this.atMonolith() || Math.abs(this.x - World.monolith.x) < 400 ? cl(1 - (b - 120) / 260, 0, 1) : 0) },
   drawShard(s, x, z, h, k0, glow = 1) {
     const t = performance.now() / 1000, i = s.d === '−' ? 10 : +s.d, img = IM.shards[i], k = .74 * zs(z) * k0, X = sx(x), Y = zy(z) - h - img.height * k * .5 - (s.landed ? 8 + 5 * Math.sin(t * 2.4 + s.ph) : 0);
     if (X < -60 || X > VW + 60) return;
     const near = this.on && this.ph === 'free' && this.nearShard() === s;
-    if (glow) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const r = (near ? 70 : 54) * zs(z) * k0 * (1 + .12 * Math.sin(t * 4 + s.ph)), g = ctx.createRadialGradient(X, Y, 0, X, Y, r); g.addColorStop(0, `rgba(110,200,255,${near ? .62 : .4})`); g.addColorStop(1, 'rgba(60,140,255,0)'); ctx.fillStyle = g; ctx.fillRect(X - r, Y - r, 2 * r, 2 * r); ctx.restore() }
+    if (glow) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const r = (near ? 70 : 54) * zs(z) * k0 * (1 + .12 * Math.sin(t * 4 + s.ph)), g = ctx.createRadialGradient(X, Y, 0, X, Y, r); g.addColorStop(0, `rgba(110,200,255,${near ? .62 : .4})`); g.addColorStop(1, 'rgba(60,140,255,0)'); ctx.fillStyle = g; ctx.fillRect(X - r, Y - r, 2 * r, 2 * r);
+      if (s.landed) { const bw = 16 * zs(z), bh = 150 * zs(z), bg = ctx.createLinearGradient(0, Y - bh, 0, Y); bg.addColorStop(0, 'rgba(90,190,255,0)'); bg.addColorStop(1, `rgba(120,210,255,${.22 + .1 * Math.sin(t * 3 + s.ph)})`); ctx.fillStyle = bg; ctx.fillRect(X - bw / 2, Y - bh, bw, bh) }
+      ctx.restore() }
+    // тёмная обводка: цифра на осколке отличается от резьбы на плитах пола
+    if (glow) { ctx.save(); ctx.globalAlpha = .55; ctx.translate(X, Y); ctx.rotate(s.landed ? 0 : s.r); const kk = k * 1.12; ctx.drawImage(img, -img.width * kk / 2, -img.height * kk / 2, img.width * kk, img.height * kk); ctx.restore() }
     ctx.save(); ctx.translate(X, Y); ctx.rotate(s.landed ? 0 : s.r); ctx.drawImage(img, -img.width * k / 2, -img.height * k / 2, img.width * k, img.height * k);
     if (s.d === '−') { ctx.fillStyle = 'rgba(150,225,255,.95)'; ctx.shadowColor = '#5fc8ff'; ctx.shadowBlur = 8; ctx.fillRect(-img.width * k * .26, -img.height * k * .06, img.width * k * .52, img.height * k * .13) }
     ctx.restore();
@@ -114,13 +152,12 @@ const Soul = {
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(60,140,220,${act ? .12 + .05 * Math.sin(tt * 2) : .03})`; ctx.fillRect(px, py, pw, ph); ctx.restore();
     if (!act) return;
     ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#bfefff'; ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10;
-    const lines = wrapEq(this.prob.t, pw - 10, 15); let fy = py + 18;
-    ctx.font = `600 11px ${FONT_UI}`; ctx.fillStyle = '#86c9e8'; ctx.fillText(this.prob.c, px + pw / 2, fy); fy += 18;
+    const lines = wrapEq(this.prob.t, pw - 8, 19); let fy = py + 18;
+    ctx.font = `600 13px ${FONT_UI}`; ctx.fillStyle = '#86c9e8'; ctx.fillText(this.prob.c, px + pw / 2, fy); fy += 19;
     ctx.fillStyle = '#d8f6ff'; for (const l of lines.lines) { ctx.font = `700 ${lines.size}px ${FONT_EQ}`; ctx.fillText(l, px + pw / 2, fy); fy += lines.size + 4 }
     // ячейки ответа
     const n = this.slots, cw = Math.min(26, (pw - 10) / n), x0 = px + pw / 2 - cw * n / 2, cy = py + ph - 26;
     for (let i = 0; i < n; i++) { ctx.strokeStyle = 'rgba(140,220,255,.6)'; ctx.lineWidth = 1.5; ctx.shadowBlur = 0; ctx.strokeRect(x0 + i * cw + 2, cy - 12, cw - 4, 26); const s = this.placed[i]; if (s) this.drawShardAt(s, x0 + i * cw + cw / 2, cy + 1, (cw - 2) / 74) }
-    if (this.msg) { ctx.font = `700 14px ${FONT_UI}`; ctx.fillStyle = this.msg.ok ? '#8dffb3' : '#ff8a7a'; ctx.shadowColor = this.msg.ok ? '#2bff7a' : '#ff3b2b'; ctx.shadowBlur = 12; ctx.fillText(this.msg.text, px + pw / 2, py + ph + 18) }
     ctx.restore();
   },
   drawShardAt(s, X, Y, k) { const i = s.d === '−' ? 10 : +s.d, img = IM.shards[i]; ctx.drawImage(img, X - img.width * k / 2, Y - img.height * k / 2, img.width * k, img.height * k); if (s.d === '−') { ctx.fillStyle = '#bfefff'; ctx.fillRect(X - img.width * k * .26, Y - img.height * k * .06, img.width * k * .52, img.height * k * .13) } },

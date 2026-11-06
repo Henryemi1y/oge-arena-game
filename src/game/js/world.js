@@ -42,14 +42,16 @@ const World = {
   drawBack(t) {
     this.t = t;
     this.layer(IM.bg_far, .667, .2, -190);
-    this.layer(IM.bg_mid, .667, .6, W.FLOOR_TOP - 466);
+    this.layer(IM.bg_mid, .667, .5, W.FLOOR_TOP - 466);
     // ворота стоят в плоскости стены, но едут вместе с полом (они на краю арены)
     for (const s of [-1, 1]) { const img = s < 0 ? IM.gate_left : IM.gate_right, k = .52, w = img.width * k, h = img.height * k, x = sx(this.gateX(s)); if (x > -w && x < VW + w) ctx.drawImage(img, x - w / 2, W.FLOOR_TOP + 34 - h, w, h) }
     this.layer(IM.floor, .62, 1, W.FLOOR_TOP);
     // мягкая тень у основания стены
     const gr = ctx.createLinearGradient(0, W.FLOOR_TOP, 0, W.FLOOR_TOP + 60); gr.addColorStop(0, 'rgba(5,7,16,.55)'); gr.addColorStop(1, 'rgba(5,7,16,0)'); ctx.fillStyle = gr; ctx.fillRect(0, W.FLOOR_TOP, VW, 60);
   },
-  drawFront() { this.layer(IM.fg, .667, 1.25, VH - 280 + 46, .95) },
+  drawFront() { this.layer(IM.fg, .667, 1.3, VH - 280 + 46, .95) },
+  // искры жаровен — в шаге симуляции (их число не зависит от частоты кадров экрана)
+  update(dt) { for (const p of this.props) if (p.fire && Math.random() < dt * 15) { const k = p.s * zs(p.z), h = IM.props[p.kind].height * k; FX.ember(p.x + rnd(-10, 10), p.z, h * .92 + 20) } },
   // свет жаровен на полу и стене
   drawLights(t) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -67,7 +69,6 @@ const World = {
       const fi = IM.props.flame, t = this.t, fk = k * .9, fw = fi.width * fk, fh = fi.height * fk, top = y - h * .92;
       const sy = 1 + .1 * Math.sin(t * 11 + p.x) + .05 * Math.sin(t * 27), sxk = 1 + .05 * Math.sin(t * 7 + 1);
       ctx.save(); ctx.translate(x, top + fh * .2); ctx.scale(sxk, sy); ctx.globalAlpha = .95; ctx.drawImage(fi, -fw / 2, -fh, fw, fh); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .25 + .1 * Math.sin(t * 13); ctx.drawImage(fi, -fw / 2, -fh, fw, fh); ctx.restore();
-      if (Math.random() < .25) FX.ember(p.x + rnd(-10, 10), p.z, (y - top) + fh * .4);
     }
     if (p === this.monolith && Soul.drawMonolith) Soul.drawMonolith(p, x, y, w, h, k);
   },

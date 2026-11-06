@@ -8,13 +8,13 @@ function segDist(p1, p2, q1, q2) { // расстояние между отрез
   const P = [p1[0] + d1[0] * s, p1[1] + d1[1] * s], Q = [q1[0] + d2[0] * t, q1[1] + d2[1] * t]; return { d: Math.hypot(P[0] - Q[0], P[1] - Q[1]), p: P };
 }
 const ETYPES = {
-  ghoul: { hp: 30, dmg: 5, range: 112, wind: .38, strike: .12, rec: .45, cd: [1.3, 2.2], score: 10, pois: 0,
-    wp: { ru: 1.0, rf: .5, lean: .12, far: -.6 }, sp: { ru: -1.85, rf: -2.25, lean: .38, far: .9, lunge: .22 } },
-  knight: { hp: 70, dmg: 10, range: 150, wind: .7, strike: .15, rec: .7, cd: [1.8, 2.7], score: 25, poise: .5,
-    wp: { ru: -2.75, rf: -3.35, lean: -.08, far: .3 }, sp: { ru: -1.05, rf: -1.3, lean: .2, far: -.3, lunge: .08 } },
+  ghoul: { hp: 30, dmg: 5, range: 118, wind: .38, strike: .12, rec: .45, cd: [1.3, 2.2], score: 10, pois: 0,
+    wp: { ru: 1.0, rf: .5, lean: .12, far: -.6, crouch: .1 }, sp: { ru: -1.85, rf: -2.25, lean: .38, far: .9, lunge: .3, crouch: .06 } },
+  knight: { hp: 70, dmg: 10, range: 168, wind: .7, strike: .15, rec: .7, cd: [1.8, 2.7], score: 25, poise: .5,
+    wp: { ru: -2.75, rf: -3.35, lean: -.1, far: .3, crouch: .03 }, sp: { ru: -1.05, rf: -1.3, lean: .22, far: -.3, lunge: .14, crouch: .08 } },
   doctor: { hp: 36, dmg: 7, range: 520, wind: .6, strike: .12, rec: .55, cd: [2.4, 3.4], score: 20, ranged: 1,
-    wp: { ru: 1.35, rf: 2.3, lean: -.12, far: -.4 }, sp: { ru: -2.4, rf: -2.7, lean: .18, far: .4, lunge: 0 } },
-  goatman: { hp: 100, dmg: 14, range: 420, wind: .85, strike: 0, rec: 1.1, cd: [3.0, 4.2], score: 35, poise: 1, charge: 1,
+    wp: { ru: 1.35, rf: 2.3, lean: -.14, far: -.4, crouch: .04 }, sp: { ru: -2.4, rf: -2.7, lean: .2, far: .4, lunge: .06, crouch: .03 } },
+  goatman: { hp: 100, dmg: 14, range: 440, wind: .85, strike: 0, rec: 1.1, cd: [3.0, 4.2], score: 35, poise: 1, charge: 1,
     wp: { ru: .75, rf: .4, lean: .5, far: .75 }, sp: { ru: .5, rf: .2, lean: .55, far: .5, lunge: 0 } },
 };
 const Enemies = {
@@ -32,18 +32,18 @@ const Enemies = {
     const dxp = tx - e.x, dzp = (tz - e.z) * ZPX, d = Math.hypot(dxp, dzp), c = e.c;
     let dir = 0; if (d > (opt.tol ?? 10)) dir = Math.abs(dxp) > 12 ? Math.sign(dxp) : e.face; if (opt.dir !== undefined) dir = opt.dir;
     const x0 = c.x; e.pose = Walker.update(c, dt, { dir: opt.hold ? 0 : dir, run: opt.run, speedK: opt.speedK, hold: opt.hold, runK: opt.runK, accK: opt.accK, lean: opt.lean, crouch: opt.crouch });
-    e.face = c.face; const p = Math.abs(c.x - x0), s = e.R.scale * zs(e.z);
+    e.face = c.face; turnTick(e, dt, .16); const p = Math.abs(c.x - x0), s = e.R.scale * zs(e.z);
     // торможение у цели — по прежнему направлению (иначе тело уезжает вбок от стоящих стоп)
     let mdir = null; if (p > 0) { let ax, az; if (d > 6) { const n = Math.hypot(Math.abs(dxp), dzp); ax = Math.abs(dxp) / n; az = dzp / n; e.mv = { ax, az } } else ({ ax, az } = e.mv || { ax: 1, az: 0 }); e.x += p * s * e.face * ax; e.z = cl(e.z + p * s * az / ZPX, 0, 1); mdir = { x: e.face * ax, z: az } }
     depthLegs(e, mdir);
-    for (const ev of c.events) { const R = e.R; if (c.g.heavy > .2) { Snd.step(ev.power * .5, 0); FX.dust(e.x, e.z, 2 + 4 * c.g.dust, .2 + .4 * c.g.dust) } }
+    for (const ev of c.events) { if (c.g.heavy > .2) { Snd.step(ev.power * .5, 0); FX.dust(e.x, e.z, 2 + 4 * c.g.dust, .2 + .4 * c.g.dust) } else if (Math.abs(e.x - Hero.H.x) < 600 && Math.random() < .6) Snd.step(.05, 0) }
     // одежда — пружина от скорости
     e.clothv += ((-c.v * .0012 - e.cloth) * 60 - e.clothv * 8) * dt; e.cloth += e.clothv * dt;
   },
   // ---------- ИИ ----------
   update(dt) {
     const h = Hero.H, side = { '-1': [], '1': [] };
-    for (const e of this.list) if (e.st !== 'dead' && !e.T.ranged) side[e.x < h.x ? -1 : 1].push(e);
+    for (const e of this.list) if (e.st !== 'dead' && e.st !== 'dying' && !e.T.ranged) side[e.x < h.x ? -1 : 1].push(e);
     for (const k in side) side[k].sort((a, b) => Math.abs(a.x - h.x) - Math.abs(b.x - h.x)).forEach((e, i) => e.slot = i);
     for (const e of this.list) this.think(e, dt);
     this.list = this.list.filter(e => e.st !== 'gone');
@@ -60,18 +60,19 @@ const Enemies = {
       case 'enter': { e.alpha = Math.min(1, e.alpha + dt * 2); this.move(e, dt, e.x + (e.x < W.ARENA / 2 ? 200 : -200), .3 + e.slotZ); if (e.t > 1.1) { e.st = 'move'; e.t = 0 } break }
       case 'move': {
         let tx, tz = cl(h.z + (T.ranged ? 0 : (e.slot || 0) % 2 ? e.slotZ * .6 : 0), .03, 1), run = false;
-        if (T.ranged) { const want = 360, sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * want; if (tx < W.XMIN || tx > W.XMAX) tx = h.x - sd * want; tz = cl(h.z + e.slotZ, .03, 1) }
-        else if (T.charge) { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * 300 } else { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * (T.range * .78 + (e.slot || 0) * 70); run = adx > 420 && e.type === 'ghoul' }
+        if (T.ranged) { const want = 360, sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * want; if (tx < W.XMIN || tx > W.XMAX) tx = h.x - sd * want; tz = cl(h.z + e.slotZ, .03, 1);
+          const flee = adx < want - 60; e.flee = flee ? (e.flee || 0) + dt : Math.max(0, (e.flee || 0) - dt * .5); if (e.flee > 2.2) { e.stand = 3.5; e.flee = 0 } if (e.stand > 0) { e.stand -= dt; tx = e.x } }
+        else if (T.charge) { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * 300 } else { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * (Math.max(T.range * .8, 104 * (e.R.size || 1)) + (e.slot || 0) * 75); run = adx > 420 && e.type === 'ghoul' }
         const close = !T.ranged && adx < T.range * .85 && Math.abs(dz) < .15 && (e.slot || 0) < 2;
         // уже рядом — не пятиться, а стоять лицом к герою (разворот короткими шагами)
         if (close) this.move(e, dt, e.x, tz, { dir: facing ? 0 : Math.sign(toH), speedK: .08, tol: 6 }); else this.move(e, dt, tx, tz, { run, tol: 14 });
-        const inRange = T.ranged ? adx > 200 && adx < T.range : T.charge ? adx < T.range && adx > 150 && Math.abs(dz) < .14 : adx < T.range && Math.abs(dz) < .1;
+        const inRange = T.ranged ? adx > 110 && adx < T.range : T.charge ? adx < T.range && adx > 150 && Math.abs(dz) < .14 : adx < T.range && Math.abs(dz) < .1;
         const busy = this.list.filter(o => o !== e && (o.st === 'wind' || o.st === 'strike')).length;
         if (target && e.cd <= 0 && inRange && facing && busy < 2 && (e.slot || 0) < 2 && Math.abs(e.c.v) < e.R.L1 * 3) { e.st = 'wind'; e.t = 0; e.aim = { x: h.x, z: h.z }; if (T.charge) Snd.whoosh() }
         break;
       }
       case 'wind': {
-        this.move(e, dt, e.x, e.z, { hold: true }); ov = { k: 'wp', w: sm(e.t / T.wind) };
+        this.move(e, dt, e.x, e.z, { hold: true, crouch: (T.wp.crouch || 0) * sm(e.t / T.wind) }); ov = { k: 'wp', w: sm(e.t / T.wind) };
         if (T.charge) { e.dy = Math.sin(e.t * 40) * 1.5; e.aim = { x: h.x, z: h.z } }
         if (e.t >= T.wind) { e.st = 'strike'; e.t = 0; e.done = 0; e.dy = 0; if (T.charge) { e.chDir = Math.sign(e.aim.x - e.x) || e.face; e.chZ = e.aim.z; e.chEnd = e.aim.x + e.chDir * 160 } else Snd.swing(1) }
         break;
@@ -83,17 +84,19 @@ const Enemies = {
           if (Math.sign(e.chEnd - e.x) !== e.chDir || e.t > 1.6 || e.x <= W.XMIN || e.x >= W.XMAX) { e.st = 'rec'; e.t = 0; Cam.kick(4); FX.dust(e.x, e.z, 8, .6) }
           break;
         }
-        this.move(e, dt, e.x, e.z, { hold: true }); ov = { k: 'sp', w: sm(e.t / T.strike) };
+        this.move(e, dt, e.x, e.z, { hold: true, crouch: lp(T.wp.crouch || 0, T.sp.crouch || 0, sm(e.t / T.strike)) }); ov = { k: 'sp', w: sm(e.t / T.strike) };
         if (e.t >= T.strike && !e.done) { e.done = 1; this.release(e) }
         if (e.t >= T.strike) { e.st = 'rec'; e.t = 0 }
         break;
       }
-      case 'rec': { this.move(e, dt, e.x, e.z, { hold: true }); ov = { k: 'sp', w: 1 - sm(e.t / T.rec) }; if (e.t >= T.rec) { e.st = 'move'; e.t = 0; e.cd = rnd(...T.cd); e.flaskOut = 0 } break }
+      case 'rec': { this.move(e, dt, e.x, e.z, { hold: true, crouch: (T.sp.crouch || 0) * (1 - sm(e.t / T.rec)) }); ov = { k: 'sp', w: 1 - sm(e.t / T.rec) }; if (e.t >= T.rec) { e.st = 'move'; e.t = 0; e.cd = rnd(...T.cd); e.flaskOut = 0 } break }
       case 'hurt': { this.move(e, dt, e.x, e.z, { hold: true }); if (e.t > .32) { e.st = 'move'; e.t = 0 } break }
+      case 'dying': { this.move(e, dt, e.x, e.z, { hold: true, crouch: .3 * sm(e.t / .38) }); e.pose.lean -= .55 * sm(e.t / .38); e.pose.arms.forEach((a, i) => { a.ru = lp(a.ru, i ? .9 : .6, sm(e.t / .38)); a.rf = a.ru - .4 }); if (e.t > .38) { e.G = rigGeom(e); this.ash(e) } break }
       case 'dead': break;
     }
     // поза: руки и корпус к ключу атаки
     const po = e.pose; if (ov && ov.w > 0) { const K = T[ov.k], w = ov.w, a = po.arms[0], b = po.arms[1]; a.ru = lp(a.ru, K.ru, w); a.rf = lp(a.rf, K.rf, w); b.ru = lp(b.ru, K.far, w); b.rf = lp(b.rf, K.far - .4, w); po.lean += K.lean * w; e.lunge = (K.lunge || 0) * w } else e.lunge = 0;
+    e.hx = e.lunge * (e.R.L1 + e.R.L2) * .4; if (e.hx) po.legs = po.legs.map(l => ({ ...l, ...Walker.ik2(l.ax - e.hx, l.ay, e.R.L1, e.R.L2, e.c.g.digi ? -1 : 1) }));
     if (e.st === 'hurt') po.lean -= .25 * (1 - sm(e.t / .32));
     e.G = rigGeom(e);
   },
@@ -110,7 +113,7 @@ const Enemies = {
     const hd = rigToWorld(e, G.arms[0].hand, xf), el = rigToWorld(e, G.arms[0].el, xf); pts.push([el, hd]);
     if (Math.abs(h.z - e.z) > .12 || h.soul) return;
     const hx = h.x, body = [[hx, zy(h.z) - 10], [hx, zy(h.z) - Hero.height() * .92]], R = 34 * zs(h.z);
-    for (const [a, b] of pts) { const r = segDist([a.x + e.lunge * e.face * xf.s * 100, a.y], [b.x + e.lunge * e.face * xf.s * 100, b.y], body[0], body[1]); if (r.d < R) { if (Hero.damage(T.dmg, e.x, 1)) FX.sparks(r.p[0], h.z, zy(h.z) - r.p[1], 10, '255,120,100', 300); break } }
+    for (const [a, b] of pts) { const r = segDist([a.x, a.y], [b.x, b.y], body[0], body[1]); if (r.d < R) { if (Hero.damage(T.dmg, e.x, 1)) FX.sparks(r.p[0], h.z, zy(h.z) - r.p[1], 10, '255,120,100', 300); break } }
   },
   updProj(dt) {
     const h = Hero.H;
@@ -133,7 +136,7 @@ const Enemies = {
   bladeHits(b) {
     let any = false;
     for (const e of this.list) {
-      if (e.st === 'dead' || e.st === 'enter' && e.alpha < .7 || Math.abs(e.z - b.z) > .15 || Hero.H.hitSet.has(e)) continue;
+      if (e.st === 'dead' || e.st === 'dying' || e.st === 'gone' || e.st === 'enter' && e.alpha < .7 || Math.abs(e.z - b.z) > .15 || Hero.H.hitSet.has(e)) continue;
       for (const [a, c, r] of this.hurtCapsules(e)) { const q = segDist([b.x1, b.y1], [b.x2, b.y2], a, c); if (q.d < r + 6) { this.damage(e, b, q.p); any = true; break } }
     }
     return any;
@@ -145,8 +148,8 @@ const Enemies = {
     if (e.hp <= 0) return this.kill(e);
     if (!e.T.poise || (e.st === 'move' || e.st === 'wind') && Math.random() > e.T.poise) { if (e.st !== 'strike' || !e.T.charge) { e.st = 'hurt'; e.t = 0; e.flaskOut = 0 } }
   },
-  kill(e) {
-    e.st = 'dead'; Game.score += e.T.score; Snd.death();
+  kill(e) { e.st = 'dying'; e.t = 0; e.kbv *= .5; Game.score += e.T.score; Snd.death() },
+  ash(e) {
     // персонаж рассыпается пеплом: рисуем его во внеэкранный холст и режем на куски
     const xf = rigXf(e), hgt = e.R.P.torso.h * 2.6 * xf.s, w = hgt * 1.3, x0 = xf.X - w / 2, y0 = zy(e.z) - hgt * 1.08;
     const cv = renderToCanvas(() => drawRig(e), x0, y0, w, hgt * 1.15);
@@ -160,7 +163,7 @@ const Enemies = {
   },
   draw(e) {
     if (e.st === 'gone') return; if (!e.G) e.G = rigGeom(e);
-    const xf = rigXf(e); ctx.save(); ctx.globalAlpha = e.alpha; ctx.translate(e.lunge * e.face * xf.s * 100, 0); drawRig(e);
+    ctx.save(); ctx.globalAlpha = e.alpha * (1 - .6 * Soul.fadeFor(e.x)); drawRig(e);
     if (e.flash > 0) { ctx.globalAlpha = e.flash * .75 * e.alpha; drawRig(e, { v: 'W' }) }
     if (e.st === 'wind' && e.T.charge) { ctx.globalAlpha = .3 + .3 * Math.sin(e.t * 30); drawRig(e, { v: 'W', only: 'armN' }) }
     ctx.restore();

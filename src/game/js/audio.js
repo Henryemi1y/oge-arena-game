@@ -1,13 +1,13 @@
 // audio.js — звук без файлов: синтез WebAudio. Музыка — генеративный цикл в ля миноре (режимы: титул, волна, босс, душа),
 // эффекты — шаги, взмахи, попадания, камень, тряска, осколки, ответы, душа.
 const Snd = (() => {
-  let ac = null, master, musicG, sfxG, verbIn, noiseBuf, muted = false, mode = 'title', drone = null;
+  let ac = null, master, musicG, sfxG, verbIn, noiseBuf, muted = false, mode = 'title', drone = null, vol = .85;
   const g = (dest, v) => { const n = ac.createGain(); n.gain.value = v; n.connect(dest); return n };
   function impulse(sec, decay) { const r = ac.sampleRate, n = r * sec, b = ac.createBuffer(2, n, r); for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, decay) } return b }
   function init() {
     if (ac) { if (ac.state === 'suspended') ac.resume(); return }
     const C = window.AudioContext || window.webkitAudioContext; if (!C) return; ac = new C();
-    master = g(ac.destination, muted ? 0 : .85);
+    master = g(ac.destination, muted ? 0 : vol);
     const comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.connect(master);
     musicG = g(comp, .32); sfxG = g(comp, .9);
     const cv = ac.createConvolver(); cv.buffer = impulse(2.8, 2.4); verbIn = g(cv, 1); cv.connect(g(comp, .32));
@@ -48,6 +48,14 @@ const Snd = (() => {
     gate() { tone(90, 66, 'sawtooth', .9, .06, { a: .1 }); noise(.9, 'lowpass', 220, 90, .7, .22) },
     whoosh() { noise(.35, 'bandpass', 300, 1500, 1, .14, { a: .08 }) },
     tick() { tone(1500, 1500, 'square', .03, .04) },
+    // замах босса: низкий нарастающий гул — сигнал «сейчас ударит»
+    windup(heavy = 1) { noise(.7, 'lowpass', 90, 420, 3, .16 * heavy, { a: .5 }); tone(55, 92, 'sawtooth', .75, .06 * heavy, { a: .5 }) },
+    // топор палача: металлический свист и звон
+    axe() { if (!ac) return; noise(.32, 'bandpass', 900, 3800, 2.5, .22, { a: .05 }); tone(1180, 1100, 'triangle', .5, .05, { t: now() + .05, verb: .4 }) },
+    // конечность собирается обратно: камни тянутся друг к другу
+    regrow() { if (!ac) return; const t = now(); for (let i = 0; i < 10; i++) noise(.05, 'bandpass', 600 + i * 220, 900 + i * 200, 3, .1, { t: t + i * .06 }); tone(60, 120, 'sine', .8, .3, { a: .3 }) },
+    heroDeath() { noise(1.1, 'lowpass', 1400, 200, .7, .3, { a: .02, verb: .8 }); tone(330, 110, 'triangle', 1.2, .14, { verb: 1 }); tone(165, 55, 'sine', 1.3, .3) },
+    seal() { if (!ac) return; const t = now();[220, 277, 330].forEach((f, i) => tone(f, f, 'sine', 1.4, .1, { t: t + i * .12, a: .1, verb: 1 })) },
   };
   // ---------- музыка ----------
   const BPM = 84, E8 = 60 / BPM / 2; let nextT = 0, stepI = 0, timer = null;
@@ -86,6 +94,7 @@ const Snd = (() => {
     tone(mf(ROOT[bar]), mf(ROOT[bar]), 'sine', E8 * .9, boss ? .1 : .07, { t, dest: musicG });
   }
   function setMode(m) { mode = m; if (drone && ac) drone.gain.setTargetAtTime(m === 'soul' ? .05 : m === 'boss' ? .14 : .1, now(), 1) }
-  function toggleMute() { muted = !muted; if (master) master.gain.setTargetAtTime(muted ? 0 : .85, now(), .05); return muted }
-  return { init, setMode, toggleMute, get muted() { return muted }, get mode() { return mode }, ...S };
+  function toggleMute() { muted = !muted; if (master) master.gain.setTargetAtTime(muted ? 0 : vol, now(), .05); return muted }
+  function setVol(v) { vol = cl(v, 0, 1); if (master && !muted) master.gain.setTargetAtTime(vol, now(), .05); return vol }
+  return { init, setMode, toggleMute, setVol, get vol() { return vol }, get muted() { return muted }, get mode() { return mode }, ...S };
 })();

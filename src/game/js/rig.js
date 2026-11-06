@@ -2,10 +2,10 @@
 // лодыжки и локтя, одежда, оружие, культи. Перенесено из src/characters/walkers.tpl.html (drawChar), геометрия вынесена
 // в rigGeom(), чтобы по тем же точкам считать попадания. Локальные координаты: начало — таз, +x — вперёд, y — вниз.
 const DRESS = {
-  ghoul: { name: 'Гуль', gait: 'ghoul', cloth: [[.52, .80, 'cloth']] },
-  knight: { name: 'Падший рыцарь', gait: 'knight', clothB: [.30, .78], clothF: [.70, .80], weapon: { off: -.95 } },
+  ghoul: { name: 'Гуль', gait: 'ghoul', size: .96, cloth: [[.52, .80, 'cloth']] },
+  knight: { name: 'Падший рыцарь', gait: 'knight', size: 1.1, clothB: [.30, .78], clothF: [.70, .80], weapon: { off: -.95 } },
   doctor: { name: 'Чумной доктор', gait: 'doctor', cloth: [[.48, .74, 'cloth']], flask: 1 },
-  goatman: { name: 'Козлорог', gait: 'goatman', cloth: [[.55, .80, 'cloth']] },
+  goatman: { name: 'Козлорог', gait: 'goatman', size: 1.32, cloth: [[.55, .80, 'cloth']] },
   guardian: { name: 'Каменный страж', gait: 'guardian', boss: 1 },
   executioner: { name: 'Каменный палач', gait: 'executioner', boss: 1, axe: 1 },
 };
@@ -13,11 +13,13 @@ const RIG = {};
 function rigDef(id) {
   if (RIG[id]) return RIG[id];
   const P = ASSETS.ch[id], I = IM.ch[id], d = DRESS[id], l = P.legN, k = P._k;
-  return RIG[id] = { id, P, I, ...d, k, L1: dist(l.root, l.joint), L2: dist(l.joint, l.end), foot: l.sole - l.end[1], scale: W.CS / k * (d.boss ? 1.7 : 1), ov: 12 * k / .5 };
+  return RIG[id] = { id, P, I, ...d, k, L1: dist(l.root, l.joint), L2: dist(l.joint, l.end), foot: l.sole - l.end[1], scale: W.CS / k * (d.boss ? 1.7 : d.size || 1), ov: 12 * k / .5 };
 }
 // экранные координаты персонажа (для рисования и попаданий)
-function rigXf(ch) { const s = ch.R.scale * zs(ch.z) * (ch.sMul || 1); return { X: sx(ch.x), Y: zy(ch.z) - (ch.pose.hip + ch.R.foot) * s + (ch.dy || 0), s, f: ch.face } }
-function rigToWorld(ch, p, xf = rigXf(ch)) { return { x: ch.x + xf.f * xf.s * p[0], y: xf.Y + xf.s * p[1] } }
+function rigXf(ch) { const s = ch.R.scale * zs(ch.z) * (ch.sMul || 1); const tk = ch.turnT > 0 ? ch.turnT / ch.turnD : 0, f = ch.face * (1 - 2 * tk) || .02; return { X: sx(ch.x) + f * s * (ch.hx || 0), Y: zy(ch.z) - (ch.pose.hip + ch.R.foot) * s + (ch.dy || 0), s, f } }
+// разворот «через ребро»: при смене взгляда спрайт сжимается до ребра и раскрывается в другую сторону
+function turnTick(ch, dt, dur) { if (ch.pf !== undefined && ch.pf !== ch.face) { ch.turnT = dur; ch.turnD = dur } ch.pf = ch.face; ch.turnT = Math.max(0, (ch.turnT || 0) - dt) }
+function rigToWorld(ch, p, xf = rigXf(ch)) { return { x: ch.x + xf.f * xf.s * ((ch.hx || 0) + p[0]), y: xf.Y + xf.s * p[1] } }
 function armChain(Pa, sh, ru, rf) {
   const U = dist(Pa.root, Pa.joint), Fa = dist(Pa.joint, Pa.end);
   const el = [sh[0] - Math.sin(ru) * U, sh[1] + Math.cos(ru) * U], wr = [el[0] - Math.sin(rf) * Fa, el[1] + Math.cos(rf) * Fa];

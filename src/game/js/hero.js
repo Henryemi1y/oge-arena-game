@@ -85,7 +85,7 @@ const ATK=[
 const BK=1300,BD=54,WMIN=-.55,WMAX=.95;
 function frame(v0,dt){dt=cl(dt,1/240,.05);if(!Number.isFinite(st.Pf)||!Number.isFinite(st.Pfv)){st.Pf=null;st.Pfv=0}let v=v0,D=0,AT=-1;st.t+=dt;
  if(st.dsh>=0){st.dsh+=dt;D=sm(st.dsh/.05)*(1-sm((st.dsh-.18)/.1));v=Math.max(v,VB*(1.3+2*D));if(st.dsh>.34)st.dsh=-1}
- const A_=ATK[st.ak|0];if(st.atk>=0){const hs=A_.hs,sl=st.atk>=hs[0]&&st.atk<hs[1]?.06:1;st.atk+=dt*sl;if(sl==1&&st.atk>hs[0]&&st.atk-dt<hs[0])st.atk=hs[0];AT=st.atk;if(AT>A_.T)st.atk=-1}
+ const A_=ATK[st.ak|0];if(st.atk>=0){const hs=A_.hs,sl=st.atk>=hs[0]&&st.atk<hs[1]?(st.contact===false?1:.06):1;st.atk+=dt*sl*(st.as||1);if(sl==1&&st.atk>hs[0]&&st.atk-dt<hs[0])st.atk=hs[0];AT=st.atk;if(AT>A_.T)st.atk=-1}
  const vm=Math.min(v,2.6*VB),g=cl(spr('gs',sm((vm/VB-1.1)/.5),dt,36,12),0,1),m=sm(vm/(VB*.3)),beta=lp(BW,.33,g),S=lp(SW*REACH,SR*REACH,g),step=beta*S,lift=lp(LW0,LF,g)*REACH;
  const KA=AT>=0?atkKey(A_,AT):null,W=KA?sm(AT/.09)*(1-sm((AT-(A_.T-.22))/.22)):0,shk=KA&&AT>=A_.hs[0]&&AT<A_.hs[1]?Math.sin(st.t*110)*3.5:0;let hit1=false;if(KA&&AT>=A_.hs[0]&&!st.hd){st.hd=1;hit1=true}
  st.X+=v*dt;{const sb=sm((25-vm)/17),f0=fr(st.F),tgp=Math.abs(f0-.3)<Math.abs(f0-.8)?.3:.8,sr=cl((tgp-f0)*4,-.9,.9);st.F+=lp(vm/S,sr,sb)*dt}
@@ -113,10 +113,10 @@ function frame(v0,dt){dt=cl(dt,1/240,.05);if(!Number.isFinite(st.Pf)||!Number.is
  const Kq=14,Pcap=smin(Lg.map(l=>-l.ay+Math.sqrt(Math.max(0,LC*LC-l.ax*l.ax))),Kq),Pt=smin([Pbob,Pcap],Kq);
  // вниз таз идёт сразу (ограничение длиной ноги), вверх — с ограничением скорости и ускорения, без рывка после смены походки
  if(st.Pf==null){st.Pf=Pt;st.Pfv=0}{const vd=(Pt-st.Pf)/dt;if(vd<=0){st.Pfv=Math.min(st.Pfv,vd);st.Pf=Pt}else{const AM=(4.8+95*(1-g)*sm((m-.9)/.1))*REACH,vc=Math.min(.5*REACH,Math.sqrt(2*AM*(Pt-st.Pf)),st.Pfv+AM*dt);st.Pfv=Math.min(vd,Math.max(vc,0));st.Pf+=st.Pfv*dt}}const Pwalk=st.Pf;
- const Prun=smin([Pr,Praw+1],8);let P=lp(Pwalk,Prun,g)-D*.07*REACH+(m<1?(Math.sin(st.t*1.8)-1)*.12*(1-m):0);if(LGw>.001)P=lp(P,PLc,LGw);P+=shk*.5;
+ const Prun=smin([Pr,Praw+1],8);let P=lp(Pwalk,Prun,g)-D*.07*REACH+(m<1?(Math.sin(st.t*1.8)-1)*7*(1-m):0);if(LGw>.001)P=lp(P,PLc,LGw);P+=shk*.5;
  const gs=sm(g/.6),sw=AT>=0?(AT<.2?sm(AT/.2):AT<.3?1:0):0,hy=-P,legs=Lg.map((l,li)=>{const k=ik(0,hy,l.ax,l.ay,LS[li],dt,m*gs*(l.u>=l.beta?sm((l.u-l.beta)/.06):1-sm(l.u/(.2*l.beta))),l.u>=l.beta?1:1-sm(l.u/(.2*l.beta)));return{...l,...k,r1:rot(k.kx,k.ky-hy),r2:rot(k.ax-k.kx,k.ay-k.ky),r3:l.a}});
  const AS=0,LNa=KA?KA.ln*W:0;
- const lean=lp(lp(.03,.08,m),.4,g)+.012*Math.sin(st.F*TAU*2)*m+D*.38+LNa-(st.hurtL||0);st.Pa+=(P-st.Pa)*Math.min(1,dt*2.5);
+ const lean=lp(lp(.03,.08,m),.4,g)+.012*Math.sin(st.F*TAU*2)*m+.028*Math.sin(st.t*1.8+.7)*(1-m)+D*.38+LNa-(st.hurtL||0);st.Pa+=(P-st.Pa)*Math.min(1,dt*2.5);
  const dyn=D*.38+LNa*.55,hrot=.03-lean+.5*dyn,hdy=0; // голова едет вместе с телом (шея), а взгляд держится в одну точку: поворот головы гасит наклон корпуса
  const sx=J.body.sh[0]-J.body.hip[0],sy=J.body.sh[1]-J.body.hip[1],shx=sx*Math.cos(lean)-sy*Math.sin(lean),shy=sx*Math.sin(lean)+sy*Math.cos(lean);
  const ox=oxA,tg=.04+.26*cl(vm/VB,0,2.4)+D*.5+(KA?KA.cp*W:0)+.03*Math.sin(st.F*TAU*2);spr('ca',tg,dt,60,9);
@@ -129,9 +129,10 @@ function frame(v0,dt){dt=cl(dt,1/240,.05);if(!Number.isFinite(st.Pf)||!Number.is
   if(KA){const fxb=cl(ru-rf,0,2.7);if(n){ru=lp(ru,KA.ru,W);rf=ru-cl(lp(fxb,KA.ru-KA.rf,W),0,2.7);wT=lp(0,KA.w,W);ya=KA.ya*W}else{ru=lp(ru,KA.fru,W);rf=ru-cl(lp(fxb,KA.ffx,W),0,2.7)}}
   const lx=j.el[0]-j.sh[0],ly=j.el[1]-j.sh[1],ex=shx+lx*Math.cos(ru)-ly*Math.sin(ru),ey=hy+shy+lx*Math.sin(ru)+ly*Math.cos(ru);const fdx=j.fist[0]-j.el[0],fdy=j.fist[1]-j.el[1],fy=ey+fdx*Math.sin(rf)+fdy*Math.cos(rf);
   // клинок тяжёлый: угол клинка догоняет кисть пружиной с инерцией; кисть доворачивается только в пределах возможного, клинок не уходит под землю
-  if(n){if(KA){if(!st.bo){st.bo=1;st.bl=rf;st.blw=0}st.blw+=(BK*(rf+wT-st.bl)-BD*st.blw)*dt;st.bl+=st.blw*dt;
+  if(n){const gT=KA?0:lp(.62,.32,cl(m+g,0,1));st.gw=st.gw==null?gT:st.gw+(gT-st.gw)*Math.min(1,dt*7);
+   if(KA){if(!st.bo){st.bo=1;st.bl=rf+st.gw;st.blw=0}st.blw+=(BK*(rf+wT-st.bl)-BD*st.blw)*dt;st.bl+=st.blw*dt;
    const ph=st.bl,yv=Math.cos(ya),Lb=SWH*.82,sy_=Math.sin(ph),lim=(-10-fy)/Lb;let phc=ph;if(sy_>lim&&Math.hypot(Math.cos(ph)*yv,sy_)>.3){const a_=Math.asin(cl(lim,-1,1));phc=Math.cos(ph)>=0?a_:Math.PI-a_}
-   w=cl(phc-rf,WMIN,WMAX);st.bl=rf+w}else st.bo=0}
+   w=cl(phc-rf,WMIN,WMAX);st.bl=rf+w}else{st.bo=0;w=st.gw}}
   return{ru,rf,w,ya,ex,ey}});
  return{Pr,Praw,Pbob,Pcap,PN,m,g,D,hy,P,legs,lean,shx,shy,arm,v,cx,cy,ca:Math.max(st.ca,lean+.06),sb:st.sb,sf:st.sf,hrot,hdy,ox,shk,AS,AT,ak:st.ak|0,hit1,LGw,X:st.X}}
 // ---------------- рисование ----------------
@@ -180,7 +181,7 @@ function critic(){const dt=1/60,T=30,pf=t=>t<2?0:t<5?lp(0,1,(t-2)/3):t<8?1:t<10?
   ['Полуприсед: сгиб колена (шаг)',mean(Fx_),'°',25,sc(mean(Fx_),25)],['Макс. сгиб опорного колена',Math.max(...Fx_),'°',35,sc(Math.max(...Fx_),35)],['Взгляд: поворот головы (шаг)',Math.max(...Hd_)-Math.min(...Hd_),'°',1,sc(Math.max(...Hd_)-Math.min(...Hd_),1)],['Взгляд: поворот головы (бег)',Math.max(...Gr_)-Math.min(...Gr_),'°',1,sc(Math.max(...Gr_)-Math.min(...Gr_),1)],['Рывок таза (шаг)',Pa_,'ед/кадр²',2,sc(Pa_,2)],['Колебание таза (бег)',rg/(L1+L2)*100,'% ноги',9,sc(rg/(L1+L2)*100,9)],['Фаза полёта (бег)',fl,'с',.05,fl>.05?10:Math.round(fl/.05*100)/10],['Рывок сустава (ускорение)',M.jump,'рад/кадр²',.03,sc(M.jump,.03)],['… только бег',M.jumpR,'рад/кадр²',.03,sc(M.jumpR,.03)],['Руки против ног',c,'корр.',-.7,c<-.7?10:sc(c+1.7,1)]];
  return{R,jk:M.jk,jt:M.jt,score:Math.min(...R.map(r=>r[4]))}}
 // ================= игра =================
-const H={fs:[{},{}],dir:null,x:1000,z:.62,hp:100,maxhp:100,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,f:null,hist:[],swing:0,hitSet:new Set(),blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},t:0,kbv:0,flash:0,alpha:1,stepAcc:0,hidden:false};
+const H={fs:[{},{}],dir:null,qk:-1,pf:1,turnT:0,dyD:0,x:1000,z:.62,hp:100,maxhp:100,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,f:null,hist:[],swing:0,hitSet:new Set(),blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},t:0,kbv:0,flash:0,alpha:1,stepAcc:0,hidden:false};
 function reset(x,z){Object.assign(H,{fs:[{},{}],dir:null,x,z,hp:H.maxhp,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,hist:[],blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},kbv:0,flash:0,alpha:1,hidden:false});
  Object.assign(st,{X:0,F:.3,t:0,atk:-1,dsh:-1,Pa:0,Pf:null,Pfv:0,hurtL:0});LS.forEach(q=>{q.pu=0;q.lt=null;q.se=null;q.se0=null;q.ts=null});FACE=1;H.f=frame(0,DT)}
 function hit(k){if(st.atk<0&&!H.dead){st.atk=0;st.ak=k;st.hd=0;st.bo=0;H.swing++;H.hitSet=new Set();Snd.swing(k);return true}return false}
@@ -197,7 +198,8 @@ function update(dt,inp){
  let want=tg;if(H.SV*tg<0||(Math.abs(H.SV)<.04&&tg*FACE<0))want=0;
  const acc=(Math.abs(want)<Math.abs(H.SV)?(atk?5.5:4.2):2.6)*dt;H.SV+=cl(want-H.SV,-acc,acc);if(Math.abs(H.SV)<.04&&tg*FACE<0)FACE=-FACE;
  H.SZ+=cl(tz-H.SZ,-3.2*dt,3.2*dt);if(Math.abs(H.SZ)<1e-3&&!tz)H.SZ=0;
- if(inp.dash)dash();if(inp.combo)cbHit();if(inp.atk>=0)hit(inp.atk);
+ st.as=1.2;st.contact=st.atk>=0?H.hitSet.size>0:undefined;
+ if(inp.dash){if(st.atk>=0&&st.atk>ATK[st.ak].hs[1]){st.atk=Math.max(st.atk,ATK[st.ak].T-.22)}dash()}if(inp.combo)cbHit();if(inp.atk>=0&&!hit(inp.atk))H.qk=inp.atk;
  H.calm=(H.calm||0)+dt;if(H.calm>4&&!H.dead&&H.hp<H.maxhp)H.hp=Math.min(H.maxhp,H.hp+2.5*dt); // вне боя здоровье понемногу возвращается
  H.hurt=Math.max(0,H.hurt-dt);st.hurtL=.28*sm(H.hurt/.25);H.inv=Math.max(0,H.inv-dt);H.flash=Math.max(0,H.flash-dt*4);
  const k=Math.hypot(H.SV,H.SZ),X0=st.X,s=W.CS*zs(H.z);let mv={x:0,z:0};
@@ -209,7 +211,11 @@ function update(dt,inp){
    if(stn){if(!F.st||F.x==null){F.x=ex;F.z=ez}F.px=F.x;F.pz=F.z}else{if(F.st){F.cx=(F.x??ex)-ex;F.cz=(F.z??ez)-ez}const q=cl((l.u-l.beta)/(1-l.beta),0,1),kk=1-sm(q);F.px=ex+(F.cx||0)*kk;F.pz=ez+(F.cz||0)*kk}F.st=stn;
    const lx=(F.px-bx)*FACE/s,dy=(F.pz-bz)*ZPX/s;l.ax+=lx-l.rel;l.ay+=dy})};
  const f=frame(k*VB,dt);legHook=null;H.f=f;
- if(H.combo.q&&st.atk<0)cbHit();if(st.atk>=0)H.combo.last=H.t;
+ if(H.combo.q&&st.atk<0)cbHit();if(H.qk>=0&&st.atk<0){hit(H.qk);H.qk=-1}if(st.atk>=0)H.combo.last=H.t;
+ // рывок — короткий прыжок: стопы в воздухе, встают на новое место при приземлении
+ H.dyD=-16*f.D;if(f.D>.02)H.fs.forEach(F=>{F.x=null;F.st=false});
+ // разворот — «через ребро» за доли секунды
+ if(FACE!==H.pf){H.turnT=.12;H.pf=FACE}H.turnT=Math.max(0,(H.turnT||0)-dt);
  H.x+=mv.x;H.z+=mv.z;
  // отброс — подскок назад: тело в воздухе, стопы переставляются при приземлении
  if(H.kbv){H.x+=H.kbv*dt;H.kbv*=Math.exp(-dt*9);H.dy=-Math.min(14,Math.abs(H.kbv)*.07);H.fs.forEach(F=>{F.x=null;F.st=false});if(Math.abs(H.kbv)<16){H.kbv=0;H.dy=0}}
@@ -219,13 +225,14 @@ function update(dt,inp){
  // клинок в мире — только в окне удара (след клинка)
  H.prevBlade=H.blade;H.blade=null;
  if(st.atk>=0){const A_=ATK[st.ak];if(st.atk>=A_.tr[0]-.03&&st.atk<=A_.tr[1]+.01){const b=bladeLocal(f),p=toWorld(b.bx,b.by),q=toWorld(b.tx,b.ty);H.blade={x1:p.x,y1:p.y,x2:q.x,y2:q.y,z:H.z,ak:st.ak,swing:H.swing,hit1:f.hit1}}}
+ H.alpha=H.soul?1-.6*Soul.fadeFor(H.x):1; // тело не загораживает душу
  H.hist.push({f,x:H.x,z:H.z,face:FACE});if(H.hist.length>14)H.hist.shift();
  return f}
-function damage(n,fromX,kb=1){if(H.dead||H.inv>0||H.soul)return false;H.calm=0;H.hp=Math.max(0,H.hp-n);H.inv=.7;H.hurt=.35;H.flash=1;H.kbv=Math.sign(H.x-fromX||1)*kb*170;Snd.hurt();Cam.kick(5+n*.35);FX.sparks(H.x,H.z,110,8,'255,140,120',260);if(H.hp<=0)H.dead=1;return true}
+function damage(n,fromX,kb=1){if(H.dead||H.inv>0||H.soul)return false;n*=Game.dmgK||1;H.calm=0;H.hp=Math.max(0,H.hp-n);H.inv=.7;H.hurt=.35;H.flash=1;H.kbv=Math.sign(H.x-fromX||1)*kb*170;Snd.hurt();Cam.kick(5+n*.35);FX.sparks(H.x,H.z,110,8,'255,140,120',260);if(H.hp<=0)H.dead=1;return true}
 // рисование в мире
 function drawAt(f,x,z,face,alpha,rec){
  SC=W.CS*zs(z);GX=0;GY=0;const F0=FACE;FACE=face;
- ctx.save();ctx.translate(sx(x),zy(z)+(H.dy||0));if(face<0)ctx.scale(-1,1);ctx.globalAlpha=alpha;drawChar(f,rec);
+ ctx.save();ctx.translate(sx(x),zy(z)+(H.dy||0)+(H.dyD||0));const tk=(H.turnT||0)/.12;ctx.scale((face<0?-1:1)*(rec?(1-2*tk):1)||.02,1);ctx.globalAlpha=alpha;drawChar(f,rec);
  if(rec){
   tips=tips.filter(p=>st.t-p.t<.16);if(f.AT>=ATK[f.ak].tr[0]&&f.AT<ATK[f.ak].tr[1]&&tips.length>1){ctx.save();ctx.lineCap='round';for(let i=1;i<tips.length;i++){const a=tips[i-1],b=tips[i],al=1-(st.t-b.t)/.16;ctx.strokeStyle=`rgba(190,225,255,${.7*al})`;ctx.lineWidth=16*al*SC/.3;ctx.shadowColor='#6fb4ff';ctx.shadowBlur=12;ctx.beginPath();ctx.moveTo(a.x*SC,a.y*SC);ctx.lineTo(b.x*SC,b.y*SC);ctx.stroke()}ctx.restore()}
   if(st.fl&&st.t-st.fl.t<.16){const a=1-(st.t-st.fl.t)/.16,X=st.fl.x*SC,Y=st.fl.y*SC,r=70*SC/.3*(1+.8*(1-a)),gr=ctx.createRadialGradient(X,Y,0,X,Y,r);gr.addColorStop(0,`rgba(255,255,255,${.9*a})`);gr.addColorStop(.35,`rgba(170,215,255,${.5*a})`);gr.addColorStop(1,'rgba(120,180,255,0)');ctx.fillStyle=gr;ctx.fillRect(X-r,Y-r,2*r,2*r)}}
