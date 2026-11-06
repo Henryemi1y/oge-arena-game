@@ -6,15 +6,15 @@ const LIMBS = ['armN', 'armF', 'legN', 'legF'];
 const LIMB_NAME = { armN: 'Ближняя рука', armF: 'Дальняя рука', legN: 'Ближняя нога', legF: 'Дальняя нога' };
 const BOSSDEF = {
   guardian: { hp: { armN: 190, armF: 190, legN: 210, legF: 210 }, atks: ['slam', 'sweep', 'stomp', 'wave'], cd: [2.2, 3.2], speedK: 1 },
-  executioner: { hp: { armN: 210, armF: 210, legN: 230, legF: 230 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [1.3, 2.1], speedK: 1.15 },
+  executioner: { hp: { armN: 210, armF: 210, legN: 230, legF: 230 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [1.5, 2.4], speedK: 1.15 },
 };
 // ключи атак: wk — поза замаха; hit — высота цели над полом ('g' — пол, 'c' — грудь героя); D — желаемая дальность (доля длины руки)
 const BATK = {
   slam: { arm: 1, wind: .95, strike: .24, hold: .8, rec: .6, dmg: 16, th: .82, r: 78, wk: { ru: -3.35, flex: .7, crouch: .05, lean: -.2 }, D: .62 },
   sweep: { arm: 1, wind: .7, strike: .2, hold: .3, rec: .55, dmg: 12, th: .42, r: 72, wk: { ru: 1.35, flex: .3, crouch: .06, lean: -.14 }, D: .72 },
   wave: { arm: 1, wind: .8, strike: .2, hold: .55, rec: .55, dmg: 10, th: 0, r: 60, wk: { ru: -3.2, flex: .6, crouch: .02, lean: -.15 }, D: .5, far: 1 },
-  chop: { arm: 1, axe: 1, wind: 1.0, strike: .2, hold: 1.1, rec: .7, dmg: 20, th: 0, r: 80, wk: { ru: -3.15, flex: 1.0, crouch: 0, lean: -.22, axeC: 2.75 }, axeHit: 1.35, D: .62 },
-  cleave: { arm: 1, axe: 1, wind: .75, strike: .22, hold: .16, rec: .7, dmg: 14, th: .45, r: 80, wk: { ru: 1.2, flex: .5, crouch: .03, lean: -.12, axeC: .9 }, axeHit: 1.55, D: .78 },
+  chop: { arm: 1, axe: 1, wind: 1.0, strike: .2, hold: 1.1, rec: .7, dmg: 18, th: 0, r: 80, wk: { ru: -3.15, flex: 1.0, crouch: 0, lean: -.22, axeC: 2.75 }, axeHit: 1.35, D: .62 },
+  cleave: { arm: 1, axe: 1, wind: .75, strike: .22, hold: .16, rec: .7, dmg: 13, th: .45, r: 80, wk: { ru: 1.2, flex: .5, crouch: .03, lean: -.12, axeC: .9 }, axeHit: 1.55, D: .78 },
   stomp: { leg: 1, wind: .85, strike: .15, hold: .35, rec: .5, dmg: 13, radius: 200 },
 };
 const Boss = {
@@ -89,7 +89,7 @@ const Boss = {
     if (B.open > 0 && Math.random() < dt * 6) FX.sparks(B.x + rnd(-40, 40), B.z, this.L(B) * 2.6 * this.s(B), 2, '255,214,120', 60);
     const nLeg = this.legsAlive(B), gait = nLeg === 2 ? 'walk' : nLeg === 1 ? 'hop' : 'sit';
     // смена походки: старые точки стоп (они остались там, где босс стоял до прыжков) сбрасываются под тело
-    if (gait !== B.gait) { B.fs = [{}, {}]; B.c.feet.forEach(f => { f.ax = null; f.st = true; f.stInit = 0 }); B.c.moving = false } B.gait = gait;
+    if (gait !== B.gait) { B.fs = [{}, {}]; B.c.feet.forEach(f => { f.ax = null; f.st = true; f.stInit = 0 }); B.c.moving = false; if (B.hop && B.hop.mark) B.hop.mark.dead = 1; B.hop = null } B.gait = gait; // прыжок, прерванный сменой походки, не «зависает»
     const ctl = { dir: 0, tx: B.x, tz: B.z, hold: false, crouch: 0, lean: 0 };
     let armOv = null, legOv = null;
     switch (B.st) {

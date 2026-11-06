@@ -8,7 +8,7 @@ function segDist(p1, p2, q1, q2) { // расстояние между отрез
   const P = [p1[0] + d1[0] * s, p1[1] + d1[1] * s], Q = [q1[0] + d2[0] * t, q1[1] + d2[1] * t]; return { d: Math.hypot(P[0] - Q[0], P[1] - Q[1]), p: P };
 }
 const ETYPES = {
-  ghoul: { hp: 30, dmg: 6, range: 118, wind: .38, strike: .12, rec: .45, cd: [1.1, 1.9], score: 10, pois: 0,
+  ghoul: { hp: 40, dmg: 6, range: 118, wind: .38, strike: .12, rec: .45, cd: [1.1, 1.9], score: 10, pois: 0,
     wp: { ru: 1.0, rf: .5, lean: .12, far: -.6, crouch: .1 }, sp: { ru: -1.85, rf: -2.25, lean: .38, far: .9, lunge: .3, crouch: .06 } },
   knight: { hp: 70, dmg: 12, range: 168, wind: .7, strike: .15, rec: .7, cd: [1.6, 2.4], score: 25, poise: .5,
     wp: { ru: -2.75, rf: -3.35, lean: -.1, far: .3, crouch: .03 }, sp: { ru: -1.05, rf: -1.3, lean: .22, far: -.3, lunge: .14, crouch: .08 } },

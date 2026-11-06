@@ -1,7 +1,7 @@
 // main.js — сцены (титул → волны → босс → душа/монолит → победа/поражение), фиксированный шаг 1/60, отрисовка по глубине.
 const cvs = document.getElementById('game'); let ctx = cvs.getContext('2d');
 const PHASES = [
-  { type: 'wave', name: 'Волна 1', spawn: { ghoul: 4 } },
+  { type: 'wave', name: 'Волна 1', spawn: { ghoul: 5 } },
   { type: 'wave', name: 'Волна 2', spawn: { ghoul: 4, knight: 1, doctor: 1 } },
   { type: 'boss', id: 'guardian', level: 0 },
   { type: 'wave', name: 'Волна 3', spawn: { goatman: 1, knight: 2, doctor: 1, ghoul: 2 } },
