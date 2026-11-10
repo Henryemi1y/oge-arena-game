@@ -108,13 +108,13 @@ const Soul = {
     for (const s of this.shards) if (!s.carried && !s.placed) list.push({ z: s.z, draw: () => this.drawShard(s, s.x, s.z, s.h, 1), shadow: s.landed ? () => drawShadow(s.x, s.z, 18, .3) : null });
   },
   // душа и её осколки — поверх всех персонажей (её не должно загораживать)
-  drawTop() { if (this.on && this.ph !== 'off') this.drawSoul() },
+  drawTop() { if (this.on && this.ph !== 'off') { if (this.mp) this.drawAnswer(); this.drawSoul() } },
   // пол в форме души притушён: светятся только осколки
   drawFloorDim() { if (!this.on) return; const a = this.ph === 'out' ? sm(this.t / .8) : this.ph === 'return' ? 1 - sm(this.t / .9) : 1; ctx.fillStyle = `rgba(3,6,16,${.38 * a})`; ctx.fillRect(0, W.FLOOR_TOP + 20, VW, VH - W.FLOOR_TOP) },
   // насколько прозрачным делать персонажа рядом с душой или монолитом (0 — не трогать)
   fadeFor(x) { if (!this.on || this.ph === 'off') return 0; const a = Math.abs(x - this.x), b = Math.abs(x - World.monolith.x); return Math.max(cl(1 - (a - 90) / 260, 0, 1), this.atMonolith() || Math.abs(this.x - World.monolith.x) < 400 ? cl(1 - (b - 120) / 260, 0, 1) : 0) },
   drawShard(s, x, z, h, k0, glow = 1) {
-    const t = performance.now() / 1000, i = s.d === '−' ? 10 : +s.d, img = IM.shards[i], k = .74 * zs(z) * k0, X = sx(x), Y = zy(z) - h - img.height * k * .5 - (s.landed ? 8 + 5 * Math.sin(t * 2.4 + s.ph) : 0);
+    const t = performance.now() / 1000, i = s.d === '−' ? 10 : +s.d, img = IM.shards[i], k = .88 * zs(z) * k0, X = sx(x), Y = zy(z) - h - img.height * k * .5 - (s.landed ? 8 + 5 * Math.sin(t * 2.4 + s.ph) : 0);
     if (X < -60 || X > VW + 60) return;
     const near = this.on && this.ph === 'free' && this.nearShard() === s;
     if (glow) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const r = (near ? 70 : 54) * zs(z) * k0 * (1 + .12 * Math.sin(t * 4 + s.ph)), g = ctx.createRadialGradient(X, Y, 0, X, Y, r); g.addColorStop(0, `rgba(110,200,255,${near ? .62 : .4})`); g.addColorStop(1, 'rgba(60,140,255,0)'); ctx.fillStyle = g; ctx.fillRect(X - r, Y - r, 2 * r, 2 * r);
@@ -152,25 +152,34 @@ const Soul = {
     const pn = ASSETS.props.monolith.panel, pk = ASSETS.props.monolith.k * k, px = x - w / 2 + pn[0] * pk, py = y - h + pn[1] * pk, pw = pn[2] * pk, ph = pn[3] * pk, tt = performance.now() / 1000;
     const act = this.on && this.prob;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(60,140,220,${act ? .12 + .05 * Math.sin(tt * 2) : .03})`; ctx.fillRect(px, py, pw, ph); ctx.restore();
-    if (!act) return;
-    ctx.save(); ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#bfefff'; ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10;
-    // на самом монолите — та же запись, что на табличке: дроби столбиком, строки переносятся
-    const lines = wrapEq(this.prob.t, pw - 6, 22), fr = /\//.test(this.prob.t); let fy = py + 16;
-    ctx.font = `600 14px ${FONT_UI}`; ctx.fillStyle = '#86c9e8'; ctx.fillText(this.prob.c, px + pw / 2, fy); fy += fr ? 30 : 22;
-    for (const l of lines.lines) { mathText(l, px + pw / 2, fy, lines.size, '#d8f6ff', 'center', pw - 6); fy += lines.size * (fr ? 1.6 : 1.15) }
-    // ячейки ответа
-    const n = this.slots, cw = Math.min(26, (pw - 10) / n), x0 = px + pw / 2 - cw * n / 2, cy = py + ph - 26;
-    for (let i = 0; i < n; i++) { ctx.strokeStyle = 'rgba(140,220,255,.6)'; ctx.lineWidth = 1.5; ctx.shadowBlur = 0; ctx.strokeRect(x0 + i * cw + 2, cy - 12, cw - 4, 26); const s = this.placed[i]; if (s) this.drawShardAt(s, x0 + i * cw + cw / 2, cy + 1, (cw - 2) / 74) }
+    if (!act) { this.mp = null; return }
+    this.mp = [px, py, pw, ph];
+  },
+  // ответ на панели монолита рисуется поверх персонажей: босс и тело героя его не закрывают
+  drawAnswer() {
+    const [px, py, pw, ph] = this.mp, tt = performance.now() / 1000;
+    // на монолите — уравнение (дроби столбиком, перенос по «=» или «;») и под ним ячейки ответа с цифрами
+    const n = this.slots, at = this.atMonolith(), cw = Math.min(34, (pw - 8) / n), x0 = px + pw / 2 - cw * n / 2, cy = py + ph - 34;
+    ctx.save(); ctx.fillStyle = 'rgba(6,10,22,.55)'; ctx.fillRect(px, py, pw, ph);
+    const fr = /\d\/|x\//.test(this.prob.t), lines = wrapEq(this.prob.t, pw - 10, fr ? 21 : 22), lh = lines.size * (fr ? 1.75 : 1.25), top = py + (ph - 62) / 2 - lh * (lines.lines.length - 1) / 2 + lines.size * .36;
+    ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 8; lines.lines.forEach((l, i) => mathText(l, px + pw / 2, top + i * lh, lines.size, '#dff6ff', 'center', pw - 8)); ctx.shadowBlur = 0;
+    for (let i = 0; i < n; i++) { const s = this.placed[i], nx = i === this.placed.length && at && this.carried.length;
+      ctx.fillStyle = s ? 'rgba(40,110,170,.4)' : 'rgba(10,20,40,.6)'; ctx.fillRect(x0 + i * cw + 2, cy - 17, cw - 4, 34);
+      ctx.strokeStyle = this.confirm > 0 && s ? 'rgba(255,217,138,.95)' : nx ? `rgba(255,230,160,${.6 + .4 * Math.sin(tt * 8)})` : 'rgba(140,220,255,.7)'; ctx.lineWidth = nx ? 2.5 : 1.5; ctx.strokeRect(x0 + i * cw + 2, cy - 17, cw - 4, 34);
+      if (s) this.drawShardAt(s, x0 + i * cw + cw / 2, cy, (cw + 4) / 74) }
     ctx.restore();
   },
   drawShardAt(s, X, Y, k) { const i = s.d === '−' ? 10 : +s.d, img = IM.shards[i]; ctx.drawImage(img, X - img.width * k / 2, Y - img.height * k / 2, img.width * k, img.height * k); if (s.d === '−') { ctx.fillStyle = '#bfefff'; ctx.fillRect(X - img.width * k * .26, Y - img.height * k * .06, img.width * k * .52, img.height * k * .13) } },
 };
 // перенос уравнения на строки под ширину панели
 function wrapEq(t, maxW, size) {
-  for (let s = size; s >= 13; s--) {
-    ctx.font = `700 ${s}px ${FONT_EQ}`; if (ctx.measureText(t).width <= maxW) return { lines: [t], size: s };
-    const parts = t.includes(';') ? t.split(/;\s*/) : t.includes(' = ') ? [t.slice(0, t.indexOf(' = ')), t.slice(t.indexOf(' = ') + 1)] : [t];
-    if (parts.every(p => ctx.measureText(p).width <= maxW)) return { lines: parts, size: s };
+  for (let s = size; s >= 14; s--) {
+    ctx.font = `700 ${s}px ${FONT_EQ}`; const fit = p => ctx.measureText(p).width <= maxW; if (fit(t)) return { lines: [t], size: s };
+    const parts = t.includes(';') ? t.split(/;\s*/) : t.includes(' = ') ? [t.slice(0, t.indexOf(' = ')), t.slice(t.indexOf(' = ') + 1)] : null;
+    if (parts && parts.every(fit)) return { lines: parts, size: s };
+    // по словам: не больше трёх строк
+    const ws = t.split(' '), L = []; let cur = ''; for (const w of ws) { const nx = cur ? cur + ' ' + w : w; if (fit(nx)) cur = nx; else { if (cur) L.push(cur); cur = w } } if (cur) L.push(cur);
+    if (L.length <= 3 && L.every(fit)) return { lines: L, size: s };
   }
-  return { lines: [t], size: 9 };
+  return { lines: [t], size: 13 };
 }

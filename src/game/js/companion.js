@@ -5,7 +5,9 @@ const Eye = {
   reset(x, z) { this.x = x; this.z = z; this.h = 220 },
   update(dt) {
     this.t += dt; const H = Hero.H, soul = Soul.on && Soul.ph !== 'off';
-    const tx = soul ? Soul.x - Soul.face * 60 : H.x - Hero.FACE * 58, tz = soul ? Soul.z : H.z, th = soul ? Soul.h + 150 : Hero.height() + 30;
+    let tx = soul ? Soul.x - Soul.face * 60 : H.x - Hero.FACE * 58, tz = soul ? Soul.z : H.z, th = soul ? Soul.h + 150 : Hero.height() + 30;
+    // у монолита глаз отлетает в сторону и ниже: панель с ответом он не загораживает
+    if (soul) { const mx = World.monolith.x, d = Soul.x - mx; if (Math.abs(d) < 300) { tx = mx + (d < 0 ? -1 : 1) * 250; th = 120 } }
     // мягкая пружина + парение
     this.vx += ((tx - this.x) * 18 - this.vx * 7) * dt; this.x += this.vx * dt; this.z = lp(this.z, tz, 1 - Math.exp(-dt * 5));
     const fh = th + 10 * Math.sin(this.t * 2.1); this.vh += ((fh - this.h) * 18 - this.vh * 7) * dt; this.h += this.vh * dt;

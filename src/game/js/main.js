@@ -27,7 +27,7 @@ const Game = {
     Hero.reset(W.ARENA / 2 - 260, .62); Eye.reset(Hero.H.x - 60, .62); Cam.snap(Hero.H.x); this.next(true);
   },
   next(retry) {
-    this.pi++; if (this.pi >= PHASES.length) { this.scene = 'win'; Snd.setMode('victory'); Snd.correct(); return }
+    this.pi++; if (this.pi >= PHASES.length) { this.scene = 'win'; this.endT = this.t; Snd.setMode('victory'); Snd.correct(); return }
     const P = this.phase = PHASES[this.pi]; if (!retry && this.pi) this.heal(40);
     this.check = { pi: this.pi, score: this.score, level: P.level ?? this.level, stats: JSON.parse(JSON.stringify(this.stats)), time: this.time };
     if (P.type === 'wave') { this.queue = shuffle(Object.entries(P.spawn).flatMap(([k, n]) => Array(n).fill(k))); this.spawnT = 1.6; UI.banner(P.name, this.pi < 2 ? 'F или ПКМ чуть раньше удара — отбить и оглушить врага' : 'Враги выходят из ворот', undefined, this.pi < 2 ? 3.2 : undefined); Snd.setMode('wave') }
@@ -49,13 +49,15 @@ const Game = {
   },
   step(dt) {
     if (this.scene === 'load') return;
-    this.t += dt; if (this.scene !== 'pause') { UI.step(dt); this.healFx = Math.max(0, this.healFx - dt) } // в паузе надписи не убегают
+    this.t += dt; if (this.scene !== 'pause') { UI.step(dt); this.healFx = Math.max(0, this.healFx - dt); this.hurtFx = Math.max(0, (this.hurtFx || 0) - dt * 2.4) } // в паузе надписи не убегают
     if (Input.hit('Minus') || Input.hit('NumpadSubtract')) Snd.setVol(Snd.vol - .1); if (Input.hit('Equal') || Input.hit('NumpadAdd')) Snd.setVol(Snd.vol + .1);
     if (this.scene === 'title') {
       if (Input.hit('ArrowLeft') || Input.hit('KeyA')) this.setDiff(0); if (Input.hit('ArrowRight') || Input.hit('KeyD')) this.setDiff(1);
-      if (Input.hit('Enter') || Input.hit('Mouse0')) { if (this.loadK >= 1) this.start() } Hero.update(dt, { x: 0, z: 0, atk: -1 }); Eye.update(dt); World.update(dt); FX.step(dt); Cam.x = (Math.sin(this.t * .05) * .5 + .5) * (W.ARENA - VW); return }
-    if (this.scene === 'win' || this.scene === 'lose') { FX.step(dt); if (this.scene === 'lose' && Input.hit('KeyN')) this.start(); else if (Input.hit('Enter')) this.scene === 'lose' ? this.retry() : this.start(); return }
-    if (this.scene === 'pause') { if (Input.hit('Enter') || Input.hit('Escape')) { this.scene = 'play'; Input.clearPresses() } if (Input.hit('KeyM')) Snd.toggleMute(); return }
+      // щелчок по плашке сложности выбирает её, щелчок мимо — начинает игру
+      const click = Input.hit('Mouse0'), my = Input.my, di = click && my >= VH - 128 && my <= VH - 74 ? [0, 1].find(i => Input.mx >= VW / 2 - 250 + i * 260 && Input.mx <= VW / 2 - 10 + i * 260) : undefined;
+      if (di !== undefined) this.setDiff(di); else if (Input.hit('Enter') || click) { if (this.loadK >= 1) this.start() } Hero.update(dt, { x: 0, z: 0, atk: -1 }); Eye.update(dt); World.update(dt); FX.step(dt); Cam.x = (Math.sin(this.t * .05) * .5 + .5) * (W.ARENA - VW); return }
+    if (this.scene === 'win' || this.scene === 'lose') { FX.step(dt); if (this.scene === 'lose' && Input.hit('KeyN')) this.start(); else if (Input.hit('Enter') || (this.t - (this.endT || 0) > 1.5 && Input.hit('Mouse0'))) this.scene === 'lose' ? this.retry() : this.start(); else Input.p.Mouse0 = 0; return }
+    if (this.scene === 'pause') { if (Input.hit('Enter') || Input.hit('Escape') || Input.hit('Mouse0')) { this.scene = 'play'; Input.clearPresses() } if (Input.hit('KeyM')) Snd.toggleMute(); return }
     if (Input.hit('Enter') || Input.hit('Escape')) { this.scene = 'pause'; return }
     if (Input.hit('KeyM')) Snd.toggleMute();
     let wdt = dt; if (this.hs > 0) { this.hs -= dt; wdt = dt * .12 }
@@ -81,7 +83,7 @@ const Game = {
     if (Soul.on && Soul.ph !== 'off') Cam.update(dt, Soul.x, Soul.face * .4); else Cam.update(dt, H.x, Hero.FACE);
     // смерть героя: тело рассыпается пеплом
     if (H.dead && !this.deadT) { this.deadT = 2.4; const hh = Hero.height() * 1.15, w = hh * 1.3, x0 = sx(H.x) - w / 2, y0 = zy(H.z) - hh; const cv = renderToCanvas(() => Hero.draw(), x0, y0, w, hh * 1.05); FX.shatter(cv, x0, y0, { grid: [6, 10], speed: 80, up: .5, life: 1.6, ash: 1 }); H.hidden = true; Snd.heroDeath(); Snd.setMode('defeat') }
-    if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) this.scene = 'lose' }
+    if (this.deadT > 0) { this.deadT -= dt; if (this.deadT <= 0) { this.scene = 'lose'; this.endT = this.t } }
   },
   render() {
     const t = this.t;
@@ -97,6 +99,9 @@ const Game = {
     if (Soul.on) { const a = Soul.ph === 'out' ? sm(Soul.t / .8) : Soul.ph === 'return' ? 1 - sm(Soul.t / .9) : 1; ctx.fillStyle = `rgba(20,60,110,${.16 * a})`; ctx.fillRect(0, 0, VW, VH) }
     if (!this.vig) { this.vig = mkCanvas(VW / 2, VH / 2); const x = this.vig.getContext('2d'), vg = x.createRadialGradient(VW / 4, VH / 4, VH * .225, VW / 4, VH / 4, VH * .475); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,8,.55)'); x.fillStyle = vg; x.fillRect(0, 0, VW / 2, VH / 2) }
     ctx.drawImage(this.vig, 0, 0, VW, VH);
+    // получен урон — края экрана вспыхивают красным; мало здоровья — края тихо пульсируют
+    { const H = Hero.H, low = this.scene === 'play' && !H.dead && H.hp < H.maxhp * .25 ? .22 + .12 * Math.sin(t * 5) : 0, a = Math.max(low, (this.hurtFx || 0) * .75);
+      if (a > .01) { if (!this.vigR) { this.vigR = mkCanvas(VW / 4, VH / 4); const x = this.vigR.getContext('2d'), vg = x.createRadialGradient(VW / 8, VH / 8, VH * .1, VW / 8, VH / 8, VH * .26); vg.addColorStop(0, 'rgba(255,30,20,0)'); vg.addColorStop(1, 'rgba(255,30,20,.9)'); x.fillStyle = vg; x.fillRect(0, 0, VW / 4, VH / 4) } ctx.globalAlpha = a; ctx.drawImage(this.vigR, 0, 0, VW, VH); ctx.globalAlpha = 1 } }
     if (this.scene === 'title' || this.scene === 'load') UI.title(t, this.loadK);
     else { UI.hud(); if (this.scene === 'pause') UI.pause(); if (this.scene === 'win' || this.scene === 'lose') UI.end(this.scene === 'win', t) }
   },
@@ -107,7 +112,9 @@ function fit() {
   cvs.style.width = cw + 'px'; cvs.style.height = ch + 'px'; cvs.width = Math.floor(cw * dpr); cvs.height = Math.floor(ch * dpr); Game.k = cvs.width / VW;
 }
 addEventListener('resize', fit); fit();
-cvs.addEventListener('mousedown', e => { if (e.button === 0) { Input.p.Mouse0 = 1; Snd.init() } if (e.button === 2) { Input.p.Mouse2 = 1; Snd.init() } e.preventDefault() });
+// щелчок по холсту забирает фокус клавиатуры (игра может стоять во встроенном окне) и запоминает точку в координатах игры
+cvs.addEventListener('mousedown', e => { const r = cvs.getBoundingClientRect(); Input.mx = (e.clientX - r.left) / r.width * VW; Input.my = (e.clientY - r.top) / r.height * VH;
+  if (e.button === 0) { Input.p.Mouse0 = 1; Snd.init() } if (e.button === 2) { Input.p.Mouse2 = 1; Snd.init() } e.preventDefault(); try { window.focus(); cvs.focus({ preventScroll: true }) } catch (err) { } });
 cvs.addEventListener('contextmenu', e => e.preventDefault());
 addEventListener('keydown', () => Snd.init(), { once: false });
 // окно потеряло фокус — пауза (иначе бой идёт без игрока)

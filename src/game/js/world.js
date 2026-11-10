@@ -16,7 +16,7 @@ const World = {
   t: 0,
   init() {
     const M = W.ARENA / 2;
-    this.monolith = { kind: 'monolith', x: M, z: -.1, s: 1.25 };
+    this.monolith = { kind: 'monolith', x: M, z: -.1, s: 1.5 };
     this.props = [
       { kind: 'column', x: 560, z: -.12, s: .9 }, { kind: 'brazier', x: 1020, z: -.07, s: .72, fire: 1 }, this.monolith,
       { kind: 'brazier', x: W.ARENA - 1020, z: -.07, s: .72, fire: 1 }, { kind: 'bust', x: W.ARENA - 600, z: -.12, s: .78 },

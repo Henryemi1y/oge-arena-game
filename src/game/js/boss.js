@@ -84,7 +84,7 @@ const Boss = {
   // ---------- шаг ----------
   update(dt) {
     const B = this.b; if (!B) return; B.t += dt; const h = Hero.H, L = this.L(B);
-    for (const l of LIMBS) { B.flash[l] = Math.max(0, (B.flash[l] || 0) - dt * 5); const lm = B.limbs[l]; if (lm.regrow > 0) lm.regrow = Math.max(0, lm.regrow - dt / 1.1) }
+    for (const l of LIMBS) { B.flash[l] = Math.max(0, (B.flash[l] || 0) - dt * 9); B.limbs[l].showT = Math.max(0, (B.limbs[l].showT || 0) - dt); const lm = B.limbs[l]; if (lm.regrow > 0) lm.regrow = Math.max(0, lm.regrow - dt / 1.1) }
     B.weaponArm = B.limbs.armN.alive ? 0 : 1; B.open = Math.max(0, (B.open || 0) - dt);
     if (B.open > 0 && Math.random() < dt * 6) FX.sparks(B.x + rnd(-40, 40), B.z, this.L(B) * 2.6 * this.s(B), 2, '255,214,120', 60);
     const nLeg = this.legsAlive(B), gait = nLeg === 2 ? 'walk' : nLeg === 1 ? 'hop' : 'sit';
@@ -285,7 +285,9 @@ const Boss = {
     Snd.stoneHit(); FX.chips(at[0], B.z, zy(B.z) - at[1], 7, 320); FX.sparks(at[0], B.z, zy(B.z) - at[1], 6, '230,230,255', 260);
     if (!real) { Critic.fake++; return } // душа вне тела: тело дерётся только для вида (без стоп-кадра и тряски — душа не дёргается)
     Cam.kick(4); Game.hitStop(.06);
-    lm.hp -= dmg; B.flash[part] = 1; Game.stats.hits++;
+    lm.hp -= dmg; B.flash[part] = 1; Game.stats.hits++; lm.showT = 2.2; lm.at = { x: at[0], h: zy(B.z) - at[1] };
+    const fc = Hero.FACE; FX.cut(at[0], B.z, zy(B.z) - at[1], [fc > 0 ? 1.0 : PI - 1.0, fc > 0 ? .12 : PI - .12, fc > 0 ? -.9 : PI + .9][b.ak] || 0, 90, B.open > 0 ? '255,226,150' : '235,240,255');
+    FX.num(at[0], B.z, zy(B.z) - at[1] + 30, Math.round(dmg), B.open > 0 ? '#ffd98a' : '#e6eeff', B.open > 0 ? 25 : 19);
     if (lm.hp <= 0) this.breakLimb(B, part);
   },
   breakLimb(B, part) {
@@ -325,8 +327,11 @@ const Boss = {
     for (const w of this.waves) list.push({ z: w.z, draw: () => { const x = sx(w.x), y = zy(w.z), k = 1 - w.t / w.life; ctx.fillStyle = `rgba(90,96,112,${k})`; for (let i = 0; i < 4; i++) { const xx = x - w.dir * i * 22, hh = (30 - i * 6) * (1 + .2 * Math.sin(w.t * 30 + i)); ctx.beginPath(); ctx.moveTo(xx - 12, y); ctx.lineTo(xx - 3, y - hh); ctx.lineTo(xx + 4, y - hh * .7); ctx.lineTo(xx + 12, y); ctx.fill() } } });
   },
   draw(B) {
-    if (B.gone) return; ctx.save(); ctx.globalAlpha = B.alpha * (1 - .65 * Soul.fadeFor(B.x)); const flash = {}; for (const l of LIMBS) { const lm = B.limbs[l]; if (lm.alive) flash[l] = Math.max(B.flash[l] || 0, lm.regrow) * .7 } drawRig(B, { flash });
+    if (B.gone) return; ctx.save(); ctx.globalAlpha = B.alpha * (1 - .65 * Soul.fadeFor(B.x)); const flash = {}; for (const l of LIMBS) { const lm = B.limbs[l]; if (lm.alive) flash[l] = Math.max((B.flash[l] || 0) ** 2, lm.regrow) * .7 } drawRig(B, { flash });
     ctx.restore();
+    // полоска прочности — прямо у конечности, по которой бьют
+    for (const l of LIMBS) { const lm = B.limbs[l]; if (!(lm.showT > 0) || !lm.alive || !lm.at) continue; const w = 78, x = sx(lm.at.x) - w / 2, y = zy(B.z) - lm.at.h - 62, k = cl(lm.hp / lm.max, 0, 1); ctx.globalAlpha = Math.min(1, lm.showT * 2);
+      ctx.fillStyle = 'rgba(6,8,14,.85)'; ctx.fillRect(x - 2, y - 2, w + 4, 11); ctx.fillStyle = k > .35 ? '#9fd2ff' : '#ffb27a'; ctx.fillRect(x, y, w * k, 7); UI.text(LIMB_NAME[l], sx(lm.at.x), y - 6, 13, '#cfe0f5', FONT_UI, 'center', 600); ctx.globalAlpha = 1 }
     // след оружия в ударе
     if (B.trail && B.trail.length > 1) { ctx.save(); ctx.lineCap = 'round'; for (let i = 1; i < B.trail.length; i++) { const a = B.trail[i - 1], b = B.trail[i], al = 1 - (B.t - b.t) / .22; if (al <= 0) continue; ctx.strokeStyle = B.R.axe ? `rgba(255,170,110,${.55 * al})` : `rgba(200,220,255,${.45 * al})`; ctx.lineWidth = (B.R.axe ? 22 : 30) * al; ctx.beginPath(); ctx.moveTo(sx(a.x), a.y); ctx.lineTo(sx(b.x), b.y); ctx.stroke() } ctx.restore() }
   },

@@ -16,7 +16,7 @@ function rigDef(id) {
   return RIG[id] = { id, P, I, ...d, k, L1: dist(l.root, l.joint), L2: dist(l.joint, l.end), foot: l.sole - l.end[1], scale: W.CS / k * (d.boss ? 1.7 : d.size || 1), ov: 12 * k / .5 };
 }
 // экранные координаты персонажа (для рисования и попаданий)
-function rigXf(ch) { const s = ch.R.scale * zs(ch.z) * (ch.sMul || 1); const tk = ch.turnT > 0 ? ch.turnT / ch.turnD : 0, q = 1 - 2 * tk, f = ch.face * (q < 0 ? -1 : 1) * Math.max(.4, Math.abs(q)); return { X: sx(ch.x) + f * s * (ch.hx || 0), Y: zy(ch.z) - (ch.pose.hip + ch.R.foot) * s + (ch.dy || 0), s, f } }
+function rigXf(ch) { const s = ch.R.scale * zs(ch.z) * (ch.sMul || 1); const tk = ch.turnT > 0 ? ch.turnT / ch.turnD : 0, q = 1 - 2 * tk, f = ch.face * (q < 0 ? -1 : 1) * Math.max(.78, Math.abs(q)); return { X: sx(ch.x) + f * s * (ch.hx || 0), Y: zy(ch.z) - (ch.pose.hip + ch.R.foot) * s + (ch.dy || 0), s, f } }
 // разворот «через ребро»: при смене взгляда спрайт сжимается до ребра и раскрывается в другую сторону
 function turnTick(ch, dt, dur) { if (ch.pf !== undefined && ch.pf !== ch.face) { ch.turnT = dur; ch.turnD = dur } ch.pf = ch.face; ch.turnT = Math.max(0, (ch.turnT || 0) - dt) }
 // колено и стопа рисуются без сжатия разворота (см. drawRig) — и в мир переводятся так же

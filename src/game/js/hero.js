@@ -256,13 +256,20 @@ function damage(n,fromX,kb=1,src){if(H.dead||H.inv>0||H.soul)return false;
   const b=H.f?bladeLocal(H.f):null,p=b?toWorld(b.tx*.6+b.bx*.4,b.ty*.6+b.by*.4):{x:H.x+FACE*30,y:zy(H.z)-Hero.height()*.7};FX.sparks(p.x,H.z,zy(H.z)-p.y,18,'255,226,140',420);FX.flash(p.x,H.z,zy(H.z)-p.y,110,'255,220,150',.18);
   st.atk=Math.max(st.atk,ATK[3].T-.2);if(src.e)Enemies.parried(src.e);if(src.boss)Boss.parried(src.boss,src);if(src.proj)Enemies.deflect(src.proj);return'parry'}
  if(g===1){n*=.35;kb*=.4;H.blkT=.6;Snd.block();FX.sparks(H.x+FACE*30,H.z,Hero.height()*.6,8,'255,210,150',260)}
- n*=Game.dmgK||1;H.calm=0;H.hp=Math.max(0,H.hp-n);H.inv=.7;H.hurt=.35;H.flash=1;H.kbv=Math.sign(H.x-fromX||1)*kb*170;Snd.hurt();Cam.kick(5+n*.35);FX.sparks(H.x,H.z,110,8,'255,140,120',260);if(H.hp<=0)H.dead=1;return true}
+ n*=Game.dmgK||1;H.calm=0;H.hp=Math.max(0,H.hp-n);H.inv=.7;H.hurt=.35;H.flash=1;H.kbv=Math.sign(H.x-fromX||1)*kb*170;Snd.hurt();Cam.kick(5+n*.35);FX.sparks(H.x,H.z,110,8,'255,140,120',260);Game.hurtFx=Math.min(1,.45+n/22);FX.num(H.x,H.z,Hero.height()+14,'−'+Math.max(1,Math.round(n)),'#ff8f7d',n>=10?24:19);if(H.hp<=0)H.dead=1;return true}
 // рисование в мире
 function drawAt(f,x,z,face,alpha,rec){
  SC=W.CS*zs(z);GX=0;GY=0;const F0=FACE;FACE=face;
  ctx.save();ctx.translate(sx(x),zy(z)+(H.dy||0)+(H.dyD||0));ctx.scale(face<0?-1:1,1);ctx.globalAlpha=alpha;drawChar(f,rec);
  if(rec){
-  tips=tips.filter(p=>st.t>=p.t&&st.t-p.t<.16);if(f.AT>=ATK[f.ak].tr[0]&&f.AT<ATK[f.ak].tr[1]&&tips.length>1){ctx.save();ctx.lineCap='round';for(let i=1;i<tips.length;i++){const a=tips[i-1],b=tips[i],al=1-(st.t-b.t)/.16;ctx.strokeStyle=`rgba(190,225,255,${.7*al})`;ctx.lineWidth=16*al*SC/.3;ctx.shadowColor='#6fb4ff';ctx.shadowBlur=12;ctx.beginPath();ctx.moveTo(a.x*SC,a.y*SC);ctx.lineTo(b.x*SC,b.y*SC);ctx.stroke()}ctx.restore()}
+  tips=tips.filter(p=>st.t>=p.t&&st.t-p.t<.16);if(f.AT>=ATK[f.ak].tr[0]&&f.AT<ATK[f.ak].tr[1]&&tips.length>2){
+   // игра: след клинка — сплошная лента между серединой и остриём клинка (а не ломаная линия): кромки сглажены кривыми
+   // через середины отрезков, лента тает к хвосту; у острия — узкая светлая кромка
+   ctx.save();ctx.globalCompositeOperation='lighter';const T=tips,n=T.length,md=(a,b,k)=>[(a[k[0]]+b[k[0]])/2*SC,(a[k[1]]+b[k[1]])/2*SC];
+   for(const[kb,col,am]of[[.42,'120,185,255',.5],[.8,'235,246,255',.8]])for(let i=1;i<n-1;i++){const a=T[i-1],c=T[i],d=T[i+1],al=Math.max(0,1-(st.t-c.t)/.16)*(i/(n-1));if(al<=0)continue;
+    const B=q=>({x:q.x,y:q.y,bx:q.bx+(q.x-q.bx)*kb,by:q.by+(q.y-q.by)*kb}),a2=B(a),c2=B(c),d2=B(d),p0=md(a2,c2,['x','y']),p1=md(c2,d2,['x','y']),q0=md(a2,c2,['bx','by']),q1=md(c2,d2,['bx','by']);
+    ctx.fillStyle=`rgba(${col},${am*al})`;ctx.beginPath();ctx.moveTo(p0[0],p0[1]);ctx.quadraticCurveTo(c2.x*SC,c2.y*SC,p1[0],p1[1]);ctx.lineTo(q1[0],q1[1]);ctx.quadraticCurveTo(c2.bx*SC,c2.by*SC,q0[0],q0[1]);ctx.closePath();ctx.fill()}
+   ctx.restore()}
   if(st.fl&&st.t>=st.fl.t&&st.t-st.fl.t<.16){const a=1-(st.t-st.fl.t)/.16,X=st.fl.x*SC,Y=st.fl.y*SC,r=70*SC/.3*(1+.8*(1-a)),gr=ctx.createRadialGradient(X,Y,0,X,Y,r);gr.addColorStop(0,`rgba(255,255,255,${.9*a})`);gr.addColorStop(.35,`rgba(170,215,255,${.5*a})`);gr.addColorStop(1,'rgba(120,180,255,0)');ctx.fillStyle=gr;ctx.fillRect(X-r,Y-r,2*r,2*r)}}
  ctx.restore();FACE=F0}
 function draw(){const f=H.f;if(!f||H.hidden)return;

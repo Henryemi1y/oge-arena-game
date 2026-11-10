@@ -8,8 +8,8 @@ function segDist(p1, p2, q1, q2) { // расстояние между отрез
   const P = [p1[0] + d1[0] * s, p1[1] + d1[1] * s], Q = [q1[0] + d2[0] * t, q1[1] + d2[1] * t]; return { d: Math.hypot(P[0] - Q[0], P[1] - Q[1]), p: P };
 }
 const ETYPES = {
-  ghoul: { hp: 40, dmg: 6, range: 118, wind: .38, strike: .12, rec: .45, cd: [1.1, 1.9], score: 10, pois: 0,
-    wp: { ru: 1.0, rf: .5, lean: .12, far: -.6, crouch: .1 }, sp: { ru: -1.85, rf: -2.25, lean: .38, far: .9, lunge: .3, crouch: .06 } },
+  ghoul: { hp: 40, dmg: 6, range: 142, wind: .38, strike: .12, rec: .45, cd: [1.1, 1.9], score: 10, pois: 0,
+    wp: { ru: 1.25, rf: .7, lean: -.1, far: 1.0, crouch: .17, lunge: -.22 }, sp: { ru: -1.75, rf: -2.05, lean: .46, far: -1.2, lunge: .5, crouch: .08 } },
   knight: { hp: 70, dmg: 12, range: 168, wind: .7, strike: .15, rec: .7, cd: [1.6, 2.4], score: 25, poise: .5,
     wp: { ru: -2.75, rf: -3.35, lean: -.1, far: .3, crouch: .03 }, sp: { ru: -1.05, rf: -1.3, lean: .22, far: -.3, lunge: .14, crouch: .08 } },
   doctor: { hp: 30, dmg: 8, range: 520, wind: .6, strike: .12, rec: .55, cd: [2.1, 3.0], score: 20, ranged: 1,
@@ -51,7 +51,7 @@ const Enemies = {
     this.updProj(dt);
   },
   think(e, dt) {
-    const h = Hero.H, T = e.T; e.t += dt; e.flash = Math.max(0, e.flash - dt * 5); e.cd -= dt;
+    const h = Hero.H, T = e.T; e.t += dt; e.flash = Math.max(0, e.flash - dt * 9); e.hpT = Math.max(0, (e.hpT || 0) - dt); e.cd -= dt;
     // отброс — короткий подскок назад (ноги в воздухе), а не скольжение по полу
     if (e.kbv) { e.x += e.kbv * dt; e.kbv *= Math.exp(-dt * 10); e.dy = -Math.min(16, Math.abs(e.kbv) * .09); if (Math.abs(e.kbv) < 14) { e.kbv = 0; e.dy = 0 } }
     e.x = cl(e.x, W.GL, W.GR);
@@ -63,7 +63,7 @@ const Enemies = {
         let tx, tz = cl(h.z + (T.ranged ? 0 : (e.slot || 0) % 2 ? e.slotZ * .6 : 0), .03, 1), run = false;
         if (T.ranged) { const want = 360, sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * want; if (tx < W.XMIN || tx > W.XMAX) tx = h.x - sd * want; tz = cl(h.z + e.slotZ, .03, 1);
           const flee = adx < want - 60; e.flee = flee ? (e.flee || 0) + dt : Math.max(0, (e.flee || 0) - dt * .5); if (e.flee > 1.5) { e.stand = 4; e.flee = 0 } if (e.stand > 0) { e.stand -= dt; tx = e.x } }
-        else if (T.charge) { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * 300 } else { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * (Math.max(T.range * .8, 104 * (e.R.size || 1)) + (e.slot || 0) * 75); run = adx > 420 && e.type === 'ghoul' }
+        else if (T.charge) { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * 300 } else { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * (Math.max(T.range * .84, 104 * (e.R.size || 1)) + (e.slot || 0) * 75); run = adx > 420 && e.type === 'ghoul' }
         const close = !T.ranged && adx < T.range * .85 && Math.abs(dz) < .15 && (e.slot || 0) < 2;
         // уже рядом — не пятиться, а стоять лицом к герою (разворот короткими шагами)
         if (close) this.move(e, dt, e.x, tz, { dir: facing ? 0 : Math.sign(toH), speedK: .08, tol: 6 }); else this.move(e, dt, tx, tz, { run, tol: 14 });
@@ -77,7 +77,7 @@ const Enemies = {
       case 'wind': {
         this.move(e, dt, e.x, e.z, { hold: true, crouch: (T.wp.crouch || 0) * sm(e.t / T.wind) }); ov = { k: 'wp', w: sm(e.t / T.wind) };
         if (T.charge) { e.dy = Math.sin(e.t * 40) * 1.5; e.aim = { x: h.x, z: h.z } }
-        if (e.t >= T.wind) { e.st = 'strike'; e.t = 0; e.done = 0; e.dy = 0; if (T.charge) { e.chDir = Math.sign(e.aim.x - e.x) || e.face; e.chZ = e.aim.z; e.chEnd = e.aim.x + e.chDir * 160 } else Snd.swing(1) }
+        if (e.t >= T.wind) { e.st = 'strike'; e.t = 0; e.done = 0; e.dy = 0; if (T.charge) { e.chDir = Math.sign(e.aim.x - e.x) || e.face; e.chZ = e.aim.z; e.chEnd = e.aim.x + e.chDir * 160 } else { Snd.swing(1); this.swipe(e) } }
         break;
       }
       case 'strike': {
@@ -108,9 +108,15 @@ const Enemies = {
       po.lean += K0 ? lp(K0.lean, K.lean, w) : K.lean * w; e.lunge = K0 ? lp(K0.lunge || 0, K.lunge || 0, w) : (K.lunge || 0) * w } else e.lunge = 0;
     limitArms(e, dt, e.st === 'strike' ? .45 : .3);
     e.hx = e.lunge * (e.R.L1 + e.R.L2) * .4; if (e.hx) po.legs = po.legs.map(l => ({ ...l, ...Walker.ik2(l.ax - e.hx, l.ay, e.R.L1, e.R.L2, e.c.g.digi ? -1 : 1) }));
-    if (e.st === 'hurt') po.lean -= .25 * (1 - sm(e.t / .32));
+    if (e.st === 'hurt') { const k = 1 - sm(e.t / .32); po.lean -= .42 * k; po.arms.forEach((a, i) => { a.ru = lp(a.ru, i ? .5 : .9, k * .8); a.rf = lp(a.rf, i ? .1 : .3, k * .8) }) }
     if (e.st === 'stun') { const k = 1 - sm(Math.max(0, e.t - .55) / .55); po.lean -= .4 * k; po.arms.forEach((a, i) => { a.ru = lp(a.ru, i ? .55 : .85, k); a.rf = lp(a.rf, i ? .15 : .35, k) }) }
     e.G = rigGeom(e);
+  },
+  // серп взмаха: дуга вокруг плеча — сверху-сзади вперёд-вниз (когти гуля бледные, меч рыцаря светлый, длиннее)
+  swipe(e) {
+    if (e.T.ranged || !e.G) return; const G = e.G, xf = rigXf(e), sh = rigToWorld(e, G.arms[0].sh, xf), tip = rigToWorld(e, G.weapon ? G.weapon.tip : G.arms[0].hand, xf), hd = rigToWorld(e, G.arms[0].hand, xf);
+    const r = Math.max(Math.hypot(tip.x - sh.x, tip.y - sh.y), Math.hypot(hd.x - sh.x, hd.y - sh.y) * 1.25) * 1.02, f = e.face, a0 = f > 0 ? -2.0 : PI + 2.0, a1 = f > 0 ? .75 : PI - .75;
+    FX.arc(sh.x, e.z, zy(e.z) - sh.y, r, a0, a1, e.type === 'knight' ? '235,240,255' : '225,235,190', e.type === 'knight' ? .24 : .2);
   },
   // удар достигает цели: точка оружия (кисть/клинок) в момент удара проверяется по телу героя
   release(e) {
@@ -129,7 +135,7 @@ const Enemies = {
   },
   updProj(dt) {
     const h = Hero.H;
-    for (const p of this.proj) { p.t += dt; p.x += p.vx * dt; p.z += p.vz * dt; p.h += p.vh * dt; p.vh -= p.g * dt; p.r += dt * 14;
+    for (const p of this.proj) { p.t += dt; p.x += p.vx * dt; p.z += p.vz * dt; p.h += p.vh * dt; p.vh -= p.g * dt; p.r += dt * 14; if (Math.random() < dt * 50) FX.soulMote(p.x, p.z, p.h, '#a8f08a');
       if (p.t >= p.tt) { p.dead = 1; Snd.glass(); const near = fdist(h.x, h.z, p.x, p.z) < 58 && !h.soul, r = near ? Hero.damage(ETYPES.doctor.dmg, p.x, .6, { proj: p, fx: p.x - Math.sign(p.vx || 1) * 90 }) : false;
         if (r === 'parry') { FX.sparks(p.x, p.z, 60, 10, '150,230,120', 300); continue }
         FX.poison(p.x, p.z); FX.sparks(p.x, p.z, 6, 8, '150,230,120', 200); this.clouds.push({ x: p.x, z: p.z, t: 0, life: 2.6 }) } }
@@ -150,7 +156,7 @@ const Enemies = {
   bladeHits(b) {
     let any = false;
     for (const e of this.list) {
-      if (e.st === 'dead' || e.st === 'dying' || e.st === 'gone' || e.st === 'enter' && e.alpha < .7 || Math.abs(e.z - b.z) > .15 || Hero.H.hitSet.has(e)) continue;
+      if (!e.G || e.st === 'dead' || e.st === 'dying' || e.st === 'gone' || e.st === 'enter' && e.alpha < .7 || Math.abs(e.z - b.z) > .15 || Hero.H.hitSet.has(e)) continue;
       for (const [a, c, r] of this.hurtCapsules(e)) { const q = segDist([b.x1, b.y1], [b.x2, b.y2], a, c); if (q.d < r + 6) { this.damage(e, b, q.p); any = true; break } }
     }
     return any;
@@ -158,8 +164,11 @@ const Enemies = {
   damage(e, b, at) {
     const rip = e.st === 'stun'; Hero.H.hitSet.add(e); const dmg = [14, 12, 13][b.ak] * (Hero.H.combo.n === 0 && b.ak === 2 ? 1.3 : 1) * (rip ? 1.8 : 1);
     if (rip) { FX.sparks(at[0], e.z, zy(e.z) - at[1], 12, '255,214,120', 360); Game.score += 10 }
-    e.hp -= dmg; e.flash = 1; Snd.hit(); FX.sparks(at[0], e.z, zy(e.z) - at[1], 9, '120,30,40', 280); FX.flash(at[0], e.z, zy(e.z) - at[1], 46, '200,80,80', .12); Game.hitStop(.05); Cam.kick(3);
-    e.kbv = Math.sign(e.x - Hero.H.x) * (e.T.poise ? 30 : 120);
+    const hy = zy(e.z) - at[1], fc = Hero.FACE;
+    e.hp -= dmg; e.flash = 1; e.hpT = 2.6; Snd.hit(); FX.sparks(at[0], e.z, hy, 7, '255,214,170', 300); FX.sparks(at[0], e.z, hy, 6, '150,40,50', 240); FX.flash(at[0], e.z, hy, 46, '255,200,170', .1); Game.hitStop(rip ? .08 : .05); Cam.kick(rip ? 6 : 3);
+    FX.cut(at[0], e.z, hy, [fc > 0 ? 1.0 : PI - 1.0, fc > 0 ? .12 : PI - .12, fc > 0 ? -.9 : PI + .9][b.ak] || 0, rip ? 120 : 84, rip ? '255,226,150' : '255,255,255');
+    FX.num(at[0], e.z, hy + 26, Math.round(dmg), rip ? '#ffd98a' : '#ffffff', rip ? 26 : 19);
+    e.kbv = Math.sign(e.x - Hero.H.x) * (e.T.poise ? 40 : 170);
     if (e.hp <= 0) return this.kill(e);
     // замах сбивается только в начале (гуль, доктор — первая половина, рыцарь — первые 30 %); сам удар не сбивается
     const lateWind = e.st === 'wind' && e.t > e.T.wind * (e.type === 'knight' ? .3 : .5);
@@ -179,13 +188,21 @@ const Enemies = {
   // ---------- рисование ----------
   drawables(list) {
     for (const e of this.list) list.push({ z: e.z, draw: () => this.draw(e), shadow: () => drawShadow(e.x, e.z, 38 * (e.type === 'goatman' ? 1.3 : 1), .36 * e.alpha) });
-    for (const p of this.proj) list.push({ z: p.z, draw: () => { const I = IM.ch.doctor.flask, x = sx(p.x), y = zy(p.z) - p.h, k = rigDef('doctor').scale * zs(p.z); ctx.save(); ctx.translate(x, y); ctx.rotate(p.r); ctx.drawImage(I, -I.width * k / 2, -I.height * k / 2, I.width * k, I.height * k); ctx.restore() } });
+    // ядовитая лужа: пятно на полу показывает, где стоять нельзя
+    for (const c of this.clouds) list.push({ z: c.z - .02, draw: () => { const x = sx(c.x), y = zy(c.z), a = Math.min(1, c.t * 4) * Math.min(1, (c.life - c.t) * 2), r = 58 * zs(c.z); ctx.fillStyle = `rgba(70,150,60,${.3 * a})`; ctx.strokeStyle = `rgba(150,230,110,${(.45 + .2 * Math.sin(c.t * 9)) * a})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y, r, r * .3, 0, 0, TAU); ctx.fill(); ctx.stroke() } });
+    for (const p of this.proj) list.push({ z: p.z, draw: () => { const I = IM.ch.doctor.flask, x = sx(p.x), y = zy(p.z) - p.h, k = rigDef('doctor').scale * zs(p.z) * 1.5; ctx.save(); ctx.translate(x, y); ctx.rotate(p.r); ctx.drawImage(I, -I.width * k / 2, -I.height * k / 2, I.width * k, I.height * k); ctx.restore() } });
   },
   draw(e) {
     if (e.st === 'gone') return; if (!e.G) e.G = rigGeom(e);
+    if (e.st === 'wind' && e.T.charge) { // дорожка тарана на полу: куда побежит
+      const k = sm(e.t / e.T.wind), y = zy(e.z), x0 = sx(e.x), L = 470 * k, f = e.face, hw = 44 * zs(e.z), g = ctx.createLinearGradient(x0, 0, x0 + f * L, 0); g.addColorStop(0, `rgba(255,90,60,${.5 * k})`); g.addColorStop(1, 'rgba(255,90,60,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(x0, y - hw * .45); ctx.lineTo(x0 + f * L, y - hw * .2); ctx.lineTo(x0 + f * L, y + hw * .2); ctx.lineTo(x0, y + hw * .45); ctx.fill();
+      ctx.strokeStyle = `rgba(255,150,110,${.5 * k})`; ctx.lineWidth = 2; for (let i = 0; i < 4; i++) { const xx = x0 + f * (60 + ((i * 100 + e.t * 260) % 400)) * k; ctx.beginPath(); ctx.moveTo(xx - f * 9, y - hw * .3); ctx.lineTo(xx, y); ctx.lineTo(xx - f * 9, y + hw * .3); ctx.stroke() } }
     ctx.save(); ctx.globalAlpha = e.alpha * (1 - .6 * Soul.fadeFor(e.x)); drawRig(e);
-    if (e.flash > 0) { ctx.globalAlpha = e.flash * .75 * e.alpha; drawRig(e, { v: 'W' }) }
-    if (e.st === 'wind' && e.T.charge) { ctx.globalAlpha = .3 + .3 * Math.sin(e.t * 30); drawRig(e, { v: 'W', only: 'armN' }) }
+    if (e.flash > 0) { ctx.globalAlpha = e.flash * e.flash * .62 * e.alpha; drawRig(e, { v: 'W' }) }
     ctx.restore();
+    if (e.hpT > 0 && e.hp > 0 && e.st !== 'dying') { // полоска здоровья над раненым врагом
+      const w = 46, x = sx(e.x) - w / 2, y = zy(e.z) - (e.R.size || 1) * 232 * zs(e.z) + (e.dy || 0), k = cl(e.hp / e.maxhp, 0, 1); ctx.globalAlpha = Math.min(1, e.hpT * 2);
+      ctx.fillStyle = 'rgba(6,8,14,.8)'; ctx.fillRect(x - 1, y - 1, w + 2, 6); ctx.fillStyle = k > .4 ? '#e0574a' : '#ff9a5a'; ctx.fillRect(x, y, w * k, 4); ctx.globalAlpha = 1 }
   },
 };

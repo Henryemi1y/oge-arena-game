@@ -1,8 +1,8 @@
 // fx.js — частицы и эффекты: пыль (лист dust.png), трещины (cracks.png), ударные волны, искры, каменная крошка,
 // угольки жаровен, ядовитые облака, «рассыпание» персонажей на куски (shatter), вспышки.
 const FX = {
-  P: [], rings: [], cracks: [], chunks: [], flashes: [], marks: [],
-  reset() { this.P = []; this.rings = []; this.cracks = []; this.chunks = []; this.flashes = []; this.marks = [] },
+  P: [], rings: [], cracks: [], chunks: [], flashes: [], marks: [], nums: [], cuts: [], arcs: [],
+  reset() { this.P = []; this.rings = []; this.cracks = []; this.chunks = []; this.flashes = []; this.marks = []; this.nums = []; this.cuts = []; this.arcs = [] },
   // ---- создание ----
   dust(x, z, n = 6, power = 1) {
     for (let i = 0; i < n; i++) this.P.push({ k: 'dust', x: x + rnd(-30, 30) * power, z: z + rnd(-.02, .02), h: rnd(0, 8), vx: rnd(-1, 1) * (60 + 220 * power), vz: rnd(-.05, .05), vh: rnd(10, 60) * power, t: 0, life: rnd(.4, .7) + .3 * power, s: (.3 + .45 * power) * rnd(.7, 1.2), g: -30 });
@@ -20,11 +20,17 @@ const FX = {
   _grad(stops) { const c = mkCanvas(64, 64), x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); for (const [o, v] of stops) g.addColorStop(o, v); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c },
   ember(x, z, h) { this.P.push({ k: 'ember', x, z, h, vx: rnd(-15, 15), vz: 0, vh: rnd(50, 110), t: 0, life: rnd(.5, 1.1), g: -20 }) },
   smoke(x, z, h, n = 6, col = '20,18,28', sz = 30) { for (let i = 0; i < n; i++) this.P.push({ k: 'smoke', x: x + rnd(-20, 20), z, h: h + rnd(-20, 20), vx: rnd(-40, 40), vz: 0, vh: rnd(20, 70), t: 0, life: rnd(.6, 1.2), s: sz * rnd(.6, 1.3), col, g: -10 }) },
-  poison(x, z, n = 14) { for (let i = 0; i < n; i++) this.P.push({ k: 'smoke', x: x + rnd(-40, 40), z: z + rnd(-.03, .03), h: rnd(0, 30), vx: rnd(-50, 50), vz: 0, vh: rnd(5, 40), t: 0, life: rnd(1, 2.2), s: rnd(22, 46), col: '80,150,60', g: -5 }) },
-  soulMote(x, z, h) { this.P.push({ k: 'mote', x, z, h, vx: rnd(-20, 20), vz: 0, vh: rnd(15, 50), t: 0, life: rnd(.6, 1.2), g: -10 }) },
+  poison(x, z, n = 14) { for (let i = 0; i < n; i++) this.P.push({ k: 'smoke', a: .2, x: x + rnd(-44, 44), z: z + rnd(-.03, .03), h: rnd(0, 34), vx: rnd(-40, 40), vz: 0, vh: rnd(8, 46), t: 0, life: rnd(.9, 1.9), s: rnd(14, 30), col: pick(['62,120,58', '96,150,64', '40,84,52', '130,170,80']), g: -5 }) },
+  soulMote(x, z, h, col) { this.P.push({ k: 'mote', col, x, z, h, vx: rnd(-20, 20), vz: 0, vh: rnd(15, 50), t: 0, life: rnd(.6, 1.2), g: -10 }) },
   ring(x, z, r1 = 220, life = .55, col = '200,215,240', w = 3) { this.rings.push({ x, z, r1, t: 0, life, col, w }) },
   crack(x, z, s = 1, life = 7) { this.cracks.push({ x, z, s, t: 0, life, i: (Math.random() * IM.cracks.length) | 0, flip: Math.random() < .5 }) },
   flash(x, z, h, r = 70, col = '170,215,255', life = .16) { this.flashes.push({ x, z, h, r, col, t: 0, life }) },
+  // число урона: всплывает и гаснет
+  num(x, z, h, text, col = '#ffffff', size = 20) { this.nums.push({ x: x + rnd(-10, 10), z, h, text: String(text), col, size, t: 0, life: .75, vx: rnd(-26, 26) }) },
+  // росчерк попадания: узкая светлая «линза» под углом удара
+  cut(x, z, h, ang, len = 90, col = '255,255,255', life = .14) { this.cuts.push({ x, z, h, ang, len, col, t: 0, life }) },
+  // серп взмаха (когти, меч врага): дуга от a0 до a1 вокруг точки, толще в середине; углы — экранные
+  arc(x, z, h, r, a0, a1, col = '255,255,255', life = .2) { this.arcs.push({ x, z, h, r, a0, a1, col, t: 0, life }) },
   mark(x, z, life, col = '255,90,60', r = 60) { const m = { x, z, t: 0, life, col, r }; this.marks.push(m); return m },
   // рассыпать готовое изображение (offscreen canvas) на куски: камень — тяжёлые обломки, пепел — лёгкие, тают
   shatter(cv, x0, y0, opt = {}) {
@@ -56,6 +62,8 @@ const FX = {
     for (const c of this.cracks) c.t += dt; this.cracks = this.cracks.filter(c => c.t < c.life);
     for (const f of this.flashes) f.t += dt; this.flashes = this.flashes.filter(f => f.t < f.life);
     for (const m of this.marks) m.t += dt; this.marks = this.marks.filter(m => m.t < m.life && !m.dead);
+    for (const k of ['nums', 'cuts', 'arcs']) { for (const o of this[k]) o.t += dt; this[k] = this[k].filter(o => o.t < o.life) }
+    for (const n of this.nums) { n.x += n.vx * dt; n.h += (70 - 90 * n.t / n.life) * dt }
     for (const c of this.chunks) {
       c.t += dt; c.wx += c.vx * dt; c.y += c.vy * dt; c.r += c.vr * dt;
       if (c.ash) { c.vy -= 120 * dt; c.vx *= Math.exp(-dt * 2); c.vy *= Math.exp(-dt * 2) } else { c.vy += c.g * dt; if (c.y > c.gy) { c.y = c.gy; c.vy *= -.25; c.vx *= .55; c.vr *= .5 } }
@@ -82,13 +90,25 @@ const FX = {
       else if (p.k === 'spark') { ctx.globalAlpha = 1 - k; ctx.strokeStyle = `rgb(${p.col})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - p.vx * .03, y + p.vh * .03); ctx.stroke() }
       else if (p.k === 'chip') { ctx.globalAlpha = Math.min(1, (1 - k) * 3); ctx.fillStyle = p.col; ctx.save(); ctx.translate(x, y); ctx.rotate(p.r); ctx.fillRect(-p.s, -p.s * .7, p.s * 2, p.s * 1.4); ctx.restore() }
       else if (p.k === 'ember') { ctx.globalAlpha = 1 - k; ctx.fillStyle = k < .5 ? '#bfe6ff' : '#4d8dff'; ctx.fillRect(x - 1.5, y - 1.5, 3, 3) }
-      else if (p.k === 'mote') { ctx.globalAlpha = (1 - k) * .9; ctx.fillStyle = '#b8f6ff'; ctx.fillRect(x - 1.5, y - 1.5, 3, 3) }
-      else if (p.k === 'smoke') { const r = p.s * (1 + k); ctx.globalAlpha = .4 * (1 - k) * Math.min(1, p.t * 6); ctx.drawImage(this.puff(p.col), x - r, y - r, 2 * r, 2 * r) }
+      else if (p.k === 'mote') { ctx.globalAlpha = (1 - k) * .9; ctx.fillStyle = p.col || '#b8f6ff'; ctx.fillRect(x - 1.5, y - 1.5, 3, 3) }
+      else if (p.k === 'smoke') { const r = p.s * (1 + k); ctx.globalAlpha = (p.a || .4) * (1 - k) * Math.min(1, p.t * 6); ctx.drawImage(this.puff(p.col), x - r, y - r, 2 * r, 2 * r) }
     }
     ctx.globalAlpha = 1;
     for (const c of this.chunks) { const x = c.wx - Cam.x, k = c.t / c.life; ctx.save(); ctx.globalAlpha = c.ash ? (1 - k) * .9 : Math.min(1, (1 - k) * 4); ctx.translate(x, c.y); ctx.rotate(c.r); if (c.ash) ctx.scale(1 - k * .6, 1 - k * .6); ctx.drawImage(c.c, -c.w / 2, -c.h / 2); ctx.restore() }
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
     for (const f of this.flashes) { const a = 1 - f.t / f.life, x = sx(f.x), y = zy(f.z) - f.h, r = f.r * (1 + .8 * (1 - a)); ctx.globalAlpha = a; ctx.drawImage(this.glow(f.col), x - r, y - r, 2 * r, 2 * r); ctx.globalAlpha = 1 }
+    for (const c of this.cuts) { // росчерк: вытягивается и тает
+      const k = c.t / c.life, x = sx(c.x), y = zy(c.z) - c.h, L = c.len * (.45 + .55 * sm(k * 2.2)), wd = 7 * (1 - k); ctx.save(); ctx.translate(x, y); ctx.rotate(c.ang); ctx.globalAlpha = 1 - k * k;
+      ctx.fillStyle = `rgb(${c.col})`; ctx.beginPath(); ctx.moveTo(-L, 0); ctx.quadraticCurveTo(0, -wd, L, 0); ctx.quadraticCurveTo(0, wd, -L, 0); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(-L * .7, 0); ctx.quadraticCurveTo(0, -wd * .4, L * .7, 0); ctx.quadraticCurveTo(0, wd * .4, -L * .7, 0); ctx.fill(); ctx.restore() }
+    for (const a of this.arcs) { // серп: внешняя дуга и более пологая внутренняя, сходятся на концах
+      const k = a.t / a.life, x = sx(a.x), y = zy(a.z) - a.h, S = a.a1 - a.a0, e1 = a.a0 + S * Math.min(1, .35 + k * 1.6), e0 = a.a0 + S * sm(Math.max(0, k * 1.5 - .5)) * .8, h2 = Math.abs(e1 - e0) / 2; if (h2 < .05) continue;
+      const mid = (e0 + e1) / 2, c = a.r * Math.sin(h2), r2 = Math.max(c * 1.02, a.r * 1.45), d2 = Math.sqrt(r2 * r2 - c * c), cm = a.r * Math.cos(h2), cx2 = x + Math.cos(mid) * (cm - d2), cy2 = y + Math.sin(mid) * (cm - d2);
+      const p0 = [x + Math.cos(e0) * a.r, y + Math.sin(e0) * a.r], p1 = [x + Math.cos(e1) * a.r, y + Math.sin(e1) * a.r];
+      ctx.globalAlpha = (1 - k) * .9; ctx.fillStyle = `rgb(${a.col})`; ctx.beginPath(); ctx.arc(x, y, a.r, e0, e1, S < 0); ctx.arc(cx2, cy2, r2, Math.atan2(p1[1] - cy2, p1[0] - cx2), Math.atan2(p0[1] - cy2, p0[0] - cx2), S > 0); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1 }
     ctx.restore();
+    // числа урона — поверх всего в мире
+    for (const n of this.nums) { const k = n.t / n.life, x = sx(n.x), y = zy(n.z) - n.h, sc = 1 + .5 * Math.max(0, 1 - n.t / .09); ctx.globalAlpha = Math.min(1, (1 - k) * 2.5); ctx.font = `700 ${Math.round(n.size * sc)}px ${FONT_TITLE}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(8,8,16,.85)'; ctx.strokeText(n.text, x, y); ctx.fillStyle = n.col; ctx.fillText(n.text, x, y) }
+    ctx.globalAlpha = 1;
   },
 };

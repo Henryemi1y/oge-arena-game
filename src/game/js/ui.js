@@ -29,10 +29,14 @@ const UI = {
     // форма души: табличка с уравнением
     if (Soul.on && Soul.prob) this.soulTablet();
     // подсказка управления в начале
-    if (this.helpT < 16 && !Soul.on) { const a = Math.min(1, (16 - this.helpT) / 2); ctx.globalAlpha = a; this.panel(16, VH - 70, 680, 54, .62);
+    const live = Game.scene === 'play';
+    if (live && this.helpT < 16 && !Soul.on) { const a = Math.min(1, (16 - this.helpT) / 2); ctx.globalAlpha = a; this.panel(16, VH - 70, 680, 54, .62);
       this.text('A/D — шаг · Shift — бег · W/S — вглубь/ближе · Space — рывок', 28, VH - 47, 16, '#c9d3e6', FONT_UI, 'left', 500); this.text('ЛКМ — серия ударов · J/K/L — удары · F/ПКМ — парировать · Enter — пауза', 28, VH - 25, 16, '#c9d3e6', FONT_UI, 'left', 500); ctx.globalAlpha = 1 }
     // баннеры
-    for (const b of this.banners) { const k = b.t / b.life, a = Math.min(1, b.t * 4) * Math.min(1, (b.life - b.t) * 2.5), so = Soul.on && this.tabB, y = (so ? this.tabB + 44 : VH * .34) - 10 * k, bxc = so ? this.tabX : VW / 2; ctx.globalAlpha = a; this.text(b.text, bxc, y, so ? 34 : 52, b.col, FONT_TITLE, 'center', 700); if (b.sub) this.text(b.sub, bxc, y + (so ? 28 : 36), so ? 17 : 21, '#c2cde2', FONT_UI, 'center', 500); ctx.globalAlpha = 1 }
+    // в форме души экран занят табличкой и монолитом — баннер идёт одной строкой над подсказкой внизу
+    if (live) for (const b of this.banners) { const k = b.t / b.life, a = Math.min(1, b.t * 4) * Math.min(1, (b.life - b.t) * 2.5); ctx.globalAlpha = a;
+      if (Soul.on) this.text(b.text, VW / 2, VH - 76, 26, b.col, FONT_TITLE, 'center', 700);
+      else { const y = VH * .34 - 10 * k; this.text(b.text, VW / 2, y, 52, b.col, FONT_TITLE, 'center', 700); if (b.sub) this.text(b.sub, VW / 2, y + 36, 21, '#c2cde2', FONT_UI, 'center', 500) } ctx.globalAlpha = 1 }
   },
   soulTablet() {
     // табличка уходит в сторону от босса, чтобы не закрывать ему голову
@@ -79,14 +83,14 @@ const UI = {
     const D = [['Обычная', 'полный урон · 95 с на ответ'], ['Лёгкая', 'урон вдвое меньше · 130 с']], by = VH - 128;
     D.forEach(([n, d], i) => { const sel = Game.diff === i, x = VW / 2 - 250 + i * 260; this.panel(x, by, 240, 54, sel ? .85 : .45); if (sel) { ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 2; rr(x, by, 240, 54, 6); ctx.stroke() } this.text(n, x + 120, by + 24, 20, sel ? '#ffe7b0' : '#9aa6bb', FONT_TITLE, 'center', 700); this.text(d, x + 120, by + 44, 13, sel ? '#cfd8e8' : '#7d889c', FONT_UI, 'center', 500) });
     if (loadK < 1) this.text(`Загрузка… ${Math.round(loadK * 100)}%`, VW / 2, VH - 30, 22, '#9fb0c8', FONT_UI, 'center', 600);
-    else { ctx.globalAlpha = .55 + .45 * Math.sin(t * 3.2); this.text('← / → — сложность · Enter — начать', VW / 2, VH - 32, 24, '#f3e7c4', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1 }
+    else { ctx.globalAlpha = .55 + .45 * Math.sin(t * 3.2); this.text('← / → — сложность · Enter или щелчок — начать', VW / 2, VH - 32, 24, '#f3e7c4', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1 }
   },
   controls(y) {
     const lines = [['A / D, ← / →', 'шаг влево и вправо'], ['Shift', 'бег'], ['W / S, ↑ / ↓', 'вглубь и ближе'], ['Space', 'рывок (уворот)'], ['ЛКМ', 'серия из трёх ударов'], ['J / K / L', 'удар сверху, вбок, снизу'], ['F · ПКМ', 'парировать: нажми чуть раньше удара'], ['E · Q · R', 'душой: подобрать / вернуть / порядок'], ['Enter · M · − / +', 'пауза · звук · громкость']];
     this.panel(VW / 2 - 270, y, 540, lines.length * 25 + 20, .6);
     lines.forEach(([k, v], i) => { this.text(k, VW / 2 - 16, y + 28 + i * 25, 17, '#ffd98a', FONT_UI, 'right', 700); this.text(v, VW / 2 + 4, y + 28 + i * 25, 17, '#d5ddec', FONT_UI, 'left', 500) });
   },
-  pause() { this.overlay(.62); this.text('Пауза', VW / 2, 170, 64, '#e8eefc', FONT_TITLE, 'center', 700); this.controls(200); this.text('Enter — продолжить', VW / 2, VH - 60, 24, '#f3e7c4', FONT_TITLE, 'center', 700); this.text(`Громкость: ${Math.round(Snd.vol * 100)}%`, VW / 2, VH - 30, 16, '#9aa6bb', FONT_UI, 'center', 500) },
+  pause() { this.overlay(.62); this.text('Пауза', VW / 2, 170, 64, '#e8eefc', FONT_TITLE, 'center', 700); this.controls(200); this.text('Enter или щелчок — продолжить', VW / 2, VH - 60, 24, '#f3e7c4', FONT_TITLE, 'center', 700); this.text(`Громкость: ${Math.round(Snd.vol * 100)}%`, VW / 2, VH - 30, 16, '#9aa6bb', FONT_UI, 'center', 500) },
   end(win, t) {
     this.overlay(.68); const G = Game, s = G.stats, tm = Math.floor(G.time);
     ctx.save(); ctx.shadowColor = win ? '#4fd6ff' : '#ff4a3a'; ctx.shadowBlur = 26; this.text(win ? 'Победа' : 'Поражение', VW / 2, 150, 84, win ? '#dff7ff' : '#ffd2cc', FONT_TITLE, 'center', 700); ctx.restore();

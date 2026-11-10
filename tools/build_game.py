@@ -63,12 +63,44 @@ def sheet_parts(path, gap, min_area=400):
     return im, lab, gs
 
 
+def plain_floor(im):
+    """Убрать с плит пола выбитые светящиеся цифры: в игре они неотличимы от осколков с цифрами ответа.
+    Каждая плашка с цифрой заменяется куском гладкой плиты из того же ряда (бесшовная вставка, свет подгоняется)."""
+    a = np.array(im); rgb = a[..., :3].astype(int); bgr = cv2.cvtColor(a[..., :3], cv2.COLOR_RGB2BGR)
+    glow = ((rgb[..., 2] - rgb[..., 0] > 45) & (rgb[..., 2] > 110)).astype(np.uint8)
+    n, lab, st, _ = cv2.connectedComponentsWithStats(cv2.dilate(glow, np.ones((9, 9), np.uint8)), 8)
+    busy = cv2.dilate(glow, np.ones((15, 15), np.uint8))
+    gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY).astype(np.float32)
+    edge = np.abs(cv2.Sobel(gray, cv2.CV_32F, 1, 0)) + np.abs(cv2.Sobel(gray, cv2.CV_32F, 0, 1))
+    ie, ib = cv2.integral(edge), cv2.integral(busy)
+    out = bgr.copy(); H, W = gray.shape
+    for i in range(1, n):
+        if st[i][4] <= 5000: continue
+        x, y, w, h = [int(v) for v in st[i][:4]]
+        # гладкий кусок плиты без швов (малая сумма перепадов), высотой в половину плашки; до нужной высоты — зеркально
+        sh, best = 56, None
+        for yy in range(0, H - sh, 4):
+            for xx in range(0, W - w, 6):
+                if ib[yy + sh, xx + w] - ib[yy, xx + w] - ib[yy + sh, xx] + ib[yy, xx] > 0: continue
+                e = ie[yy + sh, xx + w] - ie[yy, xx + w] - ie[yy + sh, xx] + ie[yy, xx] + abs(yy - y) * w * sh * .01
+                if best is None or e < best[0]: best = (e, xx, yy)
+        if not best: continue
+        _, sx_, sy_ = best; src = bgr[sy_:sy_ + sh, sx_:sx_ + w]
+        src = cv2.copyMakeBorder(src, 0, h - sh, 0, 0, cv2.BORDER_REFLECT_101) if h > sh else src[:h]
+        mask = cv2.dilate((lab[y:y + h, x:x + w] == i).astype(np.uint8) * 255, np.ones((7, 7), np.uint8)); mask[0, :] = mask[-1, :] = 0; mask[:, 0] = mask[:, -1] = 0
+        out = cv2.seamlessClone(src, out, mask, (x + w // 2, y + h // 2), cv2.NORMAL_CLONE)
+    a[..., :3] = cv2.cvtColor(out, cv2.COLOR_BGR2RGB)
+    return Image.fromarray(a)
+
+
 def build_assets():
     A = {}
     # ---------- окружение ----------
     E = 'assets/environment/arena25d/'
     for k in ['bg_far', 'bg_mid', 'floor', 'fg']:
-        im = Image.open(os.path.join(R, E, k + '.png')).convert('RGBA'); A[k] = {'src': uri(im, 88), 'w': im.width, 'h': im.height}
+        im = Image.open(os.path.join(R, E, k + '.png')).convert('RGBA')
+        if k == 'floor': im = plain_floor(im)
+        A[k] = {'src': uri(im, 88), 'w': im.width, 'h': im.height}
     for k in ['gate_left', 'gate_right']:
         im = rs(Image.open(os.path.join(R, E, k + '.png')).convert('RGBA'), .5); A[k] = {'src': uri(im), 'w': im.width, 'h': im.height, 'k': .5}
     # реквизит: компоненты листа, имена — по положению (таблица в задаче 012 перепутала подписи у нижнего ряда)
