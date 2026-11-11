@@ -79,7 +79,7 @@ function drawRig(ch, opt = {}) {
   // ноги рисуются без сжатия разворота и сразу в новую сторону — стопы остаются на своих точках пола
   const LX = sx(ch.x) + ch.face * xf.s * (ch.hx || 0), legT = fn => { if (xf.f === ch.face) return fn(); ctx.save(); ctx.scale(1 / (xf.f * xf.s), 1 / xf.s); ctx.translate(LX - xf.X, 0); ctx.scale(ch.face * xf.s, xf.s); fn(); ctx.restore() };
   // вспышка попадания по конечности — в её собственном слое (дальняя не перекрывает ближнюю)
-  const lit = (part, fn) => { fn(v); const a = opt.flash && opt.flash[part]; if (a > 0 && v !== 'W') { ctx.save(); ctx.globalAlpha *= a; fn('W'); ctx.restore() } };
+  const lit = (part, fn) => { fn(v); const a = opt.flash && opt.flash[part]; if (a > 0 && v !== 'W') { ctx.save(); ctx.globalAlpha *= Math.min(.72, a); fn('W'); ctx.restore() } };
   // дальняя рука, дальняя нога, задняя пола
   if (want('armF')) { if (miss.armF) { if (!only) rigStump(ch, G, 'stumpShF', v) } else { if (G.weapon && G.weapon.arm === 1) rigWeapon(ch, G, v); lit('armF', w => rigArm(ch, G, 1, w)) } }
   if (want('legF')) { if (miss.legF) { if (!only) rigStump(ch, G, 'stumpHipF', v) } else legT(() => lit('legF', w => rigLeg(ch, G, 1, w))) }

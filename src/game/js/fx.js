@@ -20,7 +20,7 @@ const FX = {
   _grad(stops) { const c = mkCanvas(64, 64), x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); for (const [o, v] of stops) g.addColorStop(o, v); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c },
   ember(x, z, h) { this.P.push({ k: 'ember', x, z, h, vx: rnd(-15, 15), vz: 0, vh: rnd(50, 110), t: 0, life: rnd(.5, 1.1), g: -20 }) },
   smoke(x, z, h, n = 6, col = '20,18,28', sz = 30) { for (let i = 0; i < n; i++) this.P.push({ k: 'smoke', x: x + rnd(-20, 20), z, h: h + rnd(-20, 20), vx: rnd(-40, 40), vz: 0, vh: rnd(20, 70), t: 0, life: rnd(.6, 1.2), s: sz * rnd(.6, 1.3), col, g: -10 }) },
-  poison(x, z, n = 14) { for (let i = 0; i < n; i++) this.P.push({ k: 'smoke', a: .2, x: x + rnd(-44, 44), z: z + rnd(-.03, .03), h: rnd(0, 34), vx: rnd(-40, 40), vz: 0, vh: rnd(8, 46), t: 0, life: rnd(.9, 1.9), s: rnd(14, 30), col: pick(['62,120,58', '96,150,64', '40,84,52', '130,170,80']), g: -5 }) },
+  poison(x, z, n = 14) { for (let i = 0; i < n; i++) this.P.push({ k: 'smoke', a: .3, x: x + rnd(-44, 44), z: z + rnd(-.03, .03), h: rnd(0, 34), vx: rnd(-40, 40), vz: 0, vh: rnd(8, 46), t: 0, life: rnd(.9, 1.9), s: rnd(18, 36), col: pick(['62,120,58', '96,150,64', '40,84,52', '130,170,80']), g: -5 }) },
   soulMote(x, z, h, col) { this.P.push({ k: 'mote', col, x, z, h, vx: rnd(-20, 20), vz: 0, vh: rnd(15, 50), t: 0, life: rnd(.6, 1.2), g: -10 }) },
   ring(x, z, r1 = 220, life = .55, col = '200,215,240', w = 3) { this.rings.push({ x, z, r1, t: 0, life, col, w }) },
   crack(x, z, s = 1, life = 7) { this.cracks.push({ x, z, s, t: 0, life, i: (Math.random() * IM.cracks.length) | 0, flip: Math.random() < .5 }) },

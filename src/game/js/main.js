@@ -5,13 +5,15 @@ const PHASES = [
   { type: 'wave', name: 'Волна 2', spawn: { ghoul: 4, knight: 1, doctor: 1 } },
   { type: 'boss', id: 'guardian', level: 0 },
   { type: 'wave', name: 'Волна 3', spawn: { goatman: 1, knight: 2, doctor: 1, ghoul: 2 } },
-  { type: 'wave', name: 'Волна 4', spawn: { goatman: 2, doctor: 2, ghoul: 3, knight: 2 } },
+  { type: 'wave', name: 'Волна 4', spawn: { goatman: 2, doctor: 1, ghoul: 3, knight: 2 } },
   { type: 'boss', id: 'executioner', level: 1 },
 ];
 const Game = {
   scene: 'load', t: 0, time: 0, score: 0, level: 0, stats: { solved: 0, tasks: 0, broken: 0, hits: 0, topics: {} }, pi: -1, phase: null, queue: [], spawnT: 0, hs: 0, nextT: 0, loadK: 0, deadT: 0, test: false, side: 1,
   diff: 0, dmgK: 1, healFx: 0, healAmt: 0, check: null, sealing: false,
   hitStop(d) { this.hs = Math.max(this.hs, d) },
+  // серия попаданий без пропущенного удара: каждое попадание продлевает её на 2,5 с и даёт очки
+  chain() { this.chainN = (this.chainT > 0 ? this.chainN : 0) + 1; this.chainT = 2.5; this.chainPop = 1; if (this.chainN >= 3) this.score += Math.min(10, this.chainN); this.stats.best = Math.max(this.stats.best || 0, this.chainN) },
   heal(n) { const H = Hero.H, h0 = H.hp; H.hp = Math.min(H.maxhp, H.hp + n); this.healAmt = Math.round(H.hp - h0); if (this.healAmt > 0) this.healFx = 1.6 },
   setDiff(d) { this.diff = d; this.dmgK = d ? .5 : 1; Soul.TMAX = d ? 130 : 95 },
   reset0() { Snd.init(); FX.reset(); Enemies.reset(); Boss.reset(); Soul.reset(); this.setDiff(this.diff) },
@@ -24,15 +26,17 @@ const Game = {
   retry() {
     const c = this.check; if (!c) return this.start();
     this.reset0(); Object.assign(this, { scene: 'play', time: c.time, score: c.score, level: c.level, stats: JSON.parse(JSON.stringify(c.stats)), pi: c.pi - 1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false, sealBroken: false });
-    Hero.reset(W.ARENA / 2 - 260, .62); Eye.reset(Hero.H.x - 60, .62); Cam.snap(Hero.H.x); this.next(true);
+    Hero.reset(W.ARENA / 2 - 260, .62); Eye.reset(Hero.H.x - 60, .62); Cam.snap(Hero.H.x); this.check = c; this.next(true);
   },
   next(retry) {
     this.pi++; if (this.pi >= PHASES.length) { this.scene = 'win'; this.endT = this.t; Snd.setMode('victory'); Snd.correct(); return }
     const P = this.phase = PHASES[this.pi]; if (!retry && this.pi) this.heal(40);
-    this.check = { pi: this.pi, score: this.score, level: P.level ?? this.level, stats: JSON.parse(JSON.stringify(this.stats)), time: this.time };
+    if (!retry || !this.check || this.check.pi !== this.pi) this.check = { pi: this.pi, score: this.score, level: P.level ?? this.level, stats: JSON.parse(JSON.stringify(this.stats)), time: this.time };
     if (P.type === 'wave') { this.queue = shuffle(Object.entries(P.spawn).flatMap(([k, n]) => Array(n).fill(k))); this.spawnT = 1.6; UI.banner(P.name, this.pi < 2 ? 'F или ПКМ чуть раньше удара — отбить и оглушить врага' : 'Враги выходят из ворот', undefined, this.pi < 2 ? 3.2 : undefined); Snd.setMode('wave') }
     else { this.level = P.level; this.queue = []; this.bossT = 1.2; UI.banner(DRESS[P.id].name, this.level ? 'Отбитый удар раскалывает руку босса · волну по земле не отбить' : 'Разбей конечности — собери ответ из осколков', '#f0e2c0', 3.2); Snd.setMode('boss') }
   },
+  // разбитая и «запечатанная» верным ответом конечность — контрольная точка: после поражения бой с боссом продолжается без неё
+  limbCheckpoint(parts) { if (this.check) Object.assign(this.check, { limbs: parts, score: this.score, stats: JSON.parse(JSON.stringify(this.stats)), time: this.time }) },
   bossDown(id) { this.score += 500; UI.banner(DRESS[id].name + ' повержен', '', '#bfefff', 2.6); this.nextT = 3 },
   // волна отбита: печать монолита — задача без боя, верный ответ возвращает силы
   waveDone() { if (this.sealBroken) { this.sealBroken = false; this.nextT = 1.2; return } this.sealing = true; Snd.seal(); Soul.seal(); if (!this.soulSeen) { this.soulSeen = 1; UI.banner('Печать монолита', 'Душа выходит из тела: собери цифры ответа (E) и сложи их на монолите', '#bfefff', 4.6) } },
@@ -49,7 +53,7 @@ const Game = {
   },
   step(dt) {
     if (this.scene === 'load') return;
-    this.t += dt; if (this.scene !== 'pause') { UI.step(dt); this.healFx = Math.max(0, this.healFx - dt); this.hurtFx = Math.max(0, (this.hurtFx || 0) - dt * 2.4) } // в паузе надписи не убегают
+    this.t += dt; if (this.scene !== 'pause') { UI.step(dt); this.healFx = Math.max(0, this.healFx - dt); this.hurtFx = Math.max(0, (this.hurtFx || 0) - dt * 2.4); this.chainT = Math.max(0, (this.chainT || 0) - dt); this.chainPop = Math.max(0, (this.chainPop || 0) - dt * 6) } // в паузе надписи не убегают
     if (Input.hit('Minus') || Input.hit('NumpadSubtract')) Snd.setVol(Snd.vol - .1); if (Input.hit('Equal') || Input.hit('NumpadAdd')) Snd.setVol(Snd.vol + .1);
     if (this.scene === 'title') {
       if (Input.hit('ArrowLeft') || Input.hit('KeyA')) this.setDiff(0); if (Input.hit('ArrowRight') || Input.hit('KeyD')) this.setDiff(1);
@@ -77,7 +81,7 @@ const Game = {
       this.spawnT -= dt; if (this.queue.length && Enemies.alive() < 4 && this.spawnT <= 0) { this.side = -this.side; Enemies.spawn(this.queue.shift(), Math.abs(H.x - W.GL) > 700 && Math.abs(H.x - W.GR) > 700 ? this.side : (H.x < W.ARENA / 2 ? 1 : -1)); this.spawnT = 1.5 }
       if (!this.queue.length && !Enemies.list.length && !this.nextT && !this.sealing && !Soul.on) { this.sealT = (this.sealT || 0) + dt; if (this.sealT > 1.2) { this.sealT = 0; this.waveDone() } }
     }
-    if (P && P.type === 'boss' && this.bossT > 0) { this.bossT -= dt; if (this.bossT <= 0) Boss.spawn(P.id) }
+    if (P && P.type === 'boss' && this.bossT > 0) { this.bossT -= dt; if (this.bossT <= 0) { const B = Boss.spawn(P.id); for (const l of (this.check && this.check.pi === this.pi && this.check.limbs) || []) { B.limbs[l].alive = false; B.limbs[l].hp = 0; B.missing[l] = true } } }
     if (this.nextT > 0) { this.nextT -= dt; if (this.nextT <= 0) { this.nextT = 0; this.next() } }
     // камера
     if (Soul.on && Soul.ph !== 'off') Cam.update(dt, Soul.x, Soul.face * .4); else Cam.update(dt, H.x, Hero.FACE);
@@ -100,15 +104,17 @@ const Game = {
     if (!this.vig) { this.vig = mkCanvas(VW / 2, VH / 2); const x = this.vig.getContext('2d'), vg = x.createRadialGradient(VW / 4, VH / 4, VH * .225, VW / 4, VH / 4, VH * .475); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,8,.55)'); x.fillStyle = vg; x.fillRect(0, 0, VW / 2, VH / 2) }
     ctx.drawImage(this.vig, 0, 0, VW, VH);
     // получен урон — края экрана вспыхивают красным; мало здоровья — края тихо пульсируют
-    { const H = Hero.H, low = this.scene === 'play' && !H.dead && H.hp < H.maxhp * .25 ? .22 + .12 * Math.sin(t * 5) : 0, a = Math.max(low, (this.hurtFx || 0) * .75);
-      if (a > .01) { if (!this.vigR) { this.vigR = mkCanvas(VW / 4, VH / 4); const x = this.vigR.getContext('2d'), vg = x.createRadialGradient(VW / 8, VH / 8, VH * .1, VW / 8, VH / 8, VH * .26); vg.addColorStop(0, 'rgba(255,30,20,0)'); vg.addColorStop(1, 'rgba(255,30,20,.9)'); x.fillStyle = vg; x.fillRect(0, 0, VW / 4, VH / 4) } ctx.globalAlpha = a; ctx.drawImage(this.vigR, 0, 0, VW, VH); ctx.globalAlpha = 1 } }
+    { const H = Hero.H, low = this.scene === 'play' && !H.dead && H.hp < H.maxhp * .25 ? .22 + .12 * Math.sin(t * 5) : 0, a = Math.max(low, (this.hurtFx || 0) * .8);
+      if (a > .01) { if (!this.vigR) { const w = VW / 4, h = VH / 4; this.vigR = mkCanvas(w, h); const x = this.vigR.getContext('2d'); x.scale(1, h / w); const vg = x.createRadialGradient(w / 2, w / 2, w * .4, w / 2, w / 2, w * .72); vg.addColorStop(0, 'rgba(255,30,20,0)'); vg.addColorStop(1, 'rgba(255,30,20,.85)'); x.fillStyle = vg; x.fillRect(0, 0, w, w) } ctx.globalAlpha = a; ctx.drawImage(this.vigR, 0, 0, VW, VH); ctx.globalAlpha = 1 } }
     if (this.scene === 'title' || this.scene === 'load') UI.title(t, this.loadK);
     else { UI.hud(); if (this.scene === 'pause') UI.pause(); if (this.scene === 'win' || this.scene === 'lose') UI.end(this.scene === 'win', t) }
   },
 };
 // ---------- холст: 16:9, чёткость на экранах с высокой плотностью ----------
+// (если кадры идут медленнее ~48 в секунду, разрешение холста ступенями снижается: плавность важнее чёткости)
+let renderQ = 1; const ftimes = [];
 function fit() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2), ww = innerWidth, wh = innerHeight, k = Math.min(ww / VW, wh / VH), cw = Math.floor(VW * k), ch = Math.floor(VH * k);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2) * renderQ, ww = innerWidth, wh = innerHeight, k = Math.min(ww / VW, wh / VH), cw = Math.floor(VW * k), ch = Math.floor(VH * k);
   cvs.style.width = cw + 'px'; cvs.style.height = ch + 'px'; cvs.width = Math.floor(cw * dpr); cvs.height = Math.floor(ch * dpr); Game.k = cvs.width / VW;
 }
 addEventListener('resize', fit); fit();
@@ -126,7 +132,8 @@ function frame(ts) {
   try { frameBody(ts) } catch (e) { if (!frame.err) { frame.err = 1; console.warn(e) } }
 }
 function frameBody(ts) {
-  const dt = last ? Math.min(.1, (ts - last) / 1000) : DT; last = ts;
+  const raw = last ? (ts - last) / 1000 : DT, dt = Math.min(.1, raw); last = ts;
+  if (!Game.test && Game.scene === 'play' && raw < .25) { ftimes.push(raw); if (ftimes.length >= 150) { const avg = ftimes.reduce((a, b) => a + b, 0) / ftimes.length; ftimes.length = 0; if (avg > .021 && cvs.width > VW * .8) { renderQ *= .8; fit() } } }
   if (!Game.test) { acc += dt; let n = 0; while (acc >= DT && n < 5) { Game.step(DT); acc -= DT; n++ } if (n === 5) acc = 0 }
   ctx = cvs.getContext('2d'); ctx.setTransform(Game.k, 0, 0, Game.k, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'low'; // все картинки заранее уменьшены почти до экранного размера — билинейной выборки хватает
   ctx.fillStyle = '#05060c'; ctx.fillRect(0, 0, VW, VH);

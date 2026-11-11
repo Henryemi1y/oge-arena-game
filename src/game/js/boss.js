@@ -5,16 +5,16 @@
 const LIMBS = ['armN', 'armF', 'legN', 'legF'];
 const LIMB_NAME = { armN: 'Ближняя рука', armF: 'Дальняя рука', legN: 'Ближняя нога', legF: 'Дальняя нога' };
 const BOSSDEF = {
-  guardian: { hp: { armN: 190, armF: 190, legN: 210, legF: 210 }, atks: ['slam', 'sweep', 'stomp', 'wave'], cd: [2.2, 3.2], speedK: 1 },
-  executioner: { hp: { armN: 210, armF: 210, legN: 230, legF: 230 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [1.5, 2.4], speedK: 1.15 },
+  guardian: { hp: { armN: 190, armF: 190, legN: 210, legF: 210 }, atks: ['slam', 'sweep', 'stomp', 'wave'], cd: [2.5, 3.5], speedK: 1 },
+  executioner: { hp: { armN: 210, armF: 210, legN: 230, legF: 230 }, atks: ['chop', 'cleave', 'stomp', 'wave'], cd: [2.0, 3.0], speedK: 1.15 },
 };
 // ключи атак: wk — поза замаха; hit — высота цели над полом ('g' — пол, 'c' — грудь героя); D — желаемая дальность (доля длины руки)
 const BATK = {
-  slam: { arm: 1, wind: .95, strike: .24, hold: .8, rec: .6, dmg: 16, th: .82, r: 78, wk: { ru: -3.35, flex: .7, crouch: .05, lean: -.2 }, D: .62 },
-  sweep: { arm: 1, wind: .7, strike: .2, hold: .3, rec: .55, dmg: 12, th: .42, r: 72, wk: { ru: 1.35, flex: .3, crouch: .06, lean: -.14 }, D: .72 },
+  slam: { arm: 1, wind: .95, strike: .24, hold: .8, rec: .6, dmg: 14, th: .82, r: 78, wk: { ru: -3.35, flex: .7, crouch: .05, lean: -.2 }, D: .62 },
+  sweep: { arm: 1, wind: .8, strike: .2, hold: .3, rec: .55, dmg: 10, th: .42, r: 72, wk: { ru: 1.35, flex: .3, crouch: .06, lean: -.14 }, D: .72 },
   wave: { arm: 1, wind: .8, strike: .2, hold: .55, rec: .55, dmg: 10, th: 0, r: 60, wk: { ru: -3.2, flex: .6, crouch: .02, lean: -.15 }, D: .5, far: 1 },
-  chop: { arm: 1, axe: 1, wind: 1.0, strike: .2, hold: 1.1, rec: .7, dmg: 18, th: 0, r: 80, wk: { ru: -3.15, flex: 1.0, crouch: 0, lean: -.22, axeC: 2.75 }, axeHit: 1.35, D: .62 },
-  cleave: { arm: 1, axe: 1, wind: .75, strike: .22, hold: .16, rec: .7, dmg: 13, th: .45, r: 80, wk: { ru: 1.2, flex: .5, crouch: .03, lean: -.12, axeC: .9 }, axeHit: 1.55, D: .78 },
+  chop: { arm: 1, axe: 1, wind: 1.0, strike: .2, hold: 1.1, rec: .7, dmg: 15, th: 0, r: 80, wk: { ru: -3.15, flex: 1.0, crouch: 0, lean: -.22, axeC: 2.75 }, axeHit: 1.35, D: .62 },
+  cleave: { arm: 1, axe: 1, wind: .85, strike: .22, hold: .16, rec: .7, dmg: 11, th: .45, r: 80, wk: { ru: 1.2, flex: .5, crouch: .03, lean: -.12, axeC: .9 }, axeHit: 1.55, D: .78 },
   stomp: { leg: 1, wind: .85, strike: .15, hold: .35, rec: .5, dmg: 13, radius: 200 },
 };
 const Boss = {
@@ -146,7 +146,19 @@ const Boss = {
     const off = B.R.axe ? 1 - B.weaponArm : -1;
     if (close && off >= 0 && off !== B.weaponArm && B.limbs[off ? 'armF' : 'armN'].alive && Math.random() < (B.gait === 'sit' ? .85 : .45)) return { ...BATK.sweep, key: 'punch', ai: off, dmg: 10, wind: .6 };
     if (close && list.includes('stomp') && Math.random() < .6) return mk('stomp');
-    const wl = list.flatMap(k => BATK[k].leg ? [k] : [k, k, k]); return mk(pick(wl));
+    const wl = list.flatMap(k => BATK[k].leg ? [k] : [k, k, k]); let A = mk(pick(wl));
+    // сидящий босс не может подойти: если выбранным ударом героя не достать, берётся любой достающий, иначе — волна по земле
+    // (раньше он раз за разом выбирал недостающий удар и не атаковал вовсе)
+    if (B.gait === 'sit' && !A.leg && (A.far || !this.plan(B, A, this.targetFor(B, A)))) {
+      const ok = k => { const X = BATK[k]; return !X.leg && !(X.arm && ai < 0) && !(X.axe && !B.R.axe) && !(!X.axe && B.R.axe && X.arm && !X.far) };
+      const cand = shuffle(B.D.atks.filter(ok)).map(mk), near = cand.find(X => !X.far && this.plan(B, X, this.targetFor(B, X))), adx = Math.abs(h.x - B.x);
+      if (near) A = near;
+      // палач с одним топором сидя не достаёт героя вплотную (у топора длинный рычаг), а волна уходит за спину героя:
+      // он бьёт топором в пол перед собой — удар расходится кругом, отмеченным на полу
+      else if (B.R.axe && adx < 330) { for (const D of [.55, .62, .7, .8]) { const Q = { ...BATK.chop, far: 1, D, r: 190, dmg: 12, key: 'quake' }; if (this.plan(B, Q, this.targetFor(B, Q))) { A = Q; break } } }
+      else { const far = cand.find(X => X.far && this.plan(B, X, this.targetFor(B, X))); if (far) A = far }
+    }
+    return A;
   },
   startAtk(B, A, T, pl) {
     B.st = 'atk'; B.t = 0; B.atk = { A, T, pl, ph: 'wind', t: 0, z0: B.z, done: 0 }; B.next = null; B.nextT = 0; B.trail = []; Snd.windup(B.id === 'guardian' ? 1 : .8);
@@ -241,7 +253,8 @@ const Boss = {
     FX.flash(P.x, B.z, zy(B.z) - P.y, A.axe ? 120 : 90, '255,220,170', .2);
     k.err = Math.hypot(P.x - T.x, P.y - T.y); B.lastImpact = { err: k.err, P, T, key: A.key || '', z: B.z }; Critic.impacts.push({ id: B.id, key: A.key, err: +k.err.toFixed(2), gait: B.gait, t: Game.time });
     if (!A.th) { Cam.kick(A.axe ? 18 : 15); FX.crack(k.T.x, B.z, A.axe ? 1.2 : 1); FX.dust(k.T.x, B.z, 12, 1); FX.chips(k.T.x, B.z, 4, 14, 420); FX.ring(k.T.x, B.z, 180, .5); Snd.quake(.8); Snd.stoneHit();
-      if (A.far) this.waves.push({ x: k.T.x, z: B.z, dir: B.face, v: 560, t: 0, life: 1.9, hit: 0, acc: 0 });
+      if (A.key === 'quake') { FX.ring(k.T.x, B.z, A.r * 1.2, .6, '255,190,120', 5); if (fdist(h.x, h.z, k.T.x, B.z) < A.r * zs(B.z)) Hero.damage(A.dmg, B.x, 1.6) }
+      else if (A.far) this.waves.push({ x: k.T.x, z: B.z, dir: B.face, v: 560, t: 0, life: 1.9, hit: 0, acc: 0 });
       else if (fdist(h.x, h.z, k.T.x, B.z) < A.r * zs(B.z)) Hero.damage(A.dmg, B.x, 1.6, { boss: B, ai, P, fx: B.x }) }
     else { Cam.kick(10); Snd.stoneHit(); Snd.quake(.4); FX.dust(k.T.x, B.z, 6, .6); FX.ring(k.T.x, B.z, 110, .35, '255,220,180', 3); if (Math.abs(h.x - k.T.x) < A.r && Math.abs(h.z - B.z) < .13) Hero.damage(A.dmg, B.x, 2, { boss: B, ai, P, fx: B.x }) }
   },
@@ -285,7 +298,7 @@ const Boss = {
     Snd.stoneHit(); FX.chips(at[0], B.z, zy(B.z) - at[1], 7, 320); FX.sparks(at[0], B.z, zy(B.z) - at[1], 6, '230,230,255', 260);
     if (!real) { Critic.fake++; return } // душа вне тела: тело дерётся только для вида (без стоп-кадра и тряски — душа не дёргается)
     Cam.kick(4); Game.hitStop(.06);
-    lm.hp -= dmg; B.flash[part] = 1; Game.stats.hits++; lm.showT = 2.2; lm.at = { x: at[0], h: zy(B.z) - at[1] };
+    lm.hp -= dmg; B.flash[part] = 1; Game.stats.hits++; Game.chain(); for (const l of LIMBS) B.limbs[l].showT = 0; lm.showT = 2.2; lm.at = { x: at[0], h: zy(B.z) - at[1] };
     const fc = Hero.FACE; FX.cut(at[0], B.z, zy(B.z) - at[1], [fc > 0 ? 1.0 : PI - 1.0, fc > 0 ? .12 : PI - .12, fc > 0 ? -.9 : PI + .9][b.ak] || 0, 90, B.open > 0 ? '255,226,150' : '235,240,255');
     FX.num(at[0], B.z, zy(B.z) - at[1] + 30, Math.round(dmg), B.open > 0 ? '#ffd98a' : '#e6eeff', B.open > 0 ? 25 : 19);
     if (lm.hp <= 0) this.breakLimb(B, part);
@@ -308,7 +321,7 @@ const Boss = {
   // ответ на монолите: верно — конечность остаётся разрушенной; неверно — собирается обратно с меньшим HP
   limbResult(part, ok) {
     const B = this.b; if (!B) return; const lm = B.limbs[part];
-    if (ok) { if (LIMBS.every(l => !B.limbs[l].alive)) { B.st = 'dying'; B.t = 0; Snd.roar() } return }
+    if (ok) { if (LIMBS.every(l => !B.limbs[l].alive)) { B.st = 'dying'; B.t = 0; Snd.roar() } else Game.limbCheckpoint(LIMBS.filter(l => !B.limbs[l].alive)); return }
     lm.alive = true; lm.max = Math.max(40, Math.round(lm.max * B.regrowK)); lm.hp = lm.max; lm.regrow = 1; B.missing[part] = false;
     if (B.R.axe && part === 'armN') B.weaponArm = 0;
     if (B.st === 'dying') { B.st = 'move'; B.t = 0 }
@@ -329,9 +342,11 @@ const Boss = {
   draw(B) {
     if (B.gone) return; ctx.save(); ctx.globalAlpha = B.alpha * (1 - .65 * Soul.fadeFor(B.x)); const flash = {}; for (const l of LIMBS) { const lm = B.limbs[l]; if (lm.alive) flash[l] = Math.max((B.flash[l] || 0) ** 2, lm.regrow) * .7 } drawRig(B, { flash });
     ctx.restore();
+    // после отбитого удара босс открыт: надпись над ним, пока удары по нему сильнее
+    if (B.open > 0 && !Hero.H.soul) { const a = Math.min(1, B.open * 3), y = zy(B.z) - this.L(B) * (B.gait === 'sit' ? 2.2 : 3.4) * this.s(B); ctx.globalAlpha = a; UI.text('Открыт — бей!', sx(B.x), y, 24, '#ffe09a', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1 }
     // полоска прочности — прямо у конечности, по которой бьют
     for (const l of LIMBS) { const lm = B.limbs[l]; if (!(lm.showT > 0) || !lm.alive || !lm.at) continue; const w = 78, x = sx(lm.at.x) - w / 2, y = zy(B.z) - lm.at.h - 62, k = cl(lm.hp / lm.max, 0, 1); ctx.globalAlpha = Math.min(1, lm.showT * 2);
-      ctx.fillStyle = 'rgba(6,8,14,.85)'; ctx.fillRect(x - 2, y - 2, w + 4, 11); ctx.fillStyle = k > .35 ? '#9fd2ff' : '#ffb27a'; ctx.fillRect(x, y, w * k, 7); UI.text(LIMB_NAME[l], sx(lm.at.x), y - 6, 13, '#cfe0f5', FONT_UI, 'center', 600); ctx.globalAlpha = 1 }
+      ctx.fillStyle = 'rgba(6,8,14,.85)'; ctx.fillRect(x - 2, y - 2, w + 4, 11); ctx.fillStyle = k > .35 ? '#9fd2ff' : '#ffb27a'; ctx.fillRect(x, y, w * k, 7); ctx.globalAlpha = 1 }
     // след оружия в ударе
     if (B.trail && B.trail.length > 1) { ctx.save(); ctx.lineCap = 'round'; for (let i = 1; i < B.trail.length; i++) { const a = B.trail[i - 1], b = B.trail[i], al = 1 - (B.t - b.t) / .22; if (al <= 0) continue; ctx.strokeStyle = B.R.axe ? `rgba(255,170,110,${.55 * al})` : `rgba(200,220,255,${.45 * al})`; ctx.lineWidth = (B.R.axe ? 22 : 30) * al; ctx.beginPath(); ctx.moveTo(sx(a.x), a.y); ctx.lineTo(sx(b.x), b.y); ctx.stroke() } ctx.restore() }
   },

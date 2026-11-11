@@ -9,7 +9,8 @@ const angDiff = (a, b) => { let d = (b - a) % TAU; if (d > PI) d -= TAU; if (d <
 const VW = 1280, VH = 720, DT = 1 / 60;
 
 // Мир: x — пиксели арены (ортографически), z ∈ [0,1] — глубина полосы пола (0 — у стены, 1 — у зрителя).
-const W = { ARENA: 3400, FLOOR_TOP: 430, FAR_Y: 476, NEAR_Y: 692, CS: .165, GL: 170, GR: 3400 - 170 };
+// арена — чуть больше двух экранов: от ворот до героя враги доходят за секунды, а не за четверть минуты
+const W = { ARENA: 2800, FLOOR_TOP: 430, FAR_Y: 476, NEAR_Y: 692, CS: .165, GL: 170, GR: 2800 - 170 };
 W.XMIN = W.GL + 80; W.XMAX = W.GR - 80;
 const zy = z => lp(W.FAR_Y, W.NEAR_Y, z), zs = z => lp(.84, 1, z), ZPX = W.NEAR_Y - W.FAR_Y;
 

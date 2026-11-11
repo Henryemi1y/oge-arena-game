@@ -44,7 +44,7 @@ const Soul = {
     for (const s of this.shards) if (s.back) { s.t += dt; const k = sm(s.t / 1); s.x = lp(s.bx, s.tx, k); s.z = lp(s.bz, s.tz, k); s.h = lp(s.bh, s.th, k) + Math.sin(PI * k) * 120; if (s.t >= 1) s.gone = 1 }
     if (this.ph === 'out') { const k = sm(this.t / .8); this.alpha = k * .92; this.h = lp(Hero.height() * .55, 70, k); if (Math.random() < .6) FX.soulMote(this.x + rnd(-20, 20), this.z, this.h + rnd(0, 80)); if (this.t > .8) { this.ph = 'free'; this.t = 0 } }
     else if (this.ph === 'free') {
-      this.T -= dt; this.used += dt; const a = Input.axis(), sp = a.run ? 400 : 300, ax = a.x * sp, az = a.z * (a.run ? 1.2 : .95);
+      this.T -= dt; this.used += dt; const a = Input.axis(), sp = a.run ? 520 : 380, ax = a.x * sp, az = a.z * (a.run ? 1.45 : 1.15);
       this.vx = lp(this.vx, ax, 1 - Math.exp(-dt * 9)); this.vz = lp(this.vz, az, 1 - Math.exp(-dt * 9));
       this.x = cl(this.x + this.vx * dt, W.XMIN, W.XMAX); this.z = cl(this.z + this.vz * dt, 0, 1); if (Math.abs(this.vx) > 20) this.face = Math.sign(this.vx);
       this.h = 70 + 10 * Math.sin(this.t * 2.2); if (Math.random() < .35) FX.soulMote(this.x - this.face * rnd(0, 30), this.z, this.h + rnd(-10, 60));
@@ -159,13 +159,12 @@ const Soul = {
   drawAnswer() {
     const [px, py, pw, ph] = this.mp, tt = performance.now() / 1000;
     // на монолите — уравнение (дроби столбиком, перенос по «=» или «;») и под ним ячейки ответа с цифрами
-    const n = this.slots, at = this.atMonolith(), cw = Math.min(34, (pw - 8) / n), x0 = px + pw / 2 - cw * n / 2, cy = py + ph - 34;
+    const n = this.slots, at = this.atMonolith(), cw = Math.min(40, (pw - 8) / n), x0 = px + pw / 2 - cw * n / 2, cy = py + ph / 2 + 8;
     ctx.save(); ctx.fillStyle = 'rgba(6,10,22,.55)'; ctx.fillRect(px, py, pw, ph);
-    const fr = /\d\/|x\//.test(this.prob.t), lines = wrapEq(this.prob.t, pw - 10, fr ? 21 : 22), lh = lines.size * (fr ? 1.75 : 1.25), top = py + (ph - 62) / 2 - lh * (lines.lines.length - 1) / 2 + lines.size * .36;
-    ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 8; lines.lines.forEach((l, i) => mathText(l, px + pw / 2, top + i * lh, lines.size, '#dff6ff', 'center', pw - 8)); ctx.shadowBlur = 0;
+    ctx.font = `600 15px ${FONT_UI}`; ctx.textAlign = 'center'; ctx.fillStyle = '#9fd0ea'; ctx.fillText('Ответ', px + pw / 2, cy - 30);
     for (let i = 0; i < n; i++) { const s = this.placed[i], nx = i === this.placed.length && at && this.carried.length;
-      ctx.fillStyle = s ? 'rgba(40,110,170,.4)' : 'rgba(10,20,40,.6)'; ctx.fillRect(x0 + i * cw + 2, cy - 17, cw - 4, 34);
-      ctx.strokeStyle = this.confirm > 0 && s ? 'rgba(255,217,138,.95)' : nx ? `rgba(255,230,160,${.6 + .4 * Math.sin(tt * 8)})` : 'rgba(140,220,255,.7)'; ctx.lineWidth = nx ? 2.5 : 1.5; ctx.strokeRect(x0 + i * cw + 2, cy - 17, cw - 4, 34);
+      ctx.fillStyle = s ? 'rgba(40,110,170,.4)' : 'rgba(10,20,40,.6)'; ctx.fillRect(x0 + i * cw + 2, cy - 20, cw - 4, 40);
+      ctx.strokeStyle = this.confirm > 0 && s ? 'rgba(255,217,138,.95)' : nx ? `rgba(255,230,160,${.6 + .4 * Math.sin(tt * 8)})` : 'rgba(140,220,255,.7)'; ctx.lineWidth = nx ? 2.5 : 1.5; ctx.strokeRect(x0 + i * cw + 2, cy - 20, cw - 4, 40);
       if (s) this.drawShardAt(s, x0 + i * cw + cw / 2, cy, (cw + 4) / 74) }
     ctx.restore();
   },

@@ -16,6 +16,8 @@ const UI = {
     // здоровье
     this.panel(16, 14, 300, 56); this.text('Здоровье', 28, 36, 18, '#aeb9cf'); this.text(`${Math.ceil(H.hp)}`, 304, 36, 18, '#f1d7d2', FONT_UI, 'right');
     this.bar(28, 45, 276, 14, H.hp / H.maxhp, '#e0574a', '#8e2420'); if (G.healFx > 0) { ctx.globalAlpha = G.healFx; this.text(`+${G.healAmt}`, 320, 54, 18, '#9dffb8', FONT_UI, 'left', 700); ctx.globalAlpha = 1 }
+    // серия попаданий
+    if (G.chainT > 0 && G.chainN >= 3 && !Soul.on) { const a = Math.min(1, G.chainT * 2), sc = 1 + .25 * (G.chainPop || 0); ctx.globalAlpha = a; this.text(`Серия ×${G.chainN}`, 28, 98, Math.round(22 * sc), G.chainN >= 10 ? '#ffd98a' : '#cfe6ff', FONT_TITLE, 'left', 700); ctx.globalAlpha = 1 }
     // очки и решённые задачи
     this.panel(VW - 246, 14, 230, G.stats.tasks ? 58 : 36); this.text(`Очки: ${G.score}`, VW - 234, 38, 19, '#e6d9b8'); if (G.stats.tasks) this.text(`Решено: ${G.stats.solved} из ${G.stats.tasks}`, VW - 234, 62, 17, '#9fd8f0');
     this.text(Snd.muted ? 'M — звук выкл' : 'M — звук', VW - 28, 36, 13, '#7f8aa0', FONT_UI, 'right', 500);
@@ -35,24 +37,26 @@ const UI = {
     // баннеры
     // в форме души экран занят табличкой и монолитом — баннер идёт одной строкой над подсказкой внизу
     if (live) for (const b of this.banners) { const k = b.t / b.life, a = Math.min(1, b.t * 4) * Math.min(1, (b.life - b.t) * 2.5); ctx.globalAlpha = a;
-      if (Soul.on) this.text(b.text, VW / 2, VH - 76, 26, b.col, FONT_TITLE, 'center', 700);
+      if (Soul.on && Soul.ph === 'result') { } else if (Soul.on) this.text(b.text, this.tabX || VW / 2, (this.tabB || 218) + 66, 26, b.col, FONT_TITLE, 'center', 700); // под табличкой: внизу надпись ложилась на душу и подсказку
       else { const y = VH * .34 - 10 * k; this.text(b.text, VW / 2, y, 52, b.col, FONT_TITLE, 'center', 700); if (b.sub) this.text(b.sub, VW / 2, y + 36, 21, '#c2cde2', FONT_UI, 'center', 500) } ctx.globalAlpha = 1 }
   },
   soulTablet() {
     // табличка уходит в сторону от босса, чтобы не закрывать ему голову
-    const S = Soul, w = 470, h = 124, B = Boss.b, bx = B && !B.gone ? sx(B.x) : null, want = bx == null || bx < -200 || bx > VW + 200 ? VW / 2 : bx > VW / 2 ? 290 : VW - 290;
+    const S = Soul, mp = S.mp, mono = !!mp && mp[0] > 30 && mp[0] + mp[2] < VW - 30;     const w = 470, h = 124, B = Boss.b, bx = B && !B.gone ? sx(B.x) : null, want = bx == null || bx < -200 || bx > VW + 200 ? VW / 2 : bx > VW / 2 ? 290 : VW - 290;
     this.tabX = this.tabX == null ? want : lp(this.tabX, want, .08); const cx = this.tabX, x = cx - w / 2, y = Boss.b ? 94 : 60; this.tabB = y + h;
+    let full = S.full();
     ctx.save(); rr(x, y, w, h, 10); ctx.fillStyle = this.pat(); ctx.fill(); ctx.fillStyle = 'rgba(8,12,24,.84)'; ctx.fill(); ctx.strokeStyle = 'rgba(120,200,255,.55)'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
     this.text(S.prob.c, x + 16, y + 24, 16, '#8fcbe6', FONT_UI, 'left', 600);
     // уравнение: дроби — столбиком, как в бланке ОГЭ
-    ctx.save(); ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10; mathText(S.prob.t, cx, y + 60, 26, '#dcf6ff', 'center', w - 40); ctx.restore();
+    ctx.save(); ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10; mathText(S.prob.t, cx, y + (mono ? 66 : 60), mono ? 30 : 26, '#dcf6ff', 'center', w - 40); ctx.restore();
     // ячейки ответа
-    const n = S.slots, cw = 34, x0 = cx - n * cw / 2, cy = y + 104, full = S.full();
+    const n = mono ? 0 : S.slots, cw = 34, x0 = cx - n * cw / 2, cy = y + 104;
+    if (mono) this.text('ответ собирается на монолите', cx, y + 110, 13, '#7f93a8', FONT_UI, 'center', 500);
     for (let i = 0; i < n; i++) { ctx.strokeStyle = S.confirm > 0 && i < S.placed.length ? 'rgba(255,217,138,.95)' : full ? 'rgba(160,255,200,.8)' : 'rgba(140,220,255,.55)'; ctx.lineWidth = 1.5; ctx.strokeRect(x0 + i * cw + 3, cy - 14, cw - 6, 28); const s = S.placed[i]; if (s) Soul.drawShardAt(s, x0 + i * cw + cw / 2, cy, .42) }
     // время души
     const k = S.T / S.TMAX; this.bar(x + w - 124, y + 14, 108, 8, k, k > .3 ? '#7fe3ff' : '#ff9a7a', k > .3 ? '#2c8fbf' : '#b0402a'); this.text(`${Math.ceil(S.T)} с`, x + w - 16, y + 39, 15, S.T < 10 ? '#ffb59a' : '#a9d9ee', FONT_UI, 'right', 600);
     // в руках: первая цифра ляжет следующей
-    if (S.carried.length) { this.text('В руках:', x + 16, y + 110, 15, '#9fb8cc', FONT_UI, 'left', 500); S.carried.forEach((s, i) => { if (!i) { ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 2; ctx.strokeRect(x + 84 + i * 30, y + 92, 26, 26) } Soul.drawShardAt(s, x + 97 + i * 30, y + 105, .34) }) }
+    if (S.carried.length) { const hy = mono ? h + 6 : 92; if (mono) { this.panel(x, y + h + 2, 196, 34, .8) } this.text('В руках:', x + 16, y + hy + 18, 15, '#9fb8cc', FONT_UI, 'left', 500); S.carried.forEach((s, i) => { if (!i) { ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 2; ctx.strokeRect(x + 84 + i * 30, y + hy, 26, 26) } Soul.drawShardAt(s, x + 97 + i * 30, y + hy + 13, .34) }) }
     // подсказка внизу — по состоянию
     const at = S.atMonolith(), near = S.nearShard(), nx = S.carried[0] ? `«${S.carried[0].d}»` : '';
     const ans = S.placed.map(s => s.d).join('');
@@ -81,13 +85,13 @@ const UI = {
     this.controls(y + 70);
     // сложность
     const D = [['Обычная', 'полный урон · 95 с на ответ'], ['Лёгкая', 'урон вдвое меньше · 130 с']], by = VH - 128;
-    D.forEach(([n, d], i) => { const sel = Game.diff === i, x = VW / 2 - 250 + i * 260; this.panel(x, by, 240, 54, sel ? .85 : .45); if (sel) { ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 2; rr(x, by, 240, 54, 6); ctx.stroke() } this.text(n, x + 120, by + 24, 20, sel ? '#ffe7b0' : '#9aa6bb', FONT_TITLE, 'center', 700); this.text(d, x + 120, by + 44, 13, sel ? '#cfd8e8' : '#7d889c', FONT_UI, 'center', 500) });
+    D.forEach(([n, d], i) => { const sel = Game.diff === i, x = VW / 2 - 250 + i * 260; this.panel(x, by, 240, 54, sel ? .92 : .8); if (sel) { ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 2; rr(x, by, 240, 54, 6); ctx.stroke() } this.text(n, x + 120, by + 24, 20, sel ? '#ffe7b0' : '#9aa6bb', FONT_TITLE, 'center', 700); this.text(d, x + 120, by + 44, 13, sel ? '#cfd8e8' : '#7d889c', FONT_UI, 'center', 500) });
     if (loadK < 1) this.text(`Загрузка… ${Math.round(loadK * 100)}%`, VW / 2, VH - 30, 22, '#9fb0c8', FONT_UI, 'center', 600);
-    else { ctx.globalAlpha = .55 + .45 * Math.sin(t * 3.2); this.text('← / → — сложность · Enter или щелчок — начать', VW / 2, VH - 32, 24, '#f3e7c4', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1 }
+    else { this.panel(VW / 2 - 300, VH - 62, 600, 42, .7); ctx.globalAlpha = .8 + .2 * Math.sin(t * 3.2); this.text('← / → — сложность · Enter или щелчок — начать', VW / 2, VH - 33, 22, '#f3e7c4', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1 }
   },
   controls(y) {
     const lines = [['A / D, ← / →', 'шаг влево и вправо'], ['Shift', 'бег'], ['W / S, ↑ / ↓', 'вглубь и ближе'], ['Space', 'рывок (уворот)'], ['ЛКМ', 'серия из трёх ударов'], ['J / K / L', 'удар сверху, вбок, снизу'], ['F · ПКМ', 'парировать: нажми чуть раньше удара'], ['E · Q · R', 'душой: подобрать / вернуть / порядок'], ['Enter · M · − / +', 'пауза · звук · громкость']];
-    this.panel(VW / 2 - 270, y, 540, lines.length * 25 + 20, .6);
+    this.panel(VW / 2 - 270, y, 540, lines.length * 25 + 20, .88);
     lines.forEach(([k, v], i) => { this.text(k, VW / 2 - 16, y + 28 + i * 25, 17, '#ffd98a', FONT_UI, 'right', 700); this.text(v, VW / 2 + 4, y + 28 + i * 25, 17, '#d5ddec', FONT_UI, 'left', 500) });
   },
   pause() { this.overlay(.62); this.text('Пауза', VW / 2, 170, 64, '#e8eefc', FONT_TITLE, 'center', 700); this.controls(200); this.text('Enter или щелчок — продолжить', VW / 2, VH - 60, 24, '#f3e7c4', FONT_TITLE, 'center', 700); this.text(`Громкость: ${Math.round(Snd.vol * 100)}%`, VW / 2, VH - 30, 16, '#9aa6bb', FONT_UI, 'center', 500) },
@@ -95,8 +99,8 @@ const UI = {
     this.overlay(.68); const G = Game, s = G.stats, tm = Math.floor(G.time);
     ctx.save(); ctx.shadowColor = win ? '#4fd6ff' : '#ff4a3a'; ctx.shadowBlur = 26; this.text(win ? 'Победа' : 'Поражение', VW / 2, 150, 84, win ? '#dff7ff' : '#ffd2cc', FONT_TITLE, 'center', 700); ctx.restore();
     this.text(win ? 'Страж и палач повержены. Арена молчит.' : 'Арена забрала героя. Этап можно пройти заново.', VW / 2, 194, 22, '#b6c3db', FONT_UI, 'center', 500);
-    this.panel(VW / 2 - 440, 222, 400, 128, .6);
-    [['Решено задач', `${s.solved} из ${s.tasks}`], ['Разбито конечностей', `${s.broken}`], ['Отбито ударов', `${s.parries || 0}`], ['Время', `${Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`], ['Очки', `${G.score}`]].forEach(([k, v], i) => { this.text(k, VW / 2 - 420, 254 + i * 26, 18, '#aeb9cf', FONT_UI, 'left', 500); this.text(v, VW / 2 - 60, 254 + i * 26, 18, '#f0e6c8', FONT_UI, 'right', 700) });
+    this.panel(VW / 2 - 440, 222, 400, 154, .6);
+    [['Решено задач', `${s.solved} из ${s.tasks}`], ['Разбито конечностей', `${s.broken}`], ['Отбито ударов', `${s.parries || 0}`], ['Лучшая серия', `×${s.best || 0}`], ['Время', `${Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`], ['Очки', `${G.score}`]].forEach(([k, v], i) => { this.text(k, VW / 2 - 420, 254 + i * 26, 18, '#aeb9cf', FONT_UI, 'left', 500); this.text(v, VW / 2 - 60, 254 + i * 26, 18, '#f0e6c8', FONT_UI, 'right', 700) });
     // темы: что получилось, что повторить
     const tp = Object.entries(s.topics || {}); this.panel(VW / 2 + 20, 222, 420, Math.max(128, 44 + tp.length * 24), .6); this.text('Темы', VW / 2 + 40, 250, 18, '#d8e2f2', FONT_TITLE, 'left', 700);
     if (!tp.length) this.text('Задач пока не было', VW / 2 + 40, 278, 16, '#8a97ad', FONT_UI, 'left', 500);
@@ -104,7 +108,7 @@ const UI = {
     const weak = tp.filter(([k, v]) => v.ok < v.n).map(([k]) => k); if (weak.length) this.text('Повторить: ' + weak.slice(0, 3).join(', '), VW / 2, VH - 112, 18, '#ffcfae', FONT_UI, 'center', 600);
     ctx.globalAlpha = .55 + .45 * Math.sin(t * 3.2);
     if (win) this.text('Enter — сыграть снова', VW / 2, VH - 62, 28, '#f3e7c4', FONT_TITLE, 'center', 700);
-    else { this.text('Enter — заново с этого этапа', VW / 2, VH - 70, 28, '#f3e7c4', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1; this.text('N — новая игра', VW / 2, VH - 38, 18, '#aeb9cf', FONT_UI, 'center', 600) }
+    else { this.text(Game.check && Game.check.limbs ? 'Enter — продолжить бой: разбитые конечности не вернутся' : 'Enter — заново с этого этапа', VW / 2, VH - 70, Game.check && Game.check.limbs ? 24 : 28, '#f3e7c4', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1; this.text('N — новая игра', VW / 2, VH - 38, 18, '#aeb9cf', FONT_UI, 'center', 600) }
     ctx.globalAlpha = 1;
   },
 };

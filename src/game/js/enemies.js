@@ -8,13 +8,13 @@ function segDist(p1, p2, q1, q2) { // расстояние между отрез
   const P = [p1[0] + d1[0] * s, p1[1] + d1[1] * s], Q = [q1[0] + d2[0] * t, q1[1] + d2[1] * t]; return { d: Math.hypot(P[0] - Q[0], P[1] - Q[1]), p: P };
 }
 const ETYPES = {
-  ghoul: { hp: 40, dmg: 6, range: 142, wind: .38, strike: .12, rec: .45, cd: [1.1, 1.9], score: 10, pois: 0,
-    wp: { ru: 1.25, rf: .7, lean: -.1, far: 1.0, crouch: .17, lunge: -.22 }, sp: { ru: -1.75, rf: -2.05, lean: .46, far: -1.2, lunge: .5, crouch: .08 } },
-  knight: { hp: 70, dmg: 12, range: 168, wind: .7, strike: .15, rec: .7, cd: [1.6, 2.4], score: 25, poise: .5,
-    wp: { ru: -2.75, rf: -3.35, lean: -.1, far: .3, crouch: .03 }, sp: { ru: -1.05, rf: -1.3, lean: .22, far: -.3, lunge: .14, crouch: .08 } },
+  ghoul: { hp: 40, dmg: 5, range: 250, stand: 150, pounce: 175, wind: .5, strike: .2, rec: .55, cd: [1.7, 2.7], score: 10, pois: 0,
+    wp: { ru: 1.05, rf: .35, lean: .2, far: .9, crouch: .34, lunge: -.3 }, sp: { ru: -1.75, rf: -2.05, lean: .5, far: -1.3, lunge: .5, crouch: .1 } },
+  knight: { hp: 88, dmg: 10, range: 168, wind: .7, strike: .15, rec: .7, cd: [1.6, 2.4], score: 25, poise: .5,
+    wp: { ru: -2.75, rf: -3.35, lean: -.1, far: .3, crouch: .03 }, sp: { ru: -.72, rf: -.86, lean: .3, far: -.3, lunge: .16, crouch: .14 } },
   doctor: { hp: 30, dmg: 8, range: 520, wind: .6, strike: .12, rec: .55, cd: [2.1, 3.0], score: 20, ranged: 1,
     wp: { ru: 1.35, rf: 2.3, lean: -.14, far: -.4, crouch: .04 }, sp: { ru: -2.4, rf: -2.7, lean: .2, far: .4, lunge: .06, crouch: .03 } },
-  goatman: { hp: 100, dmg: 16, range: 440, wind: .85, strike: 0, rec: 1.1, cd: [2.6, 3.7], score: 35, poise: 1, charge: 1,
+  goatman: { hp: 125, dmg: 14, range: 440, wind: .85, strike: 0, rec: 1.1, cd: [2.6, 3.7], score: 35, poise: 1, charge: 1,
     wp: { ru: .75, rf: .4, lean: .5, far: .75 }, sp: { ru: .5, rf: .2, lean: .55, far: .5, lunge: 0 } },
 };
 const Enemies = {
@@ -22,8 +22,8 @@ const Enemies = {
   reset() { this.list = []; this.proj = []; this.clouds = [] },
   spawn(type, side) {
     const R = rigDef(type), T = ETYPES[type], x = World.gateX(side), z = .04;
-    const c = Walker.create({ ...R, gait: R.gait, x: 0, face: side < 0 ? 1 : -1 });
-    const e = { type, R, T, c, x, z, face: c.face, hp: T.hp, maxhp: T.hp, st: 'enter', t: 0, cd: rnd(.6, 1.4), flash: 0, alpha: 0, sMul: 1, kbv: 0, cloth: 0, clothv: 0, lunge: 0, slotZ: rnd(-.15, .15), id: Math.random() };
+    const c = Walker.create({ ...R, gait: R.gait, x: 0, face: side < 0 ? 1 : -1 }); c.t = rnd(0, 9);
+    const e = { type, R, T, c, x, z, face: c.face, hp: T.hp, maxhp: T.hp, st: 'enter', t: 0, cd: rnd(.6, 1.4), flash: 0, alpha: 0, sMul: rnd(.93, 1.07), kbv: 0, cloth: 0, clothv: 0, lunge: 0, slotZ: rnd(-.15, .15), id: Math.random() };
     e.pose = Walker.update(c, DT, { dir: 0 }); this.list.push(e); Snd.gate(); FX.smoke(x, z, 60, 8, '10,12,20', 40); return e;
   },
   alive() { return this.list.filter(e => e.st !== 'dead').length },
@@ -37,7 +37,7 @@ const Enemies = {
     // цель чуть позади (ход в глубину) — шаг с малым смещением назад, без разворота
     let mdir = null; if (p > 0) { let ax, az; if (d > 6) { const n = Math.hypot(Math.abs(dxp), dzp); ax = (Math.abs(dxp) > 12 ? Math.abs(dxp) : dxp * e.face) / n; az = dzp / n; e.mv = { ax, az } } else ({ ax, az } = e.mv || { ax: 1, az: 0 }); e.x += p * s * e.face * ax; e.z = cl(e.z + p * s * az / ZPX, 0, 1); mdir = { x: e.face * ax, z: az } }
     depthLegs(e, mdir);
-    for (const ev of c.events) { if (c.g.heavy > .2) { Snd.step(ev.power * .5, 0); FX.dust(e.x, e.z, 2 + 4 * c.g.dust, .2 + .4 * c.g.dust) } else if (Math.abs(e.x - Hero.H.x) < 600 && Math.random() < .6) Snd.step(.05, 0) }
+    for (const ev of c.events) { if (c.g.heavy > .2) { Snd.step(ev.power * .5, 0); if ((e.R.size || 1) > 1.3 && Math.abs(c.v) > e.R.L1) FX.dust(e.x, e.z, 2 + 4 * c.g.dust, .2 + .4 * c.g.dust) } else if (Math.abs(e.x - Hero.H.x) < 600 && Math.random() < .6) Snd.step(.05, 0) }
     // одежда — пружина от скорости
     e.clothv += ((-c.v * .0012 - e.cloth) * 60 - e.clothv * 8) * dt; e.cloth += e.clothv * dt;
   },
@@ -60,24 +60,28 @@ const Enemies = {
     switch (e.st) {
       case 'enter': { e.alpha = Math.min(1, e.alpha + dt * 2); this.move(e, dt, e.x + (e.x < W.ARENA / 2 ? 200 : -200), .3 + e.slotZ); if (e.t > 1.1) { e.st = 'move'; e.t = 0 } break }
       case 'move': {
-        let tx, tz = cl(h.z + (T.ranged ? 0 : (e.slot || 0) % 2 ? e.slotZ * .6 : 0), .03, 1), run = false;
+        let tx, tz = cl(h.z + (T.ranged ? 0 : (e.slot || 0) % 2 ? e.slotZ * .6 : 0), .03, 1), run = false; const stand = T.stand || Math.max(T.range * .84, 104 * (e.R.size || 1));
         if (T.ranged) { const want = 360, sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * want; if (tx < W.XMIN || tx > W.XMAX) tx = h.x - sd * want; tz = cl(h.z + e.slotZ, .03, 1);
           const flee = adx < want - 60; e.flee = flee ? (e.flee || 0) + dt : Math.max(0, (e.flee || 0) - dt * .5); if (e.flee > 1.5) { e.stand = 4; e.flee = 0 } if (e.stand > 0) { e.stand -= dt; tx = e.x } }
-        else if (T.charge) { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * 300 } else { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * (Math.max(T.range * .84, 104 * (e.R.size || 1)) + (e.slot || 0) * 75); run = adx > 420 && e.type === 'ghoul' }
-        const close = !T.ranged && adx < T.range * .85 && Math.abs(dz) < .15 && (e.slot || 0) < 2;
+        else if (T.charge) { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * 300 } else { const sd = Math.sign(e.x - h.x) || 1; tx = h.x + sd * (stand + (e.slot || 0) * 75) }
+        // издалека все спешат (рыцарь — тяжёлой рысью): бой начинается быстрее; вблизи — своя походка
+        e.hurry = adx > (e.hurry ? 400 : 540); run = e.hurry; const runK = { knight: 1.75, goatman: 1.5 }[e.type];
+        const close = !T.ranged && adx < stand * 1.02 && Math.abs(dz) < .15 && (e.slot || 0) < 2;
         // уже рядом — не пятиться, а стоять лицом к герою (разворот короткими шагами)
-        if (close) this.move(e, dt, e.x, tz, { dir: facing ? 0 : Math.sign(toH), speedK: .08, tol: 6 }); else this.move(e, dt, tx, tz, { run, tol: 14 });
+        // (стрелок, дошедший до своей дистанции спиной к герою, тоже разворачивается — иначе он так и стоит, не бросая)
+        const there = T.ranged && Math.abs(tx - e.x) < 18 && Math.abs(tz - e.z) < .05;
+        if (close || there) this.move(e, dt, e.x, tz, { dir: facing ? 0 : Math.sign(toH), speedK: .08, tol: 6 }); else this.move(e, dt, tx, tz, { run, runK, tol: 14 });
         // слишком близко к герою (его отбросило на врага) — короткий отскок назад, не разворачиваясь
         e.bsT = Math.max(0, (e.bsT || 0) - dt); if (!T.ranged && adx < 66 * (e.R.size || 1) && Math.abs(dz) < .1 && !e.kbv && !e.bsT) { e.kbv = (Math.sign(e.x - h.x) || -e.face) * 300; e.bsT = .8 }
         const inRange = T.ranged ? adx > 110 && adx < T.range : T.charge ? adx < T.range && adx > 150 && Math.abs(dz) < .14 : adx < T.range && Math.abs(dz) < .1;
         const busy = this.list.filter(o => o !== e && (o.st === 'wind' || o.st === 'strike')).length;
-        if (target && e.cd <= 0 && inRange && facing && busy < 2 && (e.slot || 0) < 2 && Math.abs(e.c.v) < e.R.L1 * 3) { e.st = 'wind'; e.t = 0; e.aim = { x: h.x, z: h.z }; if (T.charge) Snd.whoosh(); else Snd.tell(); if (e.G) { const hp = rigToWorld(e, e.G.arms[0].hand); FX.flash(hp.x, e.z, zy(e.z) - hp.y, 34, '255,236,190', .14) } }
+        if (target && e.cd <= 0 && inRange && facing && busy < (Game.pi < 2 ? 1 : 2) && (e.slot || 0) < 2 && Math.abs(e.c.v) < e.R.L1 * 3) { e.st = 'wind'; e.t = 0; e.aim = { x: h.x, z: h.z }; if (T.charge) Snd.whoosh(); else Snd.tell(); if (e.G) { const hp = rigToWorld(e, e.G.arms[0].hand); FX.flash(hp.x, e.z, zy(e.z) - hp.y, 34, '255,236,190', .14) } }
         break;
       }
       case 'wind': {
         this.move(e, dt, e.x, e.z, { hold: true, crouch: (T.wp.crouch || 0) * sm(e.t / T.wind) }); ov = { k: 'wp', w: sm(e.t / T.wind) };
         if (T.charge) { e.dy = Math.sin(e.t * 40) * 1.5; e.aim = { x: h.x, z: h.z } }
-        if (e.t >= T.wind) { e.st = 'strike'; e.t = 0; e.done = 0; e.dy = 0; if (T.charge) { e.chDir = Math.sign(e.aim.x - e.x) || e.face; e.chZ = e.aim.z; e.chEnd = e.aim.x + e.chDir * 160 } else { Snd.swing(1); this.swipe(e) } }
+        if (e.t >= T.wind) { e.st = 'strike'; e.t = 0; e.done = 0; e.dy = 0; if (T.charge) { e.chDir = Math.sign(e.aim.x - e.x) || e.face; e.chZ = e.aim.z; e.chEnd = e.aim.x + e.chDir * 160 } else { Snd.swing(1); if (T.pounce) e.pn = { x0: e.x, d: (Math.sign(e.aim.x - e.x) || e.face) * cl(Math.abs(e.aim.x - e.x) - 92, 0, T.pounce) }; else this.swipe(e) } }
         break;
       }
       case 'strike': {
@@ -87,8 +91,10 @@ const Enemies = {
           if (e.st === 'strike' && (Math.sign(e.chEnd - e.x) !== e.chDir || e.t > 1.6 || e.x <= W.XMIN || e.x >= W.XMAX)) { e.st = 'rec'; e.t = 0; Cam.kick(4); FX.dust(e.x, e.z, 8, .6) }
           break;
         }
-        this.move(e, dt, e.x, e.z, { hold: true, crouch: lp(T.wp.crouch || 0, T.sp.crouch || 0, sm(e.t / T.strike)) }); ov = { k: 'sp', from: 'wp', w: sm(e.t / T.strike) };
+        if (e.pn) { const u = cl(e.t / T.strike, 0, 1); e.x = cl(e.pn.x0 + e.pn.d * sm(u), W.XMIN, W.XMAX); e.dy = -Math.sin(PI * u) * 22; if (!e.pn.sw && u > .55) { e.pn.sw = 1; this.swipe(e) } }
+        this.move(e, dt, e.x, e.z, { hold: true, crouch: lp(T.wp.crouch || 0, T.sp.crouch || 0, sm(e.t / T.strike)) }); ov = { k: 'sp', from: 'wp', w: sm(Math.max(0, e.t / T.strike - (e.pn ? .45 : 0)) / (e.pn ? .55 : 1)) };
         if (e.t >= T.strike && !e.done) { e.done = 1; this.release(e) }
+        if (e.t >= T.strike && e.pn) { e.pn = null; e.dy = 0; FX.dust(e.x, e.z, 3, .3) }
         if (e.t >= T.strike && e.st === 'strike') { e.st = 'rec'; e.t = 0 }
         break;
       }
@@ -165,17 +171,18 @@ const Enemies = {
     const rip = e.st === 'stun'; Hero.H.hitSet.add(e); const dmg = [14, 12, 13][b.ak] * (Hero.H.combo.n === 0 && b.ak === 2 ? 1.3 : 1) * (rip ? 1.8 : 1);
     if (rip) { FX.sparks(at[0], e.z, zy(e.z) - at[1], 12, '255,214,120', 360); Game.score += 10 }
     const hy = zy(e.z) - at[1], fc = Hero.FACE;
-    e.hp -= dmg; e.flash = 1; e.hpT = 2.6; Snd.hit(); FX.sparks(at[0], e.z, hy, 7, '255,214,170', 300); FX.sparks(at[0], e.z, hy, 6, '150,40,50', 240); FX.flash(at[0], e.z, hy, 46, '255,200,170', .1); Game.hitStop(rip ? .08 : .05); Cam.kick(rip ? 6 : 3);
+    e.hp -= dmg; e.flash = 1; e.hpT = 2.6; Game.chain(); Snd.hit(); FX.sparks(at[0], e.z, hy, 7, '255,214,170', 300); FX.sparks(at[0], e.z, hy, 6, '150,40,50', 240); FX.flash(at[0], e.z, hy, 46, '255,200,170', .1); Game.hitStop(rip ? .08 : .05); Cam.kick(rip ? 6 : 3);
     FX.cut(at[0], e.z, hy, [fc > 0 ? 1.0 : PI - 1.0, fc > 0 ? .12 : PI - .12, fc > 0 ? -.9 : PI + .9][b.ak] || 0, rip ? 120 : 84, rip ? '255,226,150' : '255,255,255');
     FX.num(at[0], e.z, hy + 26, Math.round(dmg), rip ? '#ffd98a' : '#ffffff', rip ? 26 : 19);
-    e.kbv = Math.sign(e.x - Hero.H.x) * (e.T.poise ? 40 : 170);
+    // первые два удара серии почти не отталкивают (враг остаётся под клинком), третий — отбрасывает
+    e.kbv = Math.sign(e.x - Hero.H.x) * (e.T.poise ? [25, 25, 80] : [70, 70, 240])[b.ak] * (rip ? 1.3 : 1);
     if (e.hp <= 0) return this.kill(e);
     // замах сбивается только в начале (гуль, доктор — первая половина, рыцарь — первые 30 %); сам удар не сбивается
     const lateWind = e.st === 'wind' && e.t > e.T.wind * (e.type === 'knight' ? .3 : .5);
     if (e.st !== 'strike' && e.st !== 'stun' && !lateWind && (!e.T.poise || (e.st === 'move' || e.st === 'wind') && Math.random() > e.T.poise)) { e.st = 'hurt'; e.t = 0; e.flaskOut = 0 }
   },
   // удар врага отбит парированием
-  parried(e) { e.st = 'stun'; e.t = 0; e.done = 1; e.flaskOut = 0; e.dy = 0; e.kbv = Math.sign(e.x - Hero.H.x) * (e.T.poise ? 160 : 260); Game.score += 15 },
+  parried(e) { e.st = 'stun'; e.t = 0; e.done = 1; e.flaskOut = 0; e.dy = 0; e.pn = null; e.kbv = Math.sign(e.x - Hero.H.x) * (e.T.poise ? 160 : 260); Game.score += 15 },
   deflect(p) { p.dead = 1 },
   kill(e) { e.st = 'dying'; e.t = 0; e.kbv *= .5; Game.score += e.T.score; Snd.death() },
   ash(e) {
@@ -190,7 +197,7 @@ const Enemies = {
     for (const e of this.list) list.push({ z: e.z, draw: () => this.draw(e), shadow: () => drawShadow(e.x, e.z, 38 * (e.type === 'goatman' ? 1.3 : 1), .36 * e.alpha) });
     // ядовитая лужа: пятно на полу показывает, где стоять нельзя
     for (const c of this.clouds) list.push({ z: c.z - .02, draw: () => { const x = sx(c.x), y = zy(c.z), a = Math.min(1, c.t * 4) * Math.min(1, (c.life - c.t) * 2), r = 58 * zs(c.z); ctx.fillStyle = `rgba(70,150,60,${.3 * a})`; ctx.strokeStyle = `rgba(150,230,110,${(.45 + .2 * Math.sin(c.t * 9)) * a})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(x, y, r, r * .3, 0, 0, TAU); ctx.fill(); ctx.stroke() } });
-    for (const p of this.proj) list.push({ z: p.z, draw: () => { const I = IM.ch.doctor.flask, x = sx(p.x), y = zy(p.z) - p.h, k = rigDef('doctor').scale * zs(p.z) * 1.5; ctx.save(); ctx.translate(x, y); ctx.rotate(p.r); ctx.drawImage(I, -I.width * k / 2, -I.height * k / 2, I.width * k, I.height * k); ctx.restore() } });
+    for (const p of this.proj) list.push({ z: p.z, draw: () => { const I = IM.ch.doctor.flask, x = sx(p.x), y = zy(p.z) - p.h, k = rigDef('doctor').scale * zs(p.z) * 2.3; ctx.drawImage(FX.glow('150,255,120'), x - 26, y - 26, 52, 52); ctx.save(); ctx.translate(x, y); ctx.rotate(p.r); ctx.drawImage(I, -I.width * k / 2, -I.height * k / 2, I.width * k, I.height * k); ctx.restore() } });
   },
   draw(e) {
     if (e.st === 'gone') return; if (!e.G) e.G = rigGeom(e);

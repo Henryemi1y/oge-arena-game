@@ -18,10 +18,10 @@ const World = {
     const M = W.ARENA / 2;
     this.monolith = { kind: 'monolith', x: M, z: -.1, s: 1.5 };
     this.props = [
-      { kind: 'column', x: 560, z: -.12, s: .9 }, { kind: 'brazier', x: 1020, z: -.07, s: .72, fire: 1 }, this.monolith,
-      { kind: 'brazier', x: W.ARENA - 1020, z: -.07, s: .72, fire: 1 }, { kind: 'bust', x: W.ARENA - 600, z: -.12, s: .78 },
-      { kind: 'column', x: 2240, z: -.13, s: .7 },
-      { kind: 'rubble', x: 1380, z: 1.13, s: .75 }, { kind: 'rubble', x: 2780, z: 1.12, s: .62, flip: 1 }, { kind: 'bust', x: 300, z: 1.16, s: .55, flip: 1 },
+      { kind: 'column', x: 500, z: -.12, s: .9 }, { kind: 'brazier', x: M - 520, z: -.1, s: .72, fire: 1 }, this.monolith,
+      { kind: 'brazier', x: M + 520, z: -.1, s: .72, fire: 1 }, { kind: 'bust', x: W.ARENA - 430, z: -.12, s: .78 },
+      { kind: 'column', x: W.ARENA - 760, z: -.13, s: .7 },
+      { kind: 'rubble', x: 1130, z: 1.13, s: .75 }, { kind: 'rubble', x: 2330, z: 1.12, s: .62, flip: 1 }, { kind: 'bust', x: 300, z: 1.16, s: .55, flip: 1 },
     ];
   },
   // ворота — по краям арены, у стены
