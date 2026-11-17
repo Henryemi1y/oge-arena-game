@@ -31,7 +31,7 @@ const UI = {
       const w = 540, x = VW / 2 - w / 2; this.panel(x, 12, w, 74); this.text(DRESS[B.id].name, VW / 2, 35, 21, '#e9e2d0', FONT_TITLE, 'center', 700);
       LIMBS.forEach((l, i) => { const lm = B.limbs[l], bx = x + 14 + i * 130, k = lm.alive ? lm.hp / lm.max : 0; const hl = lm.alive ? Math.min(1, (lm.showT || 0) * 1.5) : 0; if (hl > 0) { ctx.globalAlpha = hl * .5; ctx.fillStyle = '#7fc4ff'; ctx.fillRect(bx - 6, 41, 128, 38); ctx.globalAlpha = 1 } this.text(LIMB_NAME[l], bx, 56, 15, hl > .2 ? '#ffffff' : lm.alive ? '#b9c3d6' : '#5f6779', FONT_UI, 'left', hl > .2 ? 700 : 500);
         this.bar(bx, 63, 116, 10, k, lm.regrow > 0 ? '#ffb27a' : '#9fb3cf', lm.regrow > 0 ? '#a0522d' : '#56657d'); if (!lm.alive) { ctx.strokeStyle = '#7ad6ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx + 2, 68); ctx.lineTo(bx + 114, 68); ctx.stroke() } });
-    } else if (G.phase && G.phase.type === 'wave' && !Soul.on) { const n = Enemies.alive() + G.queue.length; if (n) { this.panel(VW / 2 - 130, 12, 260, 40); this.text(`${G.phase.name} · врагов: ${n}`, VW / 2, 39, 19, '#e6e0cf', FONT_TITLE, 'center', 700) } }
+    } else if (G.phase && G.phase.type === 'wave' && !Soul.on && !((G.ultDim || 0) > .04)) { const n = Enemies.alive() + G.queue.length; if (n) { this.panel(VW / 2 - 130, 12, 260, 40); this.text(`${G.phase.name} · врагов: ${n}`, VW / 2, 39, 19, '#e6e0cf', FONT_TITLE, 'center', 700) } }
     // форма души: табличка с уравнением
     if (Soul.on && Soul.prob) this.soulTablet();
     // подсказка управления в начале

@@ -29,11 +29,11 @@ const Snd = (() => {
   // голос хора: четыре пилы со своим вибрато и разной расстройкой слева и справа, дыхание (шум) и три форманты гласной «а»;
   // держится, пока не отпустят
   function voice(f, opt = {}) {
-    const { t = now(), a = .3, vol = .05, verb = .5, hall = 0, vowel = [730, 1090, 2440], pan = 0 } = opt, e = ac.createGain(), sum = ac.createGain(), pn = ac.createStereoPanner(); pn.pan.value = pan;
-    const fl = vowel.map((fq, i) => { const b = ac.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = fq; b.Q.value = [5, 6, 8][i]; b.connect(g(sum, [1, .6, .22][i])); return b });
+    const { t = now(), a = .3, vol = .05, verb = .5, hall = 0, vowel = [730, 1090, 2440], f2 = .6, pan = 0 } = opt, e = ac.createGain(), sum = ac.createGain(), pn = ac.createStereoPanner(); pn.pan.value = pan;
+    const fl = vowel.map((fq, i) => { const b = ac.createBiquadFilter(); b.type = 'bandpass'; b.frequency.value = fq; b.Q.value = [5, 6, 8][i]; b.connect(g(sum, [1, f2, .22][i])); return b });
     const lpf = ac.createBiquadFilter(); lpf.type = 'lowpass'; lpf.frequency.value = 3600; fl.forEach(b => lpf.connect(b));
     const os = [], lfos = [];
-    [-11, -4, 5, 12].forEach((d, i) => { const o = ac.createOscillator(), lf = ac.createOscillator(), ld = ac.createGain(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = d; lf.frequency.value = 4.6 + i * .37 + Math.random() * .3; ld.gain.value = 6 + i; lf.connect(ld).connect(o.detune);
+    [-19, -7, 6, 18].forEach((d, i) => { const o = ac.createOscillator(), lf = ac.createOscillator(), ld = ac.createGain(); o.type = 'sawtooth'; o.frequency.value = f; o.detune.value = d; lf.frequency.value = 4.6 + i * .37 + Math.random() * .3; ld.gain.value = 6 + i; lf.connect(ld).connect(o.detune);
       const op = ac.createStereoPanner(); op.pan.value = (i % 2 ? .35 : -.35); o.connect(op).connect(lpf); o.start(t); lf.start(t); os.push(o); lfos.push(lf) });
     const br = ac.createBufferSource(); br.buffer = noiseBuf; br.loop = true; br.connect(g(lpf, .05)); br.start(t, Math.random()); os.push(br);
     sum.gain.value = 2.4; sum.connect(e); e.connect(pn); pn.connect(sfxG); e.gain.setValueAtTime(0, t); e.gain.setTargetAtTime(vol, t, a / 3);
@@ -54,8 +54,9 @@ const Snd = (() => {
   // тарелка
   function crash(vol, dur, opt = {}) { const { t = now(), hall = .25 } = opt; noise(dur, 'highpass', 4800, 3200, .6, vol, { t, a: .002, verb: .4 }); noise(dur * .5, 'bandpass', 8000, 6500, 1.5, vol * .45, { t }); if (hall) noise(dur * .8, 'bandpass', 3000, 2000, .7, vol * hall, { t, dest: hallIn }) }
   // «обратная» тарелка: нарастает и обрывается ровно в момент end
-  function swell(t0, end, vol) { const s_ = ac.createBufferSource(), f = ac.createBiquadFilter(), e = ac.createGain(); s_.buffer = noiseBuf; s_.loop = true; f.type = 'highpass'; f.frequency.setValueAtTime(1800, t0); f.frequency.exponentialRampToValueAtTime(5200, end); e.gain.setValueAtTime(.0001, t0); e.gain.exponentialRampToValueAtTime(vol, end); e.gain.setValueAtTime(vol, end); e.gain.linearRampToValueAtTime(.0001, end + .03); s_.connect(f).connect(e).connect(sfxG); e.connect(g(verbIn, .3)); s_.start(t0, Math.random()); s_.stop(end + .05) }
-  const A = 55; // ля: всё в ля, как и музыка
+  function swell(t0, end, vol) { const s_ = ac.createBufferSource(), f = ac.createBiquadFilter(), e = ac.createGain(); s_.buffer = noiseBuf; s_.loop = true; f.type = 'highpass'; f.frequency.setValueAtTime(1800, t0); f.frequency.exponentialRampToValueAtTime(5200, end); e.gain.setValueAtTime(.0001, t0); e.gain.exponentialRampToValueAtTime(vol, end); s_.connect(f).connect(e).connect(sfxG); e.connect(g(verbIn, .3)); s_.start(t0, Math.random());
+    return { stop(at = now()) { e.gain.cancelScheduledValues(at); e.gain.setTargetAtTime(.0001, at, .008); s_.stop(at + .1) } } }
+  const A = 55, et = n => A * Math.pow(2, n / 12); // ля: всё в ля, как и музыка; et(n) — n полутонов от ля контроктавы
   // ---------- эффекты ----------
   const S = {
     step(p = .3, heavy = 0) { if (!ac) return; if (heavy) { tone(72, 30, 'sine', .55, .25 + .55 * p); noise(.45, 'lowpass', 260, 90, .7, .28 * p) } else { noise(.05, 'bandpass', 900, 600, 1.2, .045 + .05 * p); tone(130, 70, 'sine', .07, .05 + .05 * p) } },
@@ -86,28 +87,31 @@ const Snd = (() => {
     chargeOn() { if (!ac || S._ch) return; const t = now(); noise(.3, 'bandpass', 700, 1600, 1.2, .12, { a: .08, verb: .3 });
       S._ch = { v: [voice(A * 4, { a: .12, vol: .075, pan: -.3 }), voice(A * 6, { a: .2, vol: .06, pan: .3 }), voice(A * 2, { a: .25, vol: .05, vowel: [600, 1000, 2400] })], sub: null };
       const o = ac.createOscillator(), e = ac.createGain(); o.type = 'sine'; o.frequency.value = A; e.gain.setValueAtTime(.0001, t); e.gain.exponentialRampToValueAtTime(.04, t + .5); o.connect(e).connect(sfxG); o.start(t); S._ch.sub = { o, e } },
-    chargeOff() { if (!ac || !S._ch) return; const t = now(); S._ch.v.forEach(v => v.stop(.22, t)); const { o, e } = S._ch.sub; e.gain.cancelScheduledValues(t); e.gain.setTargetAtTime(.0001, t, .05); o.stop(t + .3); S._ch = null },
+    // отпускание или отмена: хор глохнет за 30–40 мс, чтобы удар выпуска звучал на чистом месте
+    chargeOff() { if (!ac || !S._ch) return; const t = now(); S._ch.v.forEach(v => v.stop(.04, t)); const { o, e } = S._ch.sub; e.gain.cancelScheduledValues(t); e.gain.setTargetAtTime(.0001, t, .01); o.stop(t + .1); S._ch = null },
     chargeLvl(l) { if (!ac) return; if (S._ch) S._ch.v.push(voice(A * (l > 1 ? 12 : 8), { a: .15, vol: l > 1 ? .055 : .065, vowel: l > 1 ? [520, 1000, 2600] : [730, 1090, 2440], pan: l > 1 ? .45 : -.45 })); oBell(A * (l > 1 ? 24 : 16), .06, 2, { pan: l > 1 ? .3 : -.3 }); timp(A * (l > 1 ? 1.5 : 1), .16) },
-    chargeRelease(l) { if (!ac) return; const t = now(); noise(.012, 'lowpass', 4000, 3000, .7, .5, { a: .001 }); oBrass([A * 2, A * 3, A * 4, ...(l ? [A * 6] : []), ...(l > 1 ? [A * 8] : [])], .11 + .02 * l, .7 + .25 * l, { hall: .25 * l }); timp(A, .14 + .03 * l); tone(80, 50, 'sine', .35, .08, { a: .002 });
-      noise(.26, 'bandpass', 2800, 700, 1.4, .18, { a: .003 }); if (l > 1) crash(.1, 1.4); else if (l) oBell(A * 16, .05, 1.4) },
+    // выпуск: щелчок и литавра в первые миллисекунды, медь (ля мажор, темперированный), шорох рассечения
+    chargeRelease(l) { if (!ac) return; noise(.015, 'lowpass', 5000, 3000, .7, .55, { a: .001 }); timp(A, .32 + .05 * l); timp(A * 1.5, .2, { t: now() + .01 });
+      oBrass([A * 2, A * 3, et(28), A * 4, ...(l ? [A * 6] : []), ...(l > 1 ? [A * 8] : [])], .16 + .02 * l, .7 + .25 * l, { hall: .25 * l }); tone(80, 55, 'sine', .3, .1, { a: .002 });
+      noise(.24, 'bandpass', 3000, 700, 1.4, .26, { a: .002 }); if (l > 1) crash(.12, 1.4); else if (l) oBell(A * 16, .05, 1.4) },
     // «Разлом» готов: колокол и короткий вдох хора
     ultReady() { if (!ac) return; const t = now(); oBell(A * 12, .08, 2.6, { pan: -.25 }); oBell(A * 16, .06, 2.6, { t: t + .14, pan: .25 }); const v = voice(A * 8, { a: .3, vol: .045, verb: .8 }); v.stop(1, t + .5) },
-    // подъём: хор крещендо в ля миноре, вступают верхние голоса, литавровое тремоло на ля ускоряется, «обратная» тарелка;
-    // за 0,14 с до удара всё обрывается — «вдох» перед ударом
-    ultRise() { if (!ac) return; const t = now(), T = 1.30, cut = T - .14; if (S.ultEnd) S.ultEnd(); musicG.gain.setTargetAtTime(.08, t, .2);
-      const v = [[A * 2, .026, .4, 0], [A * 4, .034, .45, -.4], [A * 4.757, .026, .5, .4], [A * 6, .028, .5, -.15]].map(([f, vol, a, pan]) => { const x = voice(f, { a, vol, verb: .5, hall: .35, pan }); x.e.gain.setTargetAtTime(vol * 2, t + a * 1.5, .3); return x });
-      [[A * 8, .03, -.5], [A * 9.514, .025, .5], [A * 12, .022, 0]].forEach(([f, vol, pan]) => v.push(voice(f, { t: t + .5, a: .5, vol, vowel: [520, 1000, 2600], hall: .45, pan })));
-      for (let tt = t + .2; tt < t + cut - .05;) { const k = (tt - t) / cut; timp(A, .02 + .07 * k * k, { t: tt, dur: .32 }); tt += lp(.15, .05, k) }
-      swell(t + .1, t + cut, .1); v.forEach(x => x.stop(.03, t + cut));
-      // «вдох»: зал на мгновение замолкает, удар возвращает его
-      hallOut.gain.setTargetAtTime(.04, t + cut, .015);
-      S.ultEnd = () => { S.ultEnd = null } },
-    // удар: в первые миллисекунды — щелчок, литавры, медь; аккорд в ля мажоре; хор в мажоре долго гаснет в тёмном зале
-    ultSlam() { if (!ac) return; const t = now(); if (S.ultEnd) S.ultEnd(); hallOut.gain.cancelScheduledValues(t); hallOut.gain.setValueAtTime(.5, t);
-      noise(.02, 'lowpass', 5000, 2500, .7, .45, { a: .001 }); tone(70, 38, 'sine', 1.4, .18, { t, a: .002 }); timp(A, .22, { t, hall: .4 }); timp(A * 1.5, .16, { t: t + .015 }); noise(1.2, 'lowpass', 700, 80, .7, .12, { t, a: .003 });
-      oBrass([A * 2, A * 3, A * 4, A * 5, A * 6, A * 8], .1, 2.6, { t, hall: .45 });
+    // подъём: хор крещендо в ля миноре, вступают верхние голоса, литавровое тремоло на ля ускоряется, «обратная» тарелка.
+    // Обрыв («вдох» перед ударом) делает сама игра — ultCut() в момент, когда герой начинает падать
+    ultRise() { if (!ac) return; const t = now(), T = 1.12; if (S.ultEnd) S.ultEnd(); musicG.gain.setTargetAtTime(.08, t, .2);
+      const v = [[A * 2, .026, .4, 0], [A * 4, .034, .45, -.4], [et(27), .026, .5, .4], [A * 6, .028, .5, -.15]].map(([f, vol, a, pan]) => { const x = voice(f, { a, vol, verb: .5, hall: .35, pan }); x.e.gain.setTargetAtTime(vol * 2, t + a * 1.5, .3); return x });
+      [[A * 8, .03, -.5], [et(39), .025, .5], [A * 12, .022, 0]].forEach(([f, vol, pan]) => v.push(voice(f, { t: t + .5, a: .5, vol, vowel: [520, 1000, 2600], hall: .45, pan })));
+      const roll = []; for (let tt = t + .2; tt < t + T - .05;) { const k = (tt - t) / T; roll.push(tt); tt += lp(.15, .05, k) }
+      const tm = roll.map((tt, i) => (timp(A, .02 + .07 * ((tt - t) / T) ** 2, { t: tt, dur: .32 }), tt)), sw = swell(t + .1, t + T, .1);
+      S.ultEnd = (at = now()) => { v.forEach(x => x.stop(.03, at)); sw.stop(at); hallOut.gain.setTargetAtTime(.04, at, .015); S.ultEnd = null } },
+    ultCut() { if (ac && S.ultEnd) S.ultEnd() },
+    // удар: первые 10–30 мс — щелчок, две литавры и медь; хор вступает позже и тише, внизу держится медь (ля мажор)
+    ultSlam() { if (!ac) return; const t = now(); if (S.ultEnd) S.ultEnd(t); hallOut.gain.cancelScheduledValues(t); hallOut.gain.setValueAtTime(.5, t);
+      noise(.025, 'lowpass', 6000, 2500, .7, .6, { a: .001 }); timp(A, .42, { t, hall: .4 }); timp(A * 1.5, .3, { t: t + .012 }); tone(70, 40, 'sine', 1.2, .26, { t, a: .002 }); noise(1, 'lowpass', 700, 80, .7, .14, { t, a: .002 });
+      oBrass([A * 2, A * 3, et(28), A * 4, et(40), A * 6, A * 8], .1, 2.6, { t, hall: .45 });
+      oBrass([A * 2, A * 3, et(28)], .07, 2.4, { t: t + .25, hall: .3, verb: .3 }); // низкая медь держит хвост
       crash(.2, 1.8, { t }); oBell(A * 4, .1, 4.5, { t, hall: .6 });
-      const v = [[A * 4, -.4], [A * 5, .4], [A * 6, -.15], [A * 8, .3], [A * 10, -.3]].map(([f, pan], i) => voice(f, { t: t + .02, a: .08, vol: .13 - i * .013, hall: .6, verb: .4, pan })); v.forEach(x => x.stop(3, t + .6));
+      const v = [[A * 4, -.4], [et(28), .4], [A * 6, -.15], [A * 8, .3], [et(40), -.3]].map(([f, pan], i) => voice(f, { t: t + .16, a: .3, vol: .065 - i * .007, hall: .6, verb: .4, pan, f2: .38 })); v.forEach(x => x.stop(2.6, t + .9));
       musicG.gain.setTargetAtTime(.32, t + 2.6, 1.2) },
     dash() { noise(.25, 'bandpass', 1300, 380, 1.1, .2, { a: .02 }) },
     roar() { if (!ac) return; tone(68, 52, 'sawtooth', 1.6, .2, { a: .3 }); tone(71, 50, 'sawtooth', 1.6, .2, { a: .3, det: 20 }); noise(1.6, 'lowpass', 300, 1100, 2, .25, { a: .4 }); S.quake(.8) },

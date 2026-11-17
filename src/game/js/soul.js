@@ -140,12 +140,20 @@ const Soul = {
     const c = mk(), x = c.getContext('2d');
     x.globalAlpha = .62; x.drawImage(sil(F, null, 2.5), 0, 0); x.globalAlpha = .3; x.drawImage(F, 0, 0); x.globalAlpha = 1;
     // свет в груди
-    x.globalCompositeOperation = 'source-atop'; const g = x.createRadialGradient(108, 175, 0, 108, 175, 120); g.addColorStop(0, 'rgba(230,255,255,.55)'); g.addColorStop(1, 'rgba(230,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+    x.globalCompositeOperation = 'source-atop'; const g = x.createRadialGradient(104, 178, 0, 104, 178, 105); g.addColorStop(0, 'rgba(235,255,255,.9)'); g.addColorStop(.45, 'rgba(210,250,255,.35)'); g.addColorStop(1, 'rgba(230,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h);
     x.globalCompositeOperation = 'source-over'; x.drawImage(rim, 0, 0);
     // к хвосту фигура тает
     x.globalCompositeOperation = 'destination-in'; const v = x.createLinearGradient(0, 0, 0, h); v.addColorStop(0, 'rgba(0,0,0,1)'); v.addColorStop(.5, 'rgba(0,0,0,.92)'); v.addColorStop(.8, 'rgba(0,0,0,.55)'); v.addColorStop(1, 'rgba(0,0,0,.15)'); x.fillStyle = v; x.fillRect(0, 0, w, h);
     const gl = mkCanvas(w + 60, h + 60), gx = gl.getContext('2d'); gx.filter = 'blur(14px)'; gx.drawImage(F, 30, 30); gx.filter = 'none'; gx.globalCompositeOperation = 'source-in'; gx.fillStyle = 'rgb(120,235,255)'; gx.fillRect(0, 0, gl.width, gl.height);
-    return this._sp = { c, gl };
+    const ARM = [[118, 148], [155, 145], [165, 190], [180, 225], [200, 258], [216, 290], [216, 342], [172, 342], [165, 295], [156, 262], [146, 238], [137, 215], [128, 195], [118, 170]];
+    const path = q => { q.beginPath(); ARM.forEach(([px, py], i) => i ? q.lineTo(px, py) : q.moveTo(px, py)); q.closePath() };
+    const arm = mk(), ax = arm.getContext('2d'); ax.save(); path(ax); ax.clip(); ax.drawImage(c, 0, 0); ax.restore();
+    // кисть чуть тусклее груди
+    ax.globalCompositeOperation = 'destination-in'; const ag = ax.createLinearGradient(0, 150, 0, 340); ag.addColorStop(0, 'rgba(0,0,0,1)'); ag.addColorStop(1, 'rgba(0,0,0,.72)'); ax.fillStyle = ag; ax.fillRect(0, 0, w, h);
+    x.globalCompositeOperation = 'destination-out'; path(x); x.fill(); x.globalCompositeOperation = 'source-over';
+    // наплечник поверх руки (шапка сустава)
+    const cap = mk(), cx = cap.getContext('2d'); cx.beginPath(); cx.ellipse(132, 130, 27, 26, 0, 0, TAU); cx.clip(); cx.drawImage(c, 0, 0);
+    return this._sp = { c, gl, arm, cap };
   },
   soulCanvas() {
     const { c: SP } = this.spirit(), M = 80, w = SP.width + 2 * M, h = SP.height + 20, tt = performance.now() / 1000;
@@ -156,6 +164,9 @@ const Soul = {
     // полосы по 2 px встык, без перекрытия (иначе на полупрозрачной фигуре видны горизонтальные линии)
     for (let y = Y0; y < H_; y += 2) { const hh = Math.min(2, H_ - y), u = (y - Y0) / (H_ - Y0), amp = 1 + 22 * Math.pow(u, 1.5), dx = Math.sin(tt * 2.4 - u * 4.4) * amp + Math.sin(tt * 3.9 - u * 7) * 3.5 * u - vx * .085 * u * u;
       x.drawImage(SP, 0, y, SP.width, hh, M + dx, y, SP.width, hh) }
+    // рука: в полёте отводится назад (до 0,75 рад), в покое — чуть в сторону и покачивается
+    const { arm, cap } = this.spirit(), PX = 138, PY = 150, ra = cl(vx * .0014, -.12, .75) - .1 + .07 * Math.sin(tt * 1.6), sdx = Math.sin(tt * 2.4 - (PY - Y0) / (H_ - Y0) * 4.4) * 1.5;
+    x.save(); x.translate(M + PX + sdx, PY); x.rotate(ra); x.drawImage(arm, -PX, -PY); x.restore(); x.drawImage(cap, M + sdx, 0);
     return { c, M };
   },
   drawSoul() {
@@ -166,8 +177,10 @@ const Soul = {
     // шлейф: лента за кончиком хвоста (точки пишутся по игровому времени в update)
     const tr = this.ribbon || [];
     if (tr.length > 1 && this.ph === 'free') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-      for (let i = 1; i < tr.length; i++) { const p0 = tr[i - 1], p1 = tr[i], u = 1 - (this.t - p1.t) / .35; if (u <= 0) continue;
-        for (const [wk, al, col] of [[2.6, .07, '120,235,255'], [1, .2, '210,255,255']]) { ctx.strokeStyle = `rgba(${col},${al * u * u * this.alpha})`; ctx.lineWidth = Math.max(.8, 5 * u * wk * zs(this.z)); ctx.beginPath(); ctx.moveTo(sx(p0.x), zy(p0.z) - p0.h); ctx.lineTo(sx(p1.x), zy(p1.z) - p1.h); ctx.stroke() } }
+      // ленту рисуем четырьмя кусками-путями (а не отрезками): без «бусин» от наложения концов
+      const ch = 4, per = Math.ceil(tr.length / ch); ctx.lineJoin = 'round';
+      for (let c = 0; c < ch; c++) { const seg = tr.slice(c * per, (c + 1) * per + 1); if (seg.length < 2) continue; const u = cl(1 - (this.t - seg[seg.length - 1].t) / .35, 0, 1); if (u <= 0) continue;
+        for (const [wk, al, col] of [[2.6, .12, '120,235,255'], [1, .38, '215,255,255']]) { ctx.strokeStyle = `rgba(${col},${al * u * u * this.alpha})`; ctx.lineWidth = Math.max(.8, 9 * u * wk * zs(this.z)); ctx.beginPath(); seg.forEach((q, i) => i ? ctx.lineTo(sx(q.x), zy(q.z) - q.h) : ctx.moveTo(sx(q.x), zy(q.z) - q.h)); ctx.stroke() } }
       ctx.restore() }
     // сияние: мягкое и «дышит»
     const pl = .7 + .3 * Math.sin(tt * 1.8);

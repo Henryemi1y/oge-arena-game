@@ -103,12 +103,12 @@ const ATK=[
  // 5 — «Разлом» (ульта): присед, медленный подъём в воздух с мечом, вскинутым над головой; зависание, пока над героем
  // собирается призрачный клинок и мир замедляется; падение и удар клинком в землю с колена; долгая стойка на колене
  // (высота, замедление, приближение камеры — в update)
- mkA(2.2,[1.30,1.305],[1.17,1.36],[{t:0,...G0},{t:.30,e:2,ru:-2.55,rf:-3.0,w:.55,ya:0,ln:-.14,ox:-12,LG:.55,Ff:205,Rr:-215,fru:1.05,ffx:.3,cp:-.25},
-  {t:.80,e:2,ru:-3.0,rf:-3.15,w:1.1,ln:-.06,ox:0,LG:.9,Ff:40,Rr:-70,fru:-2.75,ffx:.45,cp:.4},{t:1.14,e:3,ru:-3.05,rf:-3.18,w:1.12,ln:-.08,ox:-4,LG:.9,Ff:40,Rr:-70,fru:-2.8,ffx:.45,cp:.45},
-  {t:1.22,e:1,ru:-2.2,rf:-2.6,w:.7,ln:.2,ox:30,LG:.7,fru:.8,ffx:.6,cp:.2},
-  {t:1.30,e:1,ru:-.55,rf:-.48,w:.95,ln:.5,ox:62,LG:1,Ff:230,Rr:-150,fru:.2,ffx:1.3,cp:.5},{t:1.305,e:3,ru:-.54,rf:-.47,ln:.5,ox:62},
-  {t:1.78,e:3,ru:-.5,rf:-.44,ln:.46,ox:58,cp:.3},{t:2.2,e:0,...G0,ln:.04}])];
-const U_UP=.30,U_TOP=.80,U_FALL=1.16,U_HIT=1.30,U_HY=175;
+ mkA(2.3,[1.40,1.405],[1.27,1.46],[{t:0,...G0},{t:.30,e:2,ru:-2.55,rf:-3.0,w:.55,ya:0,ln:-.14,ox:-12,LG:.55,Ff:205,Rr:-215,fru:1.05,ffx:.3,cp:-.25},
+  {t:.80,e:2,ru:-3.0,rf:-3.15,w:1.1,ln:-.06,ox:0,LG:.9,Ff:40,Rr:-70,fru:-2.75,ffx:.45,cp:.4},{t:1.10,e:3,ru:-3.05,rf:-3.18,w:1.12,ln:-.08,ox:-4,LG:.9,Ff:40,Rr:-70,fru:-2.8,ffx:.45,cp:.45},
+  {t:1.24,e:1,ru:-2.3,rf:-2.5,w:1.1,ln:.15,ox:20,LG:.9,Ff:120,Rr:-160,fru:-2.1,ffx:.45,cp:.3},
+  {t:1.40,e:1,ru:-.45,rf:.2,w:.95,ln:.45,ox:40,LG:1,Ff:150,Rr:-210,fru:-.55,ffx:.3,cp:.5},{t:1.405,e:3,ru:-.45,rf:.2,w:.95,ln:.45,ox:40},
+  {t:1.88,e:3,ru:-.43,rf:.2,w:.95,ln:.42,ox:38,cp:.3},{t:2.3,e:0,...G0,ln:.04}])];
+const U_UP=.30,U_TOP=.80,U_FALL=1.12,U_HIT=1.40,U_HY=175;
 const CH_HOLD=.30,CH_LV=[.45,1.15],CH_DMG=[[20,16,260],[34,26,380],[50,38,520]],CH_LUNGE=[80,150,220];
 // окно парирования (время позы 3): раньше .26 — чистое парирование, до .42 — блок
 const PARRY=[0,.18],BLOCK=.34;
@@ -246,7 +246,7 @@ function special(dt,inp){
  if(st.ak===4&&!st.hold&&st.atk>CH_HOLD&&st.atk<.47){const u=cl((st.atk-CH_HOLD)/(.47-CH_HOLD),0,1),s=zs(H.z),v=CH_LUNGE[H.chgLv||0]/(.47-CH_HOLD)*s;if(!blocked(FACE))H.x=cl(H.x+FACE*v*dt*Math.sin(PI*u)*1.57,W.XMIN,W.XMAX);H.air=1;H.dyS=-(10+8*(H.chgLv||0))*Math.sin(PI*u);
   if((H.gk=(H.gk||0)+1)%3===0)H.ghosts.push({f:H.f,x:H.x,z:H.z,face:FACE,t:0,col:H.chgLv>1?'255,200,110':'130,200,255',dy:H.dyS})}
  // ульта: R, когда шкала полна
- if(inp.ult&&H.ult>=100&&!H.dead&&!H.soul&&!H.kb&&!(st.ak===5&&st.atk>=0)){H.swing++;st.pk=st.atk>=0&&st.kc?{...st.kc}:null;st.atk=0;st.ak=5;st.hd=0;st.bo=st.pk?1:0;st.hold=0;Snd.chargeOff();H.ult=0;H.hitSet=new Set();H.qq=[];H.combo.q=0;H.inv=Math.max(H.inv,2.6);Snd.ultRise();Game.ultFx=0;Cam.kick(4);H.fiss=[];H.uEcho=0}
+ if(inp.ult&&H.ult>=100&&!H.dead&&!H.soul&&!H.kb&&!(st.ak===5&&st.atk>=0)){H.swing++;st.pk=st.atk>=0&&st.kc?{...st.kc}:null;st.atk=0;st.ak=5;st.hd=0;st.bo=st.pk?1:0;st.hold=0;Snd.chargeOff();H.ult=0;H.hitSet=new Set();H.qq=[];H.combo.q=0;H.inv=Math.max(H.inv,2.6);Snd.ultRise();Game.ultFx=0;Cam.kick(4);H.fiss=[];H.uEcho=0;H.uCut=0;H.ux=null}
  const UL=st.ak===5&&st.atk>=0&&!H.dead;
  if(UL){const t=st.atk;H.inv=Math.max(H.inv,.3);
   // подъём плавный (с замедлением к вершине), зависание с лёгким покачиванием, падение — с ускорением
@@ -254,10 +254,11 @@ function special(dt,inp){
   // мир замедляется, темнеет и приближается, пока герой собирает силу; удар возвращает всё рывком
   const g_=t<U_HIT?sm((t-.2)/.35):0;Game.slow=lp(1,.28,g_);Game.zoomT=lp(1,1.2,sm((t-.25)/.75))*(t<U_HIT?1:0)||1;Game.ultDim=Math.max(Game.ultDim||0,.6*g_);
   if(t>.25&&t<U_HIT){const n=t<U_FALL?2:1;for(let i=0;i<n;i++){const a=rnd(0,TAU),r=rnd(90,260);H.motes.push({x:H.x+Math.cos(a)*r,y:zy(H.z)+y-Hero.height()*.55+Math.sin(a)*r*.75,t:0,life:rnd(.45,.8),col:Math.random()<.3?'255,240,255':'200,170,255'})}}
-  if(t>=U_FALL&&t<U_HIT&&(H.gk=(H.gk||0)+1)%3===0)H.ghosts.push({f:H.f,x:H.x,z:H.z,face:FACE,t:0,col:'200,170,255',dy:y,al:.4});
+  
   // призрачный клинок над героем: проступает в зависании, падает вместе с ним и вонзается в землю
   H.us=t<.62?null:{a:t<U_HIT?sm((t-.62)/.4):1-sm((t-U_HIT-.08)/.4),fall:t<U_FALL?0:Math.pow(cl((t-U_FALL)/(U_HIT-U_FALL),0,1),2),hover:t<U_FALL?Math.sin(st.t*3)*6:0,hit:t>=U_HIT};
-  if(t>U_HIT+.18&&!H.uEcho){H.uEcho=1;FX.ring(H.x,H.z,1100,1.1,'235,225,255',3);Cam.kick(14)}}
+  if(t>=U_FALL&&!H.uCut){H.uCut=1;Snd.ultCut()}
+  if(t>U_HIT+.18&&!H.uEcho){H.uEcho=1;FX.ring(H.ux??H.x,H.z,1100,1.1,'235,225,255',3);Cam.kick(14)}}
  else{if(Game.slow!==1)Game.slow=1;Game.zoomT=1;if(H.us&&!(st.ak===5&&st.atk>=0))H.us=null}
  for(const q of H.fiss||[])q.t+=dt;if(H.fiss)H.fiss=H.fiss.filter(q=>q.t<q.life);
  // волны и частицы
@@ -268,19 +269,19 @@ function special(dt,inp){
  H.waves=H.waves.filter(w=>w.t<w.life&&w.x>W.XMIN-200&&w.x<W.XMAX+200);
  for(const m of H.motes)m.t+=dt;H.motes=H.motes.filter(m=>m.t<m.life);
  for(const g of H.ghosts)g.t+=dt;H.ghosts=H.ghosts.filter(g=>g.t<.32);
- for(const b of H.beams){b.t+=dt;if(b.t<.7&&Math.random()<.5)FX.soulMote(b.x+rnd(-20,20),b.z,rnd(0,140),'220,200,255')}H.beams=H.beams.filter(b=>b.t<(b.hero?1.4:1.1));
+ for(const b of H.beams){b.t+=dt;b.k=b.k??rnd(.7,1.15);if(b.t<.7&&Math.random()<.5)FX.soulMote(b.x+rnd(-20,20),b.z,rnd(0,140),'220,200,255')}H.beams=H.beams.filter(b=>b.t<(b.hero?1.3:.75));
  // рывок: призрачный след
  if(st.dsh>=0&&st.dsh<.34&&H.f&&Math.floor(st.dsh*60)%2===0)H.ghosts.push({f:H.f,x:H.x,z:H.z,face:FACE,t:0,col:'110,190,255'});
 }
 function chargeHit(f){const L=H.chgLv||0;Game.hitStop(.05+.03*L);Cam.kick(8+6*L);const b=bladeLocal(f),q=toWorld(b.tx,b.ty),col=L>1?'255,210,120':'150,215,255';
  FX.flash(q.x,H.z,zy(H.z)-q.y,90+40*L,col,.22);FX.ring(H.x+FACE*60,H.z,160+70*L,.45,col,4);FX.dust(H.x+FACE*40,H.z,6+4*L,.8);
  if(L>=1)H.waves.push({x:H.x+FACE*90,z:H.z,dir:FACE,t:0,life:.55+.1*L,v:1500,lv:L,h:Hero.height()*(L>1?.95:.8),hit:new Set(),bossHit:0,col})}
-function ultBlast(){const R_=760,col='200,170,255';Game.hitStop(.3);Cam.kick(40);Game.ultFx=1;Game.ultFlashT=0;Snd.ultSlam();Game.zoom=1;Game.slow=1;
- for(const r of[260,560,900])FX.ring(H.x,H.z,r,.8+r/1800,col,7);FX.ring(H.x,H.z,420,.45,'255,255,255',10);for(let i=-4;i<=4;i++)FX.crack(H.x+i*85,H.z+rnd(-.05,.05),1.4,7);FX.chips(H.x,H.z,10,12,520);FX.sparks(H.x,H.z,20,40,'225,205,255',700);
- H.beams.push({x:H.x,z:H.z,t:0,big:1,hero:1});
+function ultBlast(){const R_=760,col='200,170,255',bl=bladeLocal(H.f),tq=toWorld(bl.tx,bl.ty);H.ux=tq.x;const CX=H.ux;Game.hitStop(.3);Cam.kick(40);Game.ultFx=1;Game.ultFlashT=0;Snd.ultSlam();Game.zoom=1;Game.slow=1;
+ for(const r of[260,560,900])FX.ring(CX,H.z,r,.8+r/1800,col,7);FX.ring(CX,H.z,420,.45,'255,255,255',10);for(let i=-3;i<=3;i++)FX.crack(CX+i*90,H.z+rnd(-.04,.04),1.3,7);FX.chips(CX,H.z,10,12,520);FX.sparks(CX,H.z,20,40,'225,205,255',700);
+ H.beams.push({x:CX,z:H.z,t:0,big:1,hero:1,k:1});
  // светящиеся трещины по полу: ломаные лучи от точки удара, гаснут за полторы секунды
  H.fiss=[];const ZK=.3/(W.NEAR_Y-W.FAR_Y),walk=(x,z,a,L,n)=>{const p=[[x,z]];for(let j=1;j<=n;j++){const d=L/n,aj=a+rnd(-.5,.5);x+=Math.cos(aj)*d;z=cl(z+Math.sin(aj)*d*ZK,0,1);p.push([x,z])}return p};
- for(let i=0;i<9;i++){const a=(i/9)*TAU+rnd(-.25,.25),main=walk(H.x,H.z,a,rnd(180,400),6),br=[main];for(let k=0;k<2;k++){const j=irnd(2,4),[bx,bz]=main[j];const sub=walk(bx,bz,a+(k?.7:-.7)*rnd(.6,1.2),rnd(60,140),3);sub.d=j/6;br.push(sub)}main.d=0;H.fiss.push({br,t:0,life:rnd(1.4,2),w:rnd(3.5,6)})}
+ for(let i=0;i<9;i++){const a=(i/9)*TAU+rnd(-.25,.25),main=walk(CX,H.z,a,rnd(180,400),6),br=[main];for(let k=0;k<2;k++){const j=irnd(2,4),[bx,bz]=main[j];const sub=walk(bx,bz,a+(k?.7:-.7)*rnd(.6,1.2),rnd(60,140),3);sub.d=j/6;br.push(sub)}main.d=0;H.fiss.push({br,t:0,life:rnd(1.4,2),w:rnd(3.5,6)})}
  for(const e of [...Enemies.list]){if(!e.G||e.st==='dead'||e.st==='dying'||e.st==='gone'||Math.abs(e.x-H.x)>R_)continue;H.beams.push({x:e.x,z:e.z,t:0});H.hitSet.delete(e);Enemies.damage(e,{ak:5,dmgE:75,kb:420,col},[e.x,zy(e.z)-Hero.height()*.55]);if(e.hp>0&&e.st!=='dying'){e.st='stun';e.t=0}}
  const B=Boss.b;if(B&&!H.soul&&B.st!=='enter'&&B.st!=='dying'&&Math.abs(B.x-H.x)<R_+200){H.beams.push({x:B.x,z:B.z,t:0,big:1});const p=Boss.nearLimb(B,H.x);
   for(const l of LIMBS){const lm=B.limbs[l];if(!lm.alive||(p&&l===p.part))continue;lm.hp=Math.max(1,lm.hp-30);B.flash[l]=1}
@@ -361,7 +362,7 @@ function drawAt(f,x,z,face,alpha,rec,ex={}){
  ctx.save();ctx.translate(sx(x),zy(z)+(ex.dy??((H.dy||0)+(H.dyD||0))));if(H.rot&&rec!==undefined&&ex.dy==null)ctx.rotate(H.rot);if(sp){const c=Hero.height()*.5;ctx.translate(0,-c);ctx.rotate(sp);ctx.translate(0,c)}ctx.scale(face<0?-1:1,1);ctx.globalAlpha=alpha;drawChar(f,rec);
  if(rec){
   const TL=st.ak>=4?.3:.2,TC=st.ak===5?[['150,110,255',.55],['240,225,255',.9]]:st.ak===4&&H.chgLv>1?[['255,170,70',.55],['255,240,200',.9]]:st.ak===4?[['90,170,255',.55],['225,245,255',.9]]:[['110,175,255',.42],['235,246,255',.8]];
-  tips=tips.filter(p=>st.t>=p.t&&st.t-p.t<TL);if(tips.length>2&&tips.some(p=>p.on)){
+  tips=tips.filter(p=>st.t>=p.t&&st.t-p.t<TL);if(st.ak!==5&&tips.length>2&&tips.some(p=>p.on)){
    // игра: след клинка — сплошная лента между серединой и остриём клинка (а не ломаная линия): кромки сглажены кривыми
    // через середины отрезков, лента тает к хвосту; у острия — узкая светлая кромка
    ctx.save();ctx.globalCompositeOperation='lighter';const T=tips,n=T.length,md=(a,b,k)=>[(a[k[0]]+b[k[0]])/2*SC,(a[k[1]]+b[k[1]])/2*SC];
@@ -392,7 +393,7 @@ function drawFx(f){ctx.save();ctx.globalCompositeOperation='lighter';
  ctx.restore()}
 // призрачный клинок «Разлома»: в три с лишним роста героя, ровно над ним, остриём вниз. Выходит из столба света, висит,
 // пока в него стягивается свет, падает вместе с героем и вонзается остриём в центр разлома. Рисуется за героем.
-function swordGeom(){const U=H.us,hh=Hero.height(),L=hh*3.3,X=sx(H.x),Yg=zy(H.z),Ytip=lp(Yg-U_HY-hh*1.55+U.hover,Yg+hh*.06,U.fall);return{L,X,Ytip,hh}}
+function swordGeom(){const U=H.us,hh=Hero.height(),L=hh*2.25,Xc=H.ux??(H.x+FACE*hh*.42),X=sx(lp(H.x,Xc,U.hit?1:sm(U.fall))),Yg=zy(H.z),Ytip=lp(Yg-U_HY+hh*.3+U.hover,Yg+hh*.06,U.fall);return{L,X,Ytip,hh}}
 function specSword(){const U=H.us;if(!U||U.a<.01)return;const{L,X,Ytip}=swordGeom(),a=U.a,pl=.9+.1*Math.sin(st.t*8),Y0=Ytip-L,gy=Ytip-L*.76,bw=L*.068;
  const bwAt=y=>bw*cl((Ytip-y)/(Ytip-gy),0,1)**.55; // ширина лезвия на высоте y (сужается к острию)
  ctx.save();
@@ -412,8 +413,8 @@ function specSword(){const U=H.us;if(!U||U.a<.01)return;const{L,X,Ytip}=swordGeo
   if(ph<1){ctx.moveTo(X-w_,yy);ctx.lineTo(X,yy-hh_);ctx.lineTo(X+w_,yy)}else if(ph<2){ctx.moveTo(X,yy-hh_);ctx.lineTo(X,yy+hh_*.3);ctx.moveTo(X-w_,yy-hh_*.4);ctx.lineTo(X+w_,yy-hh_*.4)}else{ctx.moveTo(X-w_,yy-hh_*.5);ctx.lineTo(X+w_,yy);ctx.lineTo(X-w_,yy+hh_*.5)}ctx.stroke()}
  ctx.globalCompositeOperation='source-over';
  // гарда: изогнутая, концы опущены к лезвию; камень в центре
- const gw=L*.2,gt=L*.028;ctx.globalAlpha=.9*a;const gg=ctx.createLinearGradient(0,gy-gt*2,0,gy+gt);gg.addColorStop(0,'rgba(245,238,255,1)');gg.addColorStop(1,'rgba(120,90,210,1)');ctx.fillStyle=gg;
- ctx.beginPath();ctx.moveTo(X-gw,gy+gt*1.6);ctx.quadraticCurveTo(X-gw*.55,gy-gt*1.8,X,gy-gt);ctx.quadraticCurveTo(X+gw*.55,gy-gt*1.8,X+gw,gy+gt*1.6);ctx.quadraticCurveTo(X+gw*.5,gy-gt*.2,X,gy+gt*.6);ctx.quadraticCurveTo(X-gw*.5,gy-gt*.2,X-gw,gy+gt*1.6);ctx.closePath();ctx.fill();
+ const gw=L*.17,gt=L*.03;ctx.globalAlpha=.9*a;const gg=ctx.createLinearGradient(0,gy-gt*2,0,gy+gt);gg.addColorStop(0,'rgba(245,238,255,1)');gg.addColorStop(1,'rgba(120,90,210,1)');ctx.fillStyle=gg;
+ ctx.beginPath();ctx.moveTo(X-gw,gy-gt*.4);ctx.lineTo(X+gw,gy-gt*.4);ctx.quadraticCurveTo(X+gw*1.08,gy+gt*.3,X+gw*.96,gy+gt*1.5);ctx.lineTo(X+gw*.9,gy+gt*.7);ctx.lineTo(X-gw*.9,gy+gt*.7);ctx.lineTo(X-gw*.96,gy+gt*1.5);ctx.quadraticCurveTo(X-gw*1.08,gy+gt*.3,X-gw,gy-gt*.4);ctx.closePath();ctx.fill();
  // рукоять с обмоткой и навершие
  const gh=L*.17,gw2=bw*.42,gr2=ctx.createLinearGradient(X-gw2,0,X+gw2,0);gr2.addColorStop(0,'rgba(220,205,255,1)');gr2.addColorStop(1,'rgba(90,64,180,1)');ctx.fillStyle=gr2;ctx.fillRect(X-gw2,gy-gt-gh,gw2*2,gh);
  ctx.strokeStyle='rgba(60,40,130,.8)';ctx.lineWidth=1.4;for(let i=1;i<6;i++){const yy=gy-gt-gh*i/6;ctx.beginPath();ctx.moveTo(X-gw2,yy+3);ctx.lineTo(X+gw2,yy-3);ctx.stroke()}
@@ -421,9 +422,10 @@ function specSword(){const U=H.us;if(!U||U.a<.01)return;const{L,X,Ytip}=swordGeo
  ctx.globalCompositeOperation='lighter';ctx.globalAlpha=a*pl;ctx.drawImage(FX.glow('255,240,255'),X-pr*3,py-pr*3,pr*6,pr*6);ctx.drawImage(FX.glow('230,200,255'),X-gt*4,gy-gt*4,gt*8,gt*8);
  ctx.restore()}
 // столб света: мягкие края, к верху гаснет (свет льётся из неба, а не обрезан краем экрана), мерцает
-function beamAt(X,Y,w,a,core){const top=Math.max(-60,Y-900);for(const[k,al,c]of[[1,.32,'150,110,255'],[.6,.38,'190,160,255'],[.3,.6,'235,225,255'],[.12*core,.9,'255,255,255']]){if(k<=0)continue;const ww=w*k,gr=ctx.createLinearGradient(0,top,0,Y);
-  gr.addColorStop(0,`rgba(${c},0)`);gr.addColorStop(.55,`rgba(${c},${al*a*.6})`);gr.addColorStop(1,`rgba(${c},${al*a})`);ctx.fillStyle=gr;ctx.fillRect(X-ww,top,2*ww,Y-top+20)}
- ctx.globalAlpha=a;ctx.drawImage(FX.glow('210,180,255'),X-w*2.2,Y-w*.6,w*4.4,w*1.2);ctx.globalAlpha=1}
+const beamSpr={};function beamImg(col){if(beamSpr[col])return beamSpr[col];const c=mkCanvas(64,256),x=c.getContext('2d'),im=x.createImageData(64,256);
+ for(let j=0;j<256;j++){const v=Math.pow(j/255,1.6);for(let i=0;i<64;i++){const u=(i-31.5)/31.5,a=Math.exp(-u*u*4.5)*v,k=(j*64+i)*4;im.data[k]=col[0];im.data[k+1]=col[1];im.data[k+2]=col[2];im.data[k+3]=a*255}}x.putImageData(im,0,0);return beamSpr[col]=c}
+function beamAt(X,Y,w,a,core){const top=Math.max(-60,Y-950),h=Y-top+16;ctx.globalAlpha=a*.9;ctx.drawImage(beamImg([170,135,255]),X-w*1.3,top,w*2.6,h);ctx.globalAlpha=a*(.55+.35*core);ctx.drawImage(beamImg([250,245,255]),X-w*.45,top,w*.9,h);
+ ctx.globalAlpha=a;ctx.drawImage(FX.glow('210,180,255'),X-w*2,Y-w*.5,w*4,w);ctx.globalAlpha=1}
 // под героем и врагами: мир темнеет, столб света с неба, круг из рун на полу, трещины, столбы на врагах, призрачный клинок
 function drawBack(){const UL=st.ak===5&&st.atk>=0,t=st.atk,d=Game.ultDim||0;
  if(d>.01){ctx.fillStyle=`rgba(6,2,20,${d})`;ctx.fillRect(-60,-60,VW+120,VH+120)}
@@ -440,9 +442,9 @@ function drawBack(){const UL=st.ak===5&&st.atk>=0,t=st.atk,d=Game.ultDim||0;
  for(const q of H.fiss||[]){const a=1-sm(q.t/q.life),grow=sm(q.t/.25);
   for(const br of q.br){const n=br.length,m=Math.max(1,(n-1)*cl((grow-br.d)/(1-br.d),0,1));
    for(let i=0;i<Math.ceil(m);i++){const[x0,z0]=br[i],[x1,z1]=br[i+1],u=Math.min(1,m-i),xe=lp(x0,x1,u),ze=lp(z0,z1,u),wv=q.w*s*(1-i/n)*(br.d?.6:1);
-    for(const[k,c,al]of[[3.2,'150,110,255',.32],[1,'245,235,255',.95]]){ctx.strokeStyle=`rgba(${c},${al*a})`;ctx.lineWidth=Math.max(.6,wv*k);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(sx(x0),zy(z0));ctx.lineTo(sx(xe),zy(ze));ctx.stroke()}}}}
+    for(const[k,c,al,op]of[[3.4,'150,110,255',.34,'lighter'],[1.4,'240,228,255',.9,'lighter'],[.6,'14,6,26',.9,'source-over']]){ctx.globalCompositeOperation=op;ctx.strokeStyle=`rgba(${c},${al*a})`;ctx.lineWidth=Math.max(.6,wv*k);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(sx(x0),zy(z0));ctx.lineTo(sx(xe),zy(ze));ctx.stroke()}ctx.globalCompositeOperation='lighter'}}}
  // столбы света над героем и врагами — позади них
- for(const b of H.beams){const L_=b.hero?1.3:1.1,u=b.t/L_,a=(u<.05?u/.05:1-sm((u-.05)/.95))*(.88+.12*Math.sin(st.t*31+b.x)),w=(b.hero?150:b.big?110:60)*(1-.5*u)*(u<.05?.5+u*10:1);beamAt(sx(b.x),zy(b.z),w,a,1)}
+ for(const b of H.beams){const L_=b.hero?1.3:.75,u=b.t/L_;if(u>=1)continue;const a=(u<.06?u/.06:1-sm((u-.06)/.94))*(.88+.12*Math.sin(st.t*31+b.x))*(b.k??1),w=(b.hero?120:b.big?90:46*(b.k??1))*(1-.45*u)*(u<.06?.5+u*8:1);beamAt(sx(b.x),zy(b.z),w,a,b.hero?1:0)}
  ctx.restore();
  // призрачный клинок — за героем
  specSword()}
