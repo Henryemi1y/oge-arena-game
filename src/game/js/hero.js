@@ -26,21 +26,30 @@ const ARMSPLIT={N:216,F:215},FOFF={};let IMG;function init(){return Promise.all(
 const st={X:0,F:.3,t:0,atk:-1,dsh:-1,Pa:0};
 const LS=[{pu:0,lt:null,se:null},{pu:0,lt:null,se:null}];
 // угол стопы в опоре: в ходьбе пятка→плоско→носок, в беге — плавный перекат с пятки на носок на всю опору
-const aSt=(w,g,m)=>lp(w<.25?-.15*(1-sm(w/.25)):w<.6?0:.5*sm((w-.6)/.4),w<.45?lp(-.15,.08,sm(w/.45)):lp(.08,AE,Math.pow(cl((w-.45)/.55,0,1),ER)),g)*m;
+// (переходы растянуты по времени, а разгон носка в беге — кубикой с конечным ускорением: иначе колено и бедро дёргаются в середине шага)
+let AW1=.25,AW2=.6,ARC=0;const rollC=x=>ARC?x*x*((3-ER)+(ER-2)*x):Math.pow(x,ER);
+const aSt=(w,g,m)=>lp(w<AW1?-.15*(1-sm(w/AW1)):w<AW2?0:.5*sm((w-AW2)/(1-AW2)),w<.45?lp(-.15,.08,sm(w/.45)):lp(.08,AE,rollC(cl((w-.45)/.55,0,1))),g)*m;
 function legPose(i,u,m,g,beta,step,S,lift,Pfl,sb,dt){const w=u/beta,Q=LS[i],off=-.07*REACH*g,td=step/2+off;let rel,ly=0,a;
  if(Q.pu>.85&&u<.15||Q.lt==null)Q.lt=st.X+td-step*w;
  // в стойке ноги плавно собираются в ровное положение под телом
  if(sb>0){const k=1-Math.exp(-5*dt*sb);if(u<beta)Q.lt+=(st.X+td-step*w-Q.lt)*k;else if(Q.se0!=null)Q.se0+=(-step/2+off-Q.se0)*k}
  if(u<beta){rel=Q.lt-st.X;Q.se=rel;a=aSt(w,g,1)}
- else{if(Q.pu<beta&&Q.se!=null)Q.se0=Q.se;const p0=Q.se0??(-step/2+off),tl=(u-beta)/(1-beta),t=tl+WH*g*Math.pow(Math.sin(Math.PI*tl),3),t2=t*t,t3=t2*t,m0=-S*(1-beta);const t4=t2*t2,t5=t4*t;rel=(1-10*t3+15*t4-6*t5)*p0+(t-6*t3+8*t4-3*t5)*m0+(10*t3-15*t4+6*t5)*td+(-4*t3+7*t4-3*t5)*m0;{const wk=1-sm(g/.4);if(wk>0){const Vs=-m0,Dl=td-p0+Vs,r=TRP,vp=1/(1-r),ramp=x=>vp*(x/2-r/(2*Math.PI)*Math.sin(Math.PI*x/r)),sg=tl<r?ramp(tl):tl>1-r?1-ramp(1-tl):vp*(r/2+tl-r),r2=p0+Dl*sg+m0*tl;rel=lp(rel,r2,wk)}}const tw=tl+.45*g*tl*(1-tl);ly=Math.pow(Math.sin(Math.PI*tw),2+LP*g+WLP*(1-g))*lift;a=lp(lp(.5,AE,g),-.15,sm(tl))+g*ER*(AE-.08)/.55*(1-beta)/beta*tl*Math.pow(1-tl,6)}
+ else{if(Q.pu<beta&&Q.se!=null)Q.se0=Q.lt!=null?Q.lt-st.X+(u-beta)*S:Q.se; // стопа отрывается там, где была бы в момент u=beta, а не в прошлом кадре (иначе кадровая «заминка» бедра)
+ const p0=Q.se0??(-step/2+off),tl=(u-beta)/(1-beta),t=tl+WH*g*Math.pow(Math.sin(Math.PI*tl),3),t2=t*t,t3=t2*t,m0=-S*(1-beta);const t4=t2*t2,t5=t4*t;rel=(1-10*t3+15*t4-6*t5)*p0+(t-6*t3+8*t4-3*t5)*m0+(10*t3-15*t4+6*t5)*td+(-4*t3+7*t4-3*t5)*m0;{const wk=1-sm(g/.4);if(wk>0){const Vs=-m0,Dl=td-p0+Vs,r=TRP,vp=1/(1-r),ramp=x=>vp*(x/2-r/(2*Math.PI)*Math.sin(Math.PI*x/r)),sg=tl<r?ramp(tl):tl>1-r?1-ramp(1-tl):vp*(r/2+tl-r),r2=p0+Dl*sg+m0*tl;rel=lp(rel,r2,wk)}}const tw=tl+.45*g*tl*(1-tl);ly=Math.pow(Math.sin(Math.PI*tw),2+LP*g+WLP*(1-g))*lift;a=lp(lp(.5,AE,g),-.15,sm(tl))+g*ER*(AE-.08)/.55*(1-beta)/beta*tl*Math.pow(1-tl,6)}
  Q.pu=u;ly*=m;a*=m;const wt=u<beta?sm(u/.1)*sm((beta-u)/.1):0,s=cl((a+.15)/.65,0,1),cx=lp(HEEL,BALL,s);
  let axv=rel-(cx*Math.cos(a)-SOLE*Math.sin(a)),ayh=ly+cx*Math.sin(a)+SOLE*Math.cos(a);
  // опорная стопа не может уйти дальше, чем достаёт нога при допустимой высоте таза: тогда стопа подтягивается, а таз не проваливается
  if(u<beta&&Pfl!=null){const vt=Pfl-ayh,axm=Math.sqrt(Math.max(0,LC*LC-vt*vt));if(vt>0&&Math.abs(axv)>axm){const c=cl(axv,-axm,axm);rel+=c-axv;axv=c;Q.lt=st.X+rel;Q.se=rel}}
  return{u,rel,lift:ly,a,wt,beta,ax:axv,ay:-ayh}}
+let CSW=12,PSG=.07,PDN=2,SWR=.13,MFK=60,MMK=150;
+// таз при ходьбе: профиль «дуга над опорой — провал к постановке стопы» за полшага сглаживается гауссом по фазе и опускается
+// ровно настолько, чтобы нигде не оказаться выше исходного (иначе нога не дотянется); так таз не падает рывком и не отскакивает
+const PSN=48,pnBuf=new Float64Array(PSN);
+function pnSmooth(f,x){const h=.5/PSN,g=d=>{d=((d%.5)+.75)%.5-.25;return Math.exp(-d*d/(2*PSG*PSG))};for(let i=0;i<PSN;i++)pnBuf[i]=f(i*h);
+ const conv=y=>{let a=0,w=0;for(let j=0;j<PSN;j++){const k=g(y-j*h);a+=k*pnBuf[j];w+=k}return a/w};let off=0;for(let i=0;i<PSN;i++)off=Math.max(off,conv(i*h)-pnBuf[i],conv((i+.5)*h)-f((i+.5)*h));return conv(x)-off}
 function ik(hx,hy,ax,ay,Q,dt,fr=0,sk=0){let dx=ax-hx,dy=ay-hy,d=Math.hypot(dx,dy),c=0;const mx=L1+L2-.05;
  // стопа в воздухе: перед пределом длины ноги дистанция мягко насыщается (без излома траектории), опорная стопа не трогается
- if(fr>0&&d>1){const cs=12,ds=-cs*Math.log(Math.exp(-d/cs)+Math.exp(-mx/cs)),dd=d+(ds-d)*fr;dx*=dd/d;dy*=dd/d;d=dd}
+ if(fr>0&&d>1){const cs=CSW,ds=-cs*Math.log(Math.exp(-d/cs)+Math.exp(-mx/cs)),dd=d+(ds-d)*fr;dx*=dd/d;dy*=dd/d;d=dd}
 if(d>mx){c=d-mx;dx*=mx/d;dy*=mx/d;d=mx}if(d<Math.abs(L1-L2)+1)d=Math.abs(L1-L2)+1;
  const a0=Math.atan2(dy,dx);let al=Math.acos(cl((L1*L1+d*d-L2*L2)/(2*L1*d),-1,1));
  // «мягкое колено»: вблизи прямой ноги угол сгиба сглаживается во времени (иначе колено щёлкает при выпрямлении); смещение стопы при этом доли единицы
@@ -105,7 +114,7 @@ function frame(v0,dt){dt=cl(dt,1/240,.05);if(!Number.isFinite(st.Pf)||!Number.is
  if(st.dsh>=0){st.dsh+=dt;D=sm(st.dsh/.05)*(1-sm((st.dsh-.24)/.1));v=Math.max(v,VB*(2+6.5*D));if(st.dsh>.40)st.dsh=-1}
  const A_=ATK[st.ak|0];if(st.atk>=0){const hs=A_.hs,sl=st.atk>=hs[0]&&st.atk<hs[1]?(st.contact===false?1:.06):1;st.atk+=dt*sl*(st.as||1);if(st.ak===4&&st.hold&&st.atk>CH_HOLD)st.atk=CH_HOLD;if(sl==1&&st.atk>hs[0]&&st.atk-dt<hs[0])st.atk=hs[0];AT=st.atk;if(AT>A_.T)st.atk=-1}
  // игра: быстрее 2,3 шага бег ускоряется длиной шага (частота шагов та же, что в hero_run): стопа по-прежнему не скользит
- const vm=Math.min(v,RUNMAX*VB),g=cl(spr('gs',sm((vm/VB-1.1)/.5),dt,36,12),0,1),m=sm(vm/(VB*.3)),beta=lp(BW,.33,g),S=lp(SW*REACH,SR*REACH*Math.max(1,vm/(2.3*VB)),g),step=beta*S,lift=lp(LW0,LF,g)*REACH;
+ const vm=Math.min(v,RUNMAX*VB),g=cl(spr('gs',sm((vm/VB-1.1)/.5),dt,36,12),0,1),m=MMK>0?cl(spr('mm',sm(vm/(VB*.3)),dt,MMK,2*Math.sqrt(MMK)),0,1):sm(vm/(VB*.3)),beta=lp(BW,.33,g),S=lp(SW*REACH,SR*REACH*Math.max(1,vm/(2.3*VB)),g),step=beta*S,lift=lp(LW0,LF,g)*REACH;
  const KA=AT>=0?atkKey(A_,AT):null;let W=KA?sm(AT/.09)*(1-sm((AT-(A_.T-.22))/.22)):0;
  // игра: удар из очереди начинается прямо из проводки предыдущего — каналы позы перетекают за .13 с, выпад держится до нового удара
  if(KA&&st.pk){const u=sm(AT/.13);if(u>=1&&AT>=A_.hs[0])st.pk=null;else{for(const c of CHN)if(c!=='LG')KA[c]=lp(st.pk[c],KA[c],u);if(AT<A_.hs[0])KA.LG=Math.max(KA.LG,st.pk.LG);W=lp(st.pk.W,1,u)*(1-sm((AT-(A_.T-.22))/.22))}}
@@ -134,12 +143,12 @@ function frame(v0,dt){dt=cl(dt,1/240,.05);if(!Number.isFinite(st.Pf)||!Number.is
  const dpk=lp(-.3,DPK,m),Ppk=Rpk-dpk;
  // ходьба: нога ставится ПРЯМОЙ и остаётся прямой всю опору — таз едет по дуге над ней (перевёрнутый маятник); сгибается нога только в конце опоры, пока таз опускается к постановке следующей
  const sW=fr(st.F)%.5,wL=sW/beta,Rw=w=>{const a=aSt(w,g,m),s_=cl((a+.15)/.65,0,1),cx0=lp(HEEL,BALL,s_),axx=step/2+off0-w*step-(cx0*Math.cos(a)-SOLE*Math.sin(a));return cx0*Math.sin(a)+SOLE*Math.cos(a)+Math.sqrt(Math.max(0,(L1+L2-.2)**2-axx*axx))},
- PN=lp(Rw(wL),Rw(0)-.3,sm((sW-WD)/(.5-HD-WD))),Pbob=Ppk-(Ppk-PN)*m;
+ PNf=s=>lp(Rw(s/beta),Rw(0)-PDN,sm((s-WD)/(.5-HD-WD))),PN=PSG>0?pnSmooth(PNf,sW):PNf(sW),Pbob=Ppk-(Ppk-PN)*m;
  const Kq=14,Pcap=smin(Lg.map(l=>-l.ay+Math.sqrt(Math.max(0,LC*LC-l.ax*l.ax))),Kq),Pt=smin([Pbob,Pcap],Kq);
  // вниз таз идёт сразу (ограничение длиной ноги), вверх — с ограничением скорости и ускорения, без рывка после смены походки
  if(st.Pf==null){st.Pf=Pt;st.Pfv=0}{const vd=(Pt-st.Pf)/dt;if(vd<=0){st.Pfv=Math.min(st.Pfv,vd);st.Pf=Pt}else{const AM=(4.8+95*(1-g)*sm((m-.9)/.1))*REACH,vc=Math.min(.5*REACH,Math.sqrt(2*AM*(Pt-st.Pf)),st.Pfv+AM*dt);st.Pfv=Math.min(vd,Math.max(vc,0));st.Pf+=st.Pfv*dt}}const Pwalk=st.Pf;
  const Prun=smin([Pr,Praw+1],8);let P=lp(Pwalk,Prun,g)-D*.07*REACH+(m<1?(Math.sin(st.t*1.8)-1)*7*(1-m):0);if(LGw>.001)P=lp(P,PLc,LGw);P+=shk*.5;
- const gs=sm(g/.6),sw=AT>=0?(AT<.2?sm(AT/.2):AT<.3?1:0):0,hy=-P,legs=Lg.map((l,li)=>{const k=ik(0,hy,l.ax,l.ay,LS[li],dt,m*gs*(l.u>=l.beta?sm((l.u-l.beta)/.06):1-sm(l.u/(.2*l.beta))),l.u>=l.beta?1:1-sm(l.u/(.2*l.beta)));return{...l,...k,r1:rot(k.kx,k.ky-hy),r2:rot(k.ax-k.kx,k.ay-k.ky),r3:l.a}});
+ const gs=sm(g/.6),mf=cl(spr('mf',m,dt,MFK,2*Math.sqrt(MFK)),0,1);CSW=lp(28,12,gs);const sw=AT>=0?(AT<.2?sm(AT/.2):AT<.3?1:0):0,hy=-P,legs=Lg.map((l,li)=>{const k=ik(0,hy,l.ax,l.ay,LS[li],dt,mf*Math.max(gs,.5)*(l.u>=l.beta?sm((l.u-l.beta)/SWR):1-sm(l.u/(.2*l.beta))),l.u>=l.beta?1:1-sm(l.u/(.2*l.beta)));return{...l,...k,r1:rot(k.kx,k.ky-hy),r2:rot(k.ax-k.kx,k.ay-k.ky),r3:l.a}});
  const AS=0,LNa=KA?KA.ln*W:0;
  const lean=lp(lp(.03,.08,m),.4,g)+.012*Math.sin(st.F*TAU*2)*m+.028*Math.sin(st.t*1.8+.7)*(1-m)+D*.38+LNa-(st.hurtL||0);st.Pa+=(P-st.Pa)*Math.min(1,dt*2.5);
  const dyn=D*.38+LNa*.55,hrot=.03-lean+.5*dyn,hdy=0; // голова едет вместе с телом (шея), а взгляд держится в одну точку: поворот головы гасит наклон корпуса
@@ -191,7 +200,7 @@ let FACE=1;
 // ---------------- критик (из hero_run.html) ----------------
 // ---------------- критик ----------------
 function critic(){const dt=1/60,T=30,pf=t=>t<2?0:t<5?lp(0,1,(t-2)/3):t<8?1:t<10?lp(1,2.3,(t-8)/2):t<14?2.3:t<16?lp(2.3,.4,(t-14)/2):t<18?lp(.4,1.6,(t-16)/2):t<20?lp(1.6,0,(t-18)/2):t<22?0:t<24?lp(0,2.3,(t-22)/2):2.3;
- const sv=JSON.stringify(st),old={...st},oldLS=JSON.parse(JSON.stringify(LS));LS.forEach(q=>{q.pu=0;q.lt=null;q.se=null;q.se0=null;q.ts=null});st.F=.3;st.X=0;st.t=0;st.atk=-1;st.dsh=-1;for(const k of['ca','caw','sb','sbw','sf','sfw','Psw','gs','gsw'])st[k]=0;st.Ps=null;st.Pm=null;st.Pmw=0;st.Pf=null;st.Pfv=0;
+ const sv=JSON.stringify(st),old={...st},oldLS=JSON.parse(JSON.stringify(LS));LS.forEach(q=>{q.pu=0;q.lt=null;q.se=null;q.se0=null;q.ts=null});st.F=.3;st.X=0;st.t=0;st.atk=-1;st.dsh=-1;for(const k of['ca','caw','sb','sbw','sf','sfw','Psw','gs','gsw','mf','mfw','mm','mmw'])st[k]=0;st.Ps=null;st.Pm=null;st.Pmw=0;st.Pf=null;st.Pfv=0;
  const Hd_=[],Fx_=[],Pn_=[],Gr_=[];const M={jumpR:0,slip:0,slipT:0,sole:0,clamp:0,stretch:0,jump:0,fl:0},prev=[null,null],Ps=[],th=[],ar=[],Pw_=[];let Pa_=0,Pbr=1e9;let pj=null,pj2=null,pg=0;
  for(let n=0;n<T*60;n++){const t=n*dt,v=pf(t)*VB,f=frame(v,dt),steady=Math.abs(f.g-pg)<1e-4&&(f.g<.002||f.g>.998);pg=f.g;if(t>14&&t<17.5&&f.g<.8)Pbr=Math.min(Pbr,f.P);
   f.legs.forEach((l,i)=>{const wx=f.X+l.rel,stance=l.u<l.beta*.97&&l.u>.03&&f.v>=25;if(prev[i]&&stance&&prev[i].st){const d=Math.abs(wx-prev[i].wx);if(steady)M.slip=Math.max(M.slip,d);else M.slipT=Math.max(M.slipT,d)}prev[i]={wx,st:stance};
@@ -377,5 +386,5 @@ function draw(){const f=H.f;if(!f||H.hidden)return;
  if(H.inv>0&&!H.soul&&f.D<.05&&Math.floor(H.t*20)%2)drawAt(f,H.x,H.z,FACE,.25,false)}
 function shadow(){if(!H.hidden)drawShadow(H.x,H.z,40,.4)}
 function height(){return 1180*W.CS*zs(H.z)}
-return{init,update,draw,shadow,damage,reset,hit,dash,parry,gainUlt,guardState,PARRY,critic,frame,bladeLocal,toWorld,height,H,st,LS,ATK,get FACE(){return FACE},set FACE(v){FACE=v},VB,J};
+return{init,update,draw,shadow,damage,reset,hit,dash,parry,gainUlt,guardState,PARRY,critic,frame,bladeLocal,toWorld,height,H,st,LS,ATK,VB,get FACE(){return FACE},set FACE(v){FACE=v},VB,J};
 })();

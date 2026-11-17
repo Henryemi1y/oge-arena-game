@@ -12,7 +12,7 @@
   // Пресеты походки. Длины — в долях длины ноги L (бедро→лодыжка); скорости — в L/с; stance — разнос стоп в покое.
   const GAITS = {
     hero:        { speed: 1.25, stride: 1.30, beta: .60, lift: .16, crouch: .02, lean: .06, bob: .9,  arm: .45, elbow: .25, heavy: 0,   dwell: 0,   shake: 0,   dust: .15, stance: .07 },
-    ghoul:       { speed: 1.60, stride: 1.10, beta: .55, lift: .15, crouch: .16, lean: .42, bob: .5,  arm: .30, elbow: .9,  heavy: 0,   dwell: 0,   shake: 0,   dust: .10, armFwd: -1.05, twitch: 1, stance: .09 },
+    ghoul:       { speed: 1.60, stride: 1.10, beta: .48, lift: .12, crouch: .16, lean: .42, bob: .5,  arm: .30, elbow: .8,  heavy: 0,   dwell: 0,   shake: 0,   dust: .10, armFwd: -1.05, twitch: 1, stance: .09 },
     knight:      { speed: .85,  stride: 1.05, beta: .64, lift: .10, crouch: .03, lean: .04, bob: 1.0, arm: .22, elbow: .35, heavy: .35, dwell: .10, shake: .08, dust: .35, stance: .08 },
     doctor:      { speed: 1.00, stride: 1.10, beta: .60, lift: .12, crouch: .05, lean: .14, bob: .6,  arm: .12, elbow: .8,  heavy: 0,   dwell: 0,   shake: 0,   dust: .10, armFwd: -.35, stance: .06 },
     goatman:     { speed: 1.05, stride: 1.25, beta: .60, lift: .17, crouch: .07, lean: .16, bob: 1.2, arm: .50, elbow: .45, heavy: .55, dwell: .12, shake: .25, dust: .55, digi: 1, stance: .09 },
@@ -39,7 +39,10 @@
     const want = (input.hold ? 0 : input.dir) * g.speed * L * (input.run ? (input.runK || 1.6) : 1) * (input.speedK || 1);
     if (input.dir && !input.hold && Math.sign(input.dir) !== c.face && Math.abs(c.v) < .05 * L) c.face = Math.sign(input.dir);
     const tgt = Math.sign(want) === c.face || !want ? Math.abs(want) : 0, acc = L * (g.heavy > .5 ? 1.2 : 3.5) * (input.accK || 1);
-    let base = Math.abs(c.v); base += cl(tgt - base, -acc * dt, acc * dt); if (input.hold) base = Math.max(0, base - acc * 3 * dt);
+    let raw = c.braw ?? Math.abs(c.v); raw += cl(tgt - raw, -acc * dt, acc * dt); if (input.hold) raw = Math.max(0, raw - acc * 3 * dt); c.braw = raw;
+    // разгон и торможение без излома скорости: линейная рампа сглаживается фильтром (иначе в начале и в конце разгона
+    // каденс меняется скачком, и голень в переносе «дёргается»)
+    const BK = 6; c.bsm = c.bsm == null ? raw : c.bsm + (raw - c.bsm) * (1 - Math.exp(-dt * BK)); let base = BK > 0 ? c.bsm : raw;
     // доля движения и относительная скорость сглажены во времени: при резкой остановке перенос стопы не дёргается
     const rel0 = base / (g.speed * L), m0 = sm(base / (.25 * g.speed * L)); if (c.mf == null) { c.mf = m0; c.relf = rel0 }
     c.mf += (m0 - c.mf) * (1 - Math.exp(-dt * 9)); c.relf += (rel0 - c.relf) * (1 - Math.exp(-dt * 9)); const m = c.mf, rel = c.relf;
