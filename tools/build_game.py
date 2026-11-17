@@ -152,6 +152,9 @@ def build_assets():
     DIRS = {'ghoul': 'assets/enemies/ghoul', 'knight': 'assets/enemies/knight', 'doctor': 'assets/enemies/plague-doctor', 'goatman': 'assets/enemies/goatman',
             'guardian': 'assets/bosses/stone-guardian', 'executioner': 'assets/bosses/stone-executioner'}
     A['ch'] = {}
+    # точка шеи на рисунке головы (низ шеи с заходом в «трубку» шеи туловища); в разметке у гуля она стояла под подбородком
+    # в пустоте, и голова висела над туловищем
+    HEAD_NECK = {'ghoul': [150, 222]}
     for n, d in DIRS.items():
         k = .5 if 'bosses' in d else .42; parts = {}
         for p, info in rigs[n]['parts'].items():
@@ -167,6 +170,14 @@ def build_assets():
                     if n == 'executioner':  # лезвие топора: самая правая точка силуэта в верхней трети
                         sub = a[: im2.height // 3]; cols = np.where(sub.any(0))[0]; xr = cols[-1]; yr = np.where(sub[:, xr])[0]
                         q['blade'] = [float(xr - 6), float(yr.mean())]
+            if p in ('legN', 'legF'):
+                # лодыжка — там, где силуэт уже всего над стопой (самая нижняя строка не шире минимума на 15 %); раньше точка
+                # стопы стояла почти у подошвы, и стопа «отрезалась» узкой полоской у пола
+                a = np.array(im)[..., 3] > 24; J = info['joint']; sole = info['sole']; Lh = sole - J[1]
+                rng = range(int(J[1] + .5 * Lh), int(sole - .08 * Lh)); wd = {y: int(a[y].sum()) for y in rng}; mn = min(wd.values())
+                ya = max(y for y in rng if wd[y] <= mn * 1.15); xs = np.where(a[ya])[0]
+                q['end'] = [float((xs.min() + xs.max()) / 2) * k, float(ya) * k]
+            if p == 'head' and n in HEAD_NECK: q['neck'] = [v * k for v in HEAD_NECK[n]]
             parts[p] = q
         parts['_k'] = k; A['ch'][n] = parts
     # ---------- герой: перекодировать PNG → WebP (координаты J не меняются) ----------

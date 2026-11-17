@@ -15,9 +15,13 @@ const UI = {
     const H = Hero.H, G = Game;
     // здоровье
     this.panel(16, 14, 300, 56); this.text('Здоровье', 28, 36, 18, '#aeb9cf'); this.text(`${Math.ceil(H.hp)}`, 304, 36, 18, '#f1d7d2', FONT_UI, 'right');
-    this.bar(28, 45, 276, 14, H.hp / H.maxhp, '#e0574a', '#8e2420'); if (G.healFx > 0) { ctx.globalAlpha = G.healFx; this.text(`+${G.healAmt}`, 320, 54, 18, '#9dffb8', FONT_UI, 'left', 700); ctx.globalAlpha = 1 }
+    this.bar(28, 45, 276, 14, H.hp / H.maxhp, '#e0574a', '#8e2420');
+    { const u = (H.ult || 0) / 100, full = u >= 1, pl = .5 + .5 * Math.sin(G.t * 6); H.ultPop = Math.max(0, (H.ultPop || 0) - 1 / 60);
+      this.panel(16, 74, 300, 30, .8); this.text(full ? 'Разлом · R' : 'Разлом', 28, 95, 15, full ? '#efe6ff' : '#a99fc6', FONT_UI, 'left', full ? 700 : 500);
+      const bx = 150, bw = 154; ctx.fillStyle = 'rgba(20,16,36,.9)'; ctx.fillRect(bx, 84, bw, 10); const gr = ctx.createLinearGradient(bx, 0, bx + bw, 0); gr.addColorStop(0, '#6d4cc9'); gr.addColorStop(1, full ? '#f0e4ff' : '#b49cff'); ctx.fillStyle = gr; ctx.fillRect(bx, 84, bw * u, 10);
+      if (full) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .35 + .35 * pl; ctx.drawImage(FX.glow('190,160,255'), bx - 20, 70, bw + 40, 38); ctx.restore() } } if (G.healFx > 0) { ctx.globalAlpha = G.healFx; this.text(`+${G.healAmt}`, 320, 54, 18, '#9dffb8', FONT_UI, 'left', 700); ctx.globalAlpha = 1 }
     // серия попаданий
-    if (G.chainT > 0 && G.chainN >= 3 && !Soul.on) { const a = Math.min(1, G.chainT * 2), sc = 1 + .25 * (G.chainPop || 0); ctx.globalAlpha = a; this.text(`Серия ×${G.chainN}`, 28, 98, Math.round(22 * sc), G.chainN >= 10 ? '#ffd98a' : '#cfe6ff', FONT_TITLE, 'left', 700); ctx.globalAlpha = 1 }
+    if (G.chainT > 0 && G.chainN >= 3 && !Soul.on) { const a = Math.min(1, G.chainT * 2), sc = 1 + .25 * (G.chainPop || 0); ctx.globalAlpha = a; this.text(`Серия ×${G.chainN}`, 28, 134, Math.round(22 * sc), G.chainN >= 10 ? '#ffd98a' : '#cfe6ff', FONT_TITLE, 'left', 700); ctx.globalAlpha = 1 }
     // очки и решённые задачи
     this.panel(VW - 246, 14, 230, G.stats.tasks ? 58 : 36); this.text(`Очки: ${G.score}`, VW - 234, 38, 19, '#e6d9b8'); if (G.stats.tasks) this.text(`Решено: ${G.stats.solved} из ${G.stats.tasks}`, VW - 234, 62, 17, '#9fd8f0');
     this.text(Snd.muted ? 'M — звук выкл' : 'M — звук', VW - 28, 36, 13, '#7f8aa0', FONT_UI, 'right', 500);
@@ -25,7 +29,7 @@ const UI = {
     const B = Boss.b;
     if (B && B.st !== 'dying') {
       const w = 540, x = VW / 2 - w / 2; this.panel(x, 12, w, 74); this.text(DRESS[B.id].name, VW / 2, 35, 21, '#e9e2d0', FONT_TITLE, 'center', 700);
-      LIMBS.forEach((l, i) => { const lm = B.limbs[l], bx = x + 14 + i * 130, k = lm.alive ? lm.hp / lm.max : 0; this.text(LIMB_NAME[l], bx, 56, 15, lm.alive ? '#b9c3d6' : '#5f6779', FONT_UI, 'left', 500);
+      LIMBS.forEach((l, i) => { const lm = B.limbs[l], bx = x + 14 + i * 130, k = lm.alive ? lm.hp / lm.max : 0; const hl = lm.alive ? Math.min(1, (lm.showT || 0) * 1.5) : 0; if (hl > 0) { ctx.globalAlpha = hl * .5; ctx.fillStyle = '#7fc4ff'; ctx.fillRect(bx - 6, 41, 128, 38); ctx.globalAlpha = 1 } this.text(LIMB_NAME[l], bx, 56, 15, hl > .2 ? '#ffffff' : lm.alive ? '#b9c3d6' : '#5f6779', FONT_UI, 'left', hl > .2 ? 700 : 500);
         this.bar(bx, 63, 116, 10, k, lm.regrow > 0 ? '#ffb27a' : '#9fb3cf', lm.regrow > 0 ? '#a0522d' : '#56657d'); if (!lm.alive) { ctx.strokeStyle = '#7ad6ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(bx + 2, 68); ctx.lineTo(bx + 114, 68); ctx.stroke() } });
     } else if (G.phase && G.phase.type === 'wave' && !Soul.on) { const n = Enemies.alive() + G.queue.length; if (n) { this.panel(VW / 2 - 130, 12, 260, 40); this.text(`${G.phase.name} · врагов: ${n}`, VW / 2, 39, 19, '#e6e0cf', FONT_TITLE, 'center', 700) } }
     // форма души: табличка с уравнением
@@ -33,7 +37,7 @@ const UI = {
     // подсказка управления в начале
     const live = Game.scene === 'play';
     if (live && this.helpT < 16 && !Soul.on) { const a = Math.min(1, (16 - this.helpT) / 2); ctx.globalAlpha = a; this.panel(16, VH - 70, 680, 54, .62);
-      this.text('A/D — шаг · Shift — бег · W/S — вглубь/ближе · Space — рывок', 28, VH - 47, 16, '#c9d3e6', FONT_UI, 'left', 500); this.text('ЛКМ — серия ударов · J/K/L — удары · F/ПКМ — парировать · Enter — пауза', 28, VH - 25, 16, '#c9d3e6', FONT_UI, 'left', 500); ctx.globalAlpha = 1 }
+      this.text('A/D — шаг · Shift — бег · W/S — вглубь/ближе · Space — рывок', 28, VH - 47, 16, '#c9d3e6', FONT_UI, 'left', 500); this.text('ЛКМ — серия · зажать ЛКМ — заряд · J/K/L — удары · F/ПКМ — парировать · R — Разлом', 28, VH - 25, 16, '#c9d3e6', FONT_UI, 'left', 500); ctx.globalAlpha = 1 }
     // баннеры
     // в форме души экран занят табличкой и монолитом — баннер идёт одной строкой над подсказкой внизу
     if (live) for (const b of this.banners) { const k = b.t / b.life, a = Math.min(1, b.t * 4) * Math.min(1, (b.life - b.t) * 2.5); ctx.globalAlpha = a;
@@ -90,7 +94,7 @@ const UI = {
     else { this.panel(VW / 2 - 300, VH - 62, 600, 42, .7); ctx.globalAlpha = .8 + .2 * Math.sin(t * 3.2); this.text('← / → — сложность · Enter или щелчок — начать', VW / 2, VH - 33, 22, '#f3e7c4', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1 }
   },
   controls(y) {
-    const lines = [['A / D, ← / →', 'шаг влево и вправо'], ['Shift', 'бег'], ['W / S, ↑ / ↓', 'вглубь и ближе'], ['Space', 'рывок (уворот)'], ['ЛКМ', 'серия из трёх ударов'], ['J / K / L', 'удар сверху, вбок, снизу'], ['F · ПКМ', 'парировать: нажми чуть раньше удара'], ['E · Q · R', 'душой: подобрать / вернуть / порядок'], ['Enter · M · − / +', 'пауза · звук · громкость']];
+    const lines = [['A / D, ← / →', 'шаг влево и вправо'], ['Shift', 'бег'], ['W / S, ↑ / ↓', 'вглубь и ближе'], ['Space', 'рывок (уворот)'], ['ЛКМ', 'серия из трёх ударов'], ['ЛКМ (зажать)', 'заряженный удар: чем дольше, тем сильнее'], ['R', 'Разлом — когда шкала полна'], ['J / K / L', 'удар сверху, вбок, снизу'], ['F · ПКМ', 'парировать: нажми чуть раньше удара'], ['E · Q · R', 'душой: подобрать / вернуть / порядок'], ['Enter · M · − / +', 'пауза · звук · громкость']];
     this.panel(VW / 2 - 270, y, 540, lines.length * 25 + 20, .88);
     lines.forEach(([k, v], i) => { this.text(k, VW / 2 - 16, y + 28 + i * 25, 17, '#ffd98a', FONT_UI, 'right', 700); this.text(v, VW / 2 + 4, y + 28 + i * 25, 17, '#d5ddec', FONT_UI, 'left', 500) });
   },

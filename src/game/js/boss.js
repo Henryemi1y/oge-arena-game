@@ -274,6 +274,8 @@ const Boss = {
     this.waves = this.waves.filter(w => w.t < w.life);
   },
   // ---------- попадания по конечностям ----------
+  // ближайшая к точке x целая конечность (для волны заряженного удара и «Разлома»): часть и точка попадания
+  nearLimb(B, x) { let best = null; for (const L of this.limbCaps(B)) for (const [a, c] of L.caps) { const m = [(a[0] + c[0]) / 2, (a[1] + c[1]) / 2], d = Math.abs(m[0] - x) + (L.near ? 0 : 20); if (!best || d < best.d) best = { part: L.part, p: m, d } } return best },
   limbCaps(B) {
     const G = B.G, xf = rigXf(B), Wp = p => { const q = rigToWorld(B, p, xf); return [q.x, q.y] }, P = B.R.P, s = xf.s, out = [];
     G.arms.forEach((a, i) => { const part = i ? 'armF' : 'armN'; if (B.limbs[part].alive) out.push({ part, near: !i, caps: [[Wp(a.sh), Wp(a.el), P[part].r * .95 * s], [Wp(a.el), Wp(a.hand), P[part].r * .85 * s]] }) });
@@ -293,13 +295,13 @@ const Boss = {
     return best;
   },
   hitLimb(part, b, at, real = true) {
-    const B = this.b, lm = B.limbs[part], dmg = [12, 10, 11][b.ak] * (b.ak === 2 && Hero.H.combo.n === 0 ? 1.3 : 1) * (B.open > 0 ? 1.5 : 1);
+    const B = this.b, lm = B.limbs[part], dmg = (b.dmgB ?? [12, 10, 11][b.ak]) * (b.ak === 2 && Hero.H.combo.n === 0 ? 1.3 : 1) * (B.open > 0 ? 1.5 : 1);
     if (B.open > 0 && real) FX.sparks(at[0], B.z, zy(B.z) - at[1], 8, '255,214,120', 320);
     Snd.stoneHit(); FX.chips(at[0], B.z, zy(B.z) - at[1], 7, 320); FX.sparks(at[0], B.z, zy(B.z) - at[1], 6, '230,230,255', 260);
     if (!real) { Critic.fake++; return } // душа вне тела: тело дерётся только для вида (без стоп-кадра и тряски — душа не дёргается)
-    Cam.kick(4); Game.hitStop(.06);
+    Cam.kick(b.dmgB ? 9 : 4); Game.hitStop(b.dmgB ? .09 : .06); if (b.ak !== 5) Hero.gainUlt(b.dmgB ? 4 : 2.5);
     lm.hp -= dmg; B.flash[part] = 1; Game.stats.hits++; Game.chain(); for (const l of LIMBS) B.limbs[l].showT = 0; lm.showT = 2.2; lm.at = { x: at[0], h: zy(B.z) - at[1] };
-    const fc = Hero.FACE; FX.cut(at[0], B.z, zy(B.z) - at[1], [fc > 0 ? 1.0 : PI - 1.0, fc > 0 ? .12 : PI - .12, fc > 0 ? -.9 : PI + .9][b.ak] || 0, 90, B.open > 0 ? '255,226,150' : '235,240,255');
+    const fc = Hero.FACE; FX.cut(at[0], B.z, zy(B.z) - at[1], [fc > 0 ? 1.0 : PI - 1.0, fc > 0 ? .12 : PI - .12, fc > 0 ? -.9 : PI + .9][b.ak] ?? (fc > 0 ? .12 : PI - .12), b.dmgB ? 160 : 90, b.col || (B.open > 0 ? '255,226,150' : '235,240,255'));
     FX.num(at[0], B.z, zy(B.z) - at[1] + 30, Math.round(dmg), B.open > 0 ? '#ffd98a' : '#e6eeff', B.open > 0 ? 25 : 19);
     if (lm.hp <= 0) this.breakLimb(B, part);
   },
@@ -345,8 +347,6 @@ const Boss = {
     // после отбитого удара босс открыт: надпись над ним, пока удары по нему сильнее
     if (B.open > 0 && !Hero.H.soul) { const a = Math.min(1, B.open * 3), y = zy(B.z) - this.L(B) * (B.gait === 'sit' ? 2.2 : 3.4) * this.s(B); ctx.globalAlpha = a; UI.text('Открыт — бей!', sx(B.x), y, 24, '#ffe09a', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1 }
     // полоска прочности — прямо у конечности, по которой бьют
-    for (const l of LIMBS) { const lm = B.limbs[l]; if (!(lm.showT > 0) || !lm.alive || !lm.at) continue; const w = 78, x = sx(lm.at.x) - w / 2, y = zy(B.z) - lm.at.h - 62, k = cl(lm.hp / lm.max, 0, 1); ctx.globalAlpha = Math.min(1, lm.showT * 2);
-      ctx.fillStyle = 'rgba(6,8,14,.85)'; ctx.fillRect(x - 2, y - 2, w + 4, 11); ctx.fillStyle = k > .35 ? '#9fd2ff' : '#ffb27a'; ctx.fillRect(x, y, w * k, 7); ctx.globalAlpha = 1 }
     // след оружия в ударе
     if (B.trail && B.trail.length > 1) { ctx.save(); ctx.lineCap = 'round'; for (let i = 1; i < B.trail.length; i++) { const a = B.trail[i - 1], b = B.trail[i], al = 1 - (B.t - b.t) / .22; if (al <= 0) continue; ctx.strokeStyle = B.R.axe ? `rgba(255,170,110,${.55 * al})` : `rgba(200,220,255,${.45 * al})`; ctx.lineWidth = (B.R.axe ? 22 : 30) * al; ctx.beginPath(); ctx.moveTo(sx(a.x), a.y); ctx.lineTo(sx(b.x), b.y); ctx.stroke() } ctx.restore() }
   },

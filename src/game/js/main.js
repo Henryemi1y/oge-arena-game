@@ -53,7 +53,7 @@ const Game = {
   },
   step(dt) {
     if (this.scene === 'load') return;
-    this.t += dt; if (this.scene !== 'pause') { UI.step(dt); this.healFx = Math.max(0, this.healFx - dt); this.hurtFx = Math.max(0, (this.hurtFx || 0) - dt * 2.4); this.chainT = Math.max(0, (this.chainT || 0) - dt); this.chainPop = Math.max(0, (this.chainPop || 0) - dt * 6) } // в паузе надписи не убегают
+    this.t += dt; if (this.scene !== 'pause') { UI.step(dt); this.healFx = Math.max(0, this.healFx - dt); this.hurtFx = Math.max(0, (this.hurtFx || 0) - dt * 2.4); this.ultFx = Math.max(0, (this.ultFx || 0) - dt * 1.6); this.chainT = Math.max(0, (this.chainT || 0) - dt); this.chainPop = Math.max(0, (this.chainPop || 0) - dt * 6) } // в паузе надписи не убегают
     if (Input.hit('Minus') || Input.hit('NumpadSubtract')) Snd.setVol(Snd.vol - .1); if (Input.hit('Equal') || Input.hit('NumpadAdd')) Snd.setVol(Snd.vol + .1);
     if (this.scene === 'title') {
       if (Input.hit('ArrowLeft') || Input.hit('KeyA')) this.setDiff(0); if (Input.hit('ArrowRight') || Input.hit('KeyD')) this.setDiff(1);
@@ -69,7 +69,7 @@ const Game = {
     // герой: игрок или (в форме души) автопилот тела
     const H = Hero.H; let inp;
     if (H.soul) inp = this.bodyAI();
-    else { const a = Input.axis(); inp = { x: a.x, z: a.z, run: a.run, dash: Input.hit('Space'), parry: Input.hit('KeyF') || Input.hit('Mouse2'), combo: Input.hit('Mouse0'), atk: Input.hit('KeyJ') ? 0 : Input.hit('KeyK') ? 1 : Input.hit('KeyL') ? 2 : -1 } }
+    else { const a = Input.axis(); inp = { x: a.x, z: a.z, run: a.run, dash: Input.hit('Space'), parry: Input.hit('KeyF') || Input.hit('Mouse2'), combo: Input.hit('Mouse0'), hold: !!Input.k.Mouse0, ult: Input.hit('KeyR'), atk: Input.hit('KeyJ') ? 0 : Input.hit('KeyK') ? 1 : Input.hit('KeyL') ? 2 : -1 } }
     if (H.dead) inp = { x: 0, z: 0, atk: -1 };
     if (!this.deadT) Hero.update(wdt, inp);
     const b = H.blade; if (b && !H.dead) { Enemies.bladeHits(b); const r = Boss.bladeHits(b); if (r && r.part) Boss.hitLimb(r.part, b, r.p, !H.soul) }
@@ -106,6 +106,8 @@ const Game = {
     // получен урон — края экрана вспыхивают красным; мало здоровья — края тихо пульсируют
     { const H = Hero.H, low = this.scene === 'play' && !H.dead && H.hp < H.maxhp * .25 ? .22 + .12 * Math.sin(t * 5) : 0, a = Math.max(low, (this.hurtFx || 0) * .8);
       if (a > .01) { if (!this.vigR) { const w = VW / 4, h = VH / 4; this.vigR = mkCanvas(w, h); const x = this.vigR.getContext('2d'); x.scale(1, h / w); const vg = x.createRadialGradient(w / 2, w / 2, w * .4, w / 2, w / 2, w * .72); vg.addColorStop(0, 'rgba(255,30,20,0)'); vg.addColorStop(1, 'rgba(255,30,20,.85)'); x.fillStyle = vg; x.fillRect(0, 0, w, w) } ctx.globalAlpha = a; ctx.drawImage(this.vigR, 0, 0, VW, VH); ctx.globalAlpha = 1 } }
+    // вспышка «Разлома»: весь экран заливает светом и он медленно гаснет
+    if (this.ultFx > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(200,180,255,${.7 * this.ultFx ** 1.5})`; ctx.fillRect(0, 0, VW, VH); ctx.restore() }
     if (this.scene === 'title' || this.scene === 'load') UI.title(t, this.loadK);
     else { UI.hud(); if (this.scene === 'pause') UI.pause(); if (this.scene === 'win' || this.scene === 'lose') UI.end(this.scene === 'win', t) }
   },
@@ -120,8 +122,9 @@ function fit() {
 addEventListener('resize', fit); fit();
 // щелчок по холсту забирает фокус клавиатуры (игра может стоять во встроенном окне) и запоминает точку в координатах игры
 cvs.addEventListener('mousedown', e => { const r = cvs.getBoundingClientRect(); Input.mx = (e.clientX - r.left) / r.width * VW; Input.my = (e.clientY - r.top) / r.height * VH;
-  if (e.button === 0) { Input.p.Mouse0 = 1; Snd.init() } if (e.button === 2) { Input.p.Mouse2 = 1; Snd.init() } e.preventDefault(); try { window.focus(); cvs.focus({ preventScroll: true }) } catch (err) { } });
+  if (e.button === 0) { Input.p.Mouse0 = 1; Input.k.Mouse0 = 1; Snd.init() } if (e.button === 2) { Input.p.Mouse2 = 1; Snd.init() } e.preventDefault(); try { window.focus(); cvs.focus({ preventScroll: true }) } catch (err) { } });
 cvs.addEventListener('contextmenu', e => e.preventDefault());
+addEventListener('mouseup', e => { if (e.button === 0) Input.k.Mouse0 = 0 }); addEventListener('blur', () => { Input.k.Mouse0 = 0 });
 addEventListener('keydown', () => Snd.init(), { once: false });
 // окно потеряло фокус — пауза (иначе бой идёт без игрока)
 const autoPause = () => { if (Game.scene === 'play' && !Game.test) Game.scene = 'pause' };

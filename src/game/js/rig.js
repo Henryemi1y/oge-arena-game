@@ -52,16 +52,44 @@ function rigPiece(img, piv, at, rot, clip) {
 }
 // вариант картинки: '' — обычная, 'D' — затемнённая дальняя, 'W' — белый силуэт (вспышка попадания)
 const rimg = (I, part, v, dark) => v === 'W' ? (I[part + 'W'] || I[part]) : dark ? (I[part + 'D'] || I[part]) : I[part];
+// Нарезка конечности на детали по дугам вокруг суставов. Деталь, которой принадлежит сустав (бедро — колено, голень —
+// лодыжка, плечо — локоть), забирает себе круг вокруг точки поворота; соседняя деталь получает такую же круглую выемку.
+// Обе вращаются вокруг центра этого круга, поэтому граница при любом сгибе совпадает: нет ни просвета, ни прямого
+// «среза» поперёк конечности (раньше детали резались горизонтальными полосами и прикрывались кружком-«шапкой»).
+// Радиус круга — по силуэту: он перекрывает всю ширину конечности в строке сустава. Края накладываются на 2 px.
+const CUT_E = 2;
+function jointR(img, J, lim) {
+  const c = mkCanvas(img.width, img.height), x = c.getContext('2d'); x.drawImage(img, 0, 0);
+  const d = x.getImageData(0, 0, c.width, c.height).data; let r = 0;
+  for (let y = Math.max(0, Math.round(J[1] - 3)); y <= Math.min(c.height - 1, Math.round(J[1] + 3)); y++)
+    for (let i = 0; i < c.width; i++) if (d[(y * c.width + i) * 4 + 3] > 24) r = Math.max(r, Math.hypot(i - J[0], y - J[1]));
+  return cl(r + 2, 8, lim);
+}
+function cutLimb(img, P, leg, R0) {
+  if (img._cut) return img._cut;
+  const w = img.width, h = img.height, J = P.joint, E = P.end, e = CUT_E;
+  // радиусы считаются по основному (не затемнённому) рисунку — у всех вариантов одни и те же границы
+  const rJ = R0 ? R0.rJ : jointR(img, J, dist(J, E) * .42), rE = leg ? (R0 ? R0.rE : jointR(img, E, (h - E[1]) * 1.2)) : 0;
+  const piece = (y0, y1, draw) => { y0 = Math.max(0, Math.floor(y0)); y1 = Math.min(h, Math.ceil(y1)); const c = mkCanvas(w, Math.max(1, y1 - y0)), x = c.getContext('2d'); x.translate(0, -y0); draw(x); return { c, oy: y0 } };
+  const circ = (x, p, r) => { x.beginPath(); x.arc(p[0], p[1], r, 0, TAU) };
+  const up = piece(0, J[1] + rJ + e, x => { x.beginPath(); x.rect(0, 0, w, J[1] + e); x.arc(J[0], J[1], rJ + e, 0, TAU); x.clip('nonzero'); x.drawImage(img, 0, 0) });
+  const lo = piece(J[1] - e, leg ? E[1] + rE + e : h, x => {
+    x.save(); x.beginPath(); x.rect(0, J[1] - e, w, (leg ? E[1] + e : h) - J[1] + e); if (leg) x.arc(E[0], E[1], rE + e, 0, TAU); x.clip('nonzero'); x.drawImage(img, 0, 0); x.restore();
+    x.globalCompositeOperation = 'destination-out'; circ(x, J, rJ - e); x.fill() });
+  const ft = leg ? piece(E[1] - e, h, x => { x.save(); x.beginPath(); x.rect(0, E[1] - e, w, h); x.clip(); x.drawImage(img, 0, 0); x.restore(); x.globalCompositeOperation = 'destination-out'; circ(x, E, rE - e); x.fill() }) : null;
+  return img._cut = { up, lo, ft, rJ, rE };
+}
+function cutFor(R, part, v, dark) { const base = R.I[part], c0 = cutLimb(base, R.P[part], part.startsWith('leg')); const im = rimg(R.I, part, v, dark); return im === base ? c0 : cutLimb(im, R.P[part], part.startsWith('leg'), c0) }
+const drawCut = (pc, piv, at, rot) => { ctx.save(); ctx.translate(at[0], at[1]); ctx.rotate(rot); ctx.drawImage(pc.c, -piv[0], pc.oy - piv[1]); ctx.restore() };
 function rigLeg(ch, G, li, v) {
-  const R = ch.R, lg = G.legs[li], part = lg.part, P = R.P[part], I = rimg(R.I, part, v, li === 1), L = lg.L, ov = P.r * .55, ovA = R.ov;
+  const R = ch.R, lg = G.legs[li], part = lg.part, P = R.P[part], C = cutFor(R, part, v, li === 1), L = lg.L;
   const a1 = angOf(lg.hip, lg.kn) - angOf(P.root, P.joint), a2 = angOf(lg.kn, lg.an) - angOf(P.joint, P.end);
   const a3 = L.st ? (L.footRot || 0) : (L.footRot ?? -.25 * Math.sin(PI * cl(L.lift / (ch.c.g.lift * (R.L1 + R.L2) + 1e-6), 0, 1)));
-  rigPiece(I, P.end, lg.an, a3, { y0: P.end[1] - ovA, y1: I.height + 10 }); rigPiece(I, P.joint, lg.kn, a2, { y0: P.joint[1] - ov, y1: P.end[1] + ovA });
-  rigPiece(I, P.end, lg.an, a2, { c: P.end, r: ovA + 6 }); rigPiece(I, P.root, lg.hip, a1, { y0: -10, y1: P.joint[1] + ov }); rigPiece(I, P.joint, lg.kn, a1, { c: P.joint, r: P.r * .92 });
+  drawCut(C.ft, P.end, lg.an, a3); drawCut(C.lo, P.joint, lg.kn, a2); drawCut(C.up, P.root, lg.hip, a1);
 }
 function rigArm(ch, G, ai, v) {
-  const R = ch.R, A = G.arms[ai], part = A.part, P = R.P[part], I = rimg(R.I, part, v, ai === 1), ov = P.r * .55;
-  rigPiece(I, P.joint, A.el, A.a2, { y0: P.joint[1] - ov, y1: I.height + 10 }); rigPiece(I, P.root, A.sh, A.a1, { y0: -10, y1: P.joint[1] + ov }); rigPiece(I, P.joint, A.el, A.a1, { c: P.joint, r: P.r * .9 });
+  const R = ch.R, A = G.arms[ai], part = A.part, P = R.P[part], C = cutFor(R, part, v, ai === 1);
+  drawCut(C.lo, P.joint, A.el, A.a2); drawCut(C.up, P.root, A.sh, A.a1);
 }
 function rigWeapon(ch, G, v) { const R = ch.R, w = G.weapon; if (!w || ch.noWeapon) return; const I = rimg(R.I, 'weapon', v, w.arm === 1 && !R.axe); rigPiece(I, R.P.weapon.grip, w.at, w.rot) }
 // культя: верхушка детали в точке крепления, поворот вместе с корпусом

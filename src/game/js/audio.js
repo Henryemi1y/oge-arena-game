@@ -48,6 +48,17 @@ const Snd = (() => {
     block() { tone(900, 520, 'triangle', .16, .16); noise(.08, 'bandpass', 1500, 900, 1.2, .24); tone(120, 60, 'sine', .14, .28) },
     tell() { noise(.08, 'bandpass', 3200, 2400, 2.2, .07, { a: .005 }); tone(1300, 1500, 'sine', .07, .035) },
     guard() { noise(.09, 'bandpass', 2200, 1400, 1.4, .08, { a: .01 }) },
+    // заряженный удар: нарастающий гул (держится, пока зажата кнопка), звон уровней, мощный рассекающий выпуск
+    chargeOn() { if (!ac || S._ch) return; const t = now(), o = ac.createOscillator(), o2 = ac.createOscillator(), f = ac.createBiquadFilter(), e = ac.createGain();
+      o.type = 'sawtooth'; o2.type = 'triangle'; o.frequency.setValueAtTime(70, t); o.frequency.exponentialRampToValueAtTime(160, t + 1.4); o2.frequency.setValueAtTime(280, t); o2.frequency.exponentialRampToValueAtTime(640, t + 1.4);
+      f.type = 'lowpass'; f.frequency.setValueAtTime(400, t); f.frequency.exponentialRampToValueAtTime(2600, t + 1.4); f.Q.value = 3;
+      e.gain.setValueAtTime(.0001, t); e.gain.exponentialRampToValueAtTime(.09, t + .25); o.connect(f); o2.connect(f); f.connect(e).connect(sfxG); o.start(t); o2.start(t); S._ch = { o, o2, e } },
+    chargeOff() { if (!ac || !S._ch) return; const { o, o2, e } = S._ch, t = now(); e.gain.cancelScheduledValues(t); e.gain.setValueAtTime(Math.max(.0001, e.gain.value), t); e.gain.exponentialRampToValueAtTime(.0001, t + .08); o.stop(t + .1); o2.stop(t + .1); S._ch = null },
+    chargeLvl(l) { if (!ac) return; const t = now(), b = l > 1 ? 1320 : 990; tone(b, b, 'sine', .5, .16, { verb: .6 }); tone(b * 1.5, b * 1.5, 'sine', .4, .08, { t: t + .05, verb: .6 }); noise(.25, 'highpass', 5000, 7000, 1, .06) },
+    chargeRelease(l) { if (!ac) return; noise(.45, 'bandpass', 600, 4200, 1.6, .38, { a: .01 }); tone(220, 70, 'sawtooth', .5, .14 + .06 * l); tone(1760, 880, 'triangle', .35, .1 * l, { verb: .5 }); tone(60, 34, 'sine', .7, .45) },
+    ultReady() { if (!ac) return; const t = now();[523, 659, 784, 1047].forEach((f, i) => tone(f, f, 'triangle', .5, .1, { t: t + i * .06, verb: .7 })) },
+    ultRise() { if (!ac) return; noise(1.0, 'bandpass', 200, 5000, 2, .3, { a: .3, verb: .6 }); tone(110, 880, 'sawtooth', 1.0, .08, { a: .2 }); tone(220, 1760, 'sine', 1.0, .1, { a: .2, verb: .8 }) },
+    ultSlam() { if (!ac) return; const t = now(); noise(1.6, 'lowpass', 1800, 60, .7, .8); tone(48, 24, 'sine', 1.6, .9); tone(96, 40, 'sawtooth', .8, .25); noise(.5, 'highpass', 3000, 8000, .8, .3, { verb: 1 });[880, 1320, 1760].forEach((f, i) => tone(f, f * .98, 'triangle', 1.4, .08, { t: t + .05 + i * .04, verb: 1 })) },
     dash() { noise(.25, 'bandpass', 1300, 380, 1.1, .2, { a: .02 }) },
     roar() { if (!ac) return; tone(68, 52, 'sawtooth', 1.6, .2, { a: .3 }); tone(71, 50, 'sawtooth', 1.6, .2, { a: .3, det: 20 }); noise(1.6, 'lowpass', 300, 1100, 2, .25, { a: .4 }); S.quake(.8) },
     gate() { tone(90, 66, 'sawtooth', .9, .06, { a: .1 }); noise(.9, 'lowpass', 220, 90, .7, .22) },
