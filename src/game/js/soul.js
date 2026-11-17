@@ -31,7 +31,7 @@ const Soul = {
       spots.push([tx, tz]); const tt = rnd(.9, 1.4), g = 900;
       return { d, x: pos.x, z: pos.z, h: pos.h, vx: (tx - pos.x) / tt, vz: (tz - pos.z) / tt, vh: (0 - pos.h) / tt + .5 * g * tt, g, t: 0, tt, landed: false, r: 0, vr: rnd(-12, 12), ph: rnd(0, TAU) };
     });
-    const H = Hero.H; H.soul = true; this.x = H.x; this.z = H.z; this.h = Hero.height() * .55; this.vx = 0; this.vz = 0; this.face = Hero.FACE; this.alpha = 0;
+    const H = Hero.H; H.soul = true; this.ribbon = []; this.x = H.x; this.z = H.z; this.h = Hero.height() * .55; this.vx = 0; this.vz = 0; this.face = Hero.FACE; this.alpha = 0;
     Snd.soulOut(); Snd.setMode('soul'); Game.stats.tasks++;
   },
   atMonolith() { return Math.abs(this.x - World.monolith.x) < 150 && this.z < .34 },
@@ -47,7 +47,8 @@ const Soul = {
       this.T -= dt; this.used += dt; const a = Input.axis(), sp = a.run ? 520 : 380, ax = a.x * sp, az = a.z * (a.run ? 1.45 : 1.15);
       this.vx = lp(this.vx, ax, 1 - Math.exp(-dt * 9)); this.vz = lp(this.vz, az, 1 - Math.exp(-dt * 9));
       this.x = cl(this.x + this.vx * dt, W.XMIN, W.XMAX); this.z = cl(this.z + this.vz * dt, 0, 1); if (Math.abs(this.vx) > 20) this.face = Math.sign(this.vx);
-      this.h = 70 + 10 * Math.sin(this.t * 2.2); if (Math.random() < .35) FX.soulMote(this.x - this.face * rnd(0, 30), this.z, this.h + rnd(-10, 60));
+      this.h = 70 + 10 * Math.sin(this.t * 2.2); if (Math.random() < .25) FX.soulMote(this.x + rnd(-25, 25), this.z, this.h + rnd(-60, 90));
+      { const T_ = this._tip; if (T_) { (this.ribbon = this.ribbon || []).push({ x: this.x + T_.dx, z: this.z, h: this.h - T_.dy, t: this.t }); this.ribbon = this.ribbon.filter(q => this.t - q.t < .35) } }
       if (Input.hit('KeyE')) this.use(); if (Input.hit('KeyQ')) this.undo(); if (Input.hit('KeyR')) this.rotate();
       if (this.T <= 10 && Math.floor(this.T + dt) !== Math.floor(this.T)) Snd.tick();
       if (this.T <= 0) { this.T = 0; this.finish(false, 'Время вышло') }
@@ -126,42 +127,59 @@ const Soul = {
     if (s.d === '−') { ctx.fillStyle = 'rgba(150,225,255,.95)'; ctx.shadowColor = '#5fc8ff'; ctx.shadowBlur = 8; ctx.fillRect(-img.width * k * .26, -img.height * k * .06, img.width * k * .52, img.height * k * .13) }
     ctx.restore();
   },
-  // душа героя: цельная фигура с листа (без стыков рук, головы и хвоста), полы плаща и хвост струятся волной
-  // и тянутся за движением; за ней — мягкое сияние силуэта, по телу проходит полоса света, глаза светятся,
-  // при быстром полёте остаются гаснущие отпечатки
+  // душа героя: цельная фигура с листа. Из неё один раз готовится «призрачная» версия: детали размыты, ядро
+  // полупрозрачное, яркий контур по краю, свет в груди, к хвосту фигура тает. Каждый кадр фигура гнётся волной
+  // от плеч к хвосту и в полёте тянется назад (голова впереди, хвост отстаёт), корпус наклоняется по ходу.
+  spirit() {
+    if (this._sp) return this._sp; const F = IM.soul.full, w = F.width, h = F.height, mk = () => mkCanvas(w, h);
+    const sil = (src, col, blur = 0) => { const c = mk(), x = c.getContext('2d'); if (blur) x.filter = `blur(${blur}px)`; x.drawImage(src, 0, 0); x.filter = 'none'; if (col) { x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, w, h) } return c };
+    // контур: силуэт, раздутый на 2 px, минус сам силуэт
+    const rim = mk(), r = rim.getContext('2d'), solid = sil(F, '#fff');
+    for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [-1.5, -1.5], [1.5, 1.5], [-1.5, 1.5], [1.5, -1.5]]) r.drawImage(solid, dx, dy);
+    r.globalCompositeOperation = 'destination-out'; r.drawImage(solid, 0, 0); r.globalCompositeOperation = 'source-in'; r.fillStyle = 'rgb(215,255,255)'; r.fillRect(0, 0, w, h);
+    const c = mk(), x = c.getContext('2d');
+    x.globalAlpha = .62; x.drawImage(sil(F, null, 2.5), 0, 0); x.globalAlpha = .3; x.drawImage(F, 0, 0); x.globalAlpha = 1;
+    // свет в груди
+    x.globalCompositeOperation = 'source-atop'; const g = x.createRadialGradient(108, 175, 0, 108, 175, 120); g.addColorStop(0, 'rgba(230,255,255,.55)'); g.addColorStop(1, 'rgba(230,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+    x.globalCompositeOperation = 'source-over'; x.drawImage(rim, 0, 0);
+    // к хвосту фигура тает
+    x.globalCompositeOperation = 'destination-in'; const v = x.createLinearGradient(0, 0, 0, h); v.addColorStop(0, 'rgba(0,0,0,1)'); v.addColorStop(.5, 'rgba(0,0,0,.92)'); v.addColorStop(.8, 'rgba(0,0,0,.55)'); v.addColorStop(1, 'rgba(0,0,0,.15)'); x.fillStyle = v; x.fillRect(0, 0, w, h);
+    const gl = mkCanvas(w + 60, h + 60), gx = gl.getContext('2d'); gx.filter = 'blur(14px)'; gx.drawImage(F, 30, 30); gx.filter = 'none'; gx.globalCompositeOperation = 'source-in'; gx.fillStyle = 'rgb(120,235,255)'; gx.fillRect(0, 0, gl.width, gl.height);
+    return this._sp = { c, gl };
+  },
   soulCanvas() {
-    const F = IM.soul.full, M = 70, w = F.width + 2 * M, h = F.height + 20, tt = performance.now() / 1000;
-    if (!this._sc) { this._sc = mkCanvas(w, h); this._sh = mkCanvas(w, h);
-      const g = mkCanvas(w + 60, h + 60), x = g.getContext('2d'); x.filter = 'blur(14px)'; x.drawImage(F, M + 30, 40); x.filter = 'none';
-      x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(120,235,255)'; x.fillRect(0, 0, g.width, g.height); this._sg = g }
-    const c = this._sc, x = c.getContext('2d'), Y0 = 250, n = 92, sh = (F.height - Y0) / n, vx = cl(this.vx * this.face, -600, 600);
-    x.clearRect(0, 0, w, h); x.drawImage(F, 0, 0, F.width, Y0, M, 0, F.width, Y0);
-    // ниже пояса: каждая полоса сдвигается волной, амплитуда растёт к кончику хвоста; движение оттягивает хвост назад
-    for (let i = 0; i < n; i++) { const y = Y0 + i * sh, u = i / n, amp = 3 + 22 * Math.pow(u, 1.4), dx = Math.sin(tt * 2.6 - u * 4.6) * amp + Math.sin(tt * 4.1 - u * 7) * 4 * u - vx * .055 * u * u;
-      x.drawImage(F, 0, y, F.width, sh + 1, M + dx, y, F.width, sh + 1) }
-    // полоса света сверху вниз (раз в 3 с), только по телу души
-    const s2 = this._sh, y2 = s2.getContext('2d'), ph = (tt % 3) / 3, by = -120 + ph * (h + 240);
-    y2.globalCompositeOperation = 'source-over'; y2.clearRect(0, 0, w, h); y2.drawImage(c, 0, 0); y2.globalCompositeOperation = 'source-in';
-    const gr = y2.createLinearGradient(0, by - 70, 0, by + 70); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(.5, 'rgba(235,255,255,.85)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); y2.fillStyle = gr; y2.fillRect(0, 0, w, h);
-    return { c, s: s2, M };
+    const { c: SP } = this.spirit(), M = 80, w = SP.width + 2 * M, h = SP.height + 20, tt = performance.now() / 1000;
+    if (!this._sc || this._sc.width !== w) this._sc = mkCanvas(w, h);
+    const c = this._sc, x = c.getContext('2d'), Y0 = 95, H_ = SP.height, vx = cl(this.vx * this.face, -600, 600);
+    x.clearRect(0, 0, w, h); x.drawImage(SP, 0, 0, SP.width, Y0, M, 0, SP.width, Y0);
+    // от плеч вниз: волна с растущей амплитудой; в полёте нижняя часть отстаёт (дуга назад)
+    // полосы по 2 px встык, без перекрытия (иначе на полупрозрачной фигуре видны горизонтальные линии)
+    for (let y = Y0; y < H_; y += 2) { const hh = Math.min(2, H_ - y), u = (y - Y0) / (H_ - Y0), amp = 1 + 22 * Math.pow(u, 1.5), dx = Math.sin(tt * 2.4 - u * 4.4) * amp + Math.sin(tt * 3.9 - u * 7) * 3.5 * u - vx * .085 * u * u;
+      x.drawImage(SP, 0, y, SP.width, hh, M + dx, y, SP.width, hh) }
+    return { c, M };
   },
   drawSoul() {
     const S = ASSETS.soul, F = IM.soul.full; if (!F) return;
     const k = W.CS / S._k * zs(this.z), X = sx(this.x), Y = zy(this.z) - this.h, tt = performance.now() / 1000, WX = 105, WY = 212;
-    const { c, s, M } = this.soulCanvas(), lean = cl(this.vx * this.face * .0006, -.25, .3), br = 1 + .012 * Math.sin(tt * 2.2);
-    const put = (img, a, mode, ox = 0, oy = 0, kk = 1) => { ctx.save(); ctx.globalCompositeOperation = mode; ctx.globalAlpha = a; ctx.translate(X + ox, Y + oy); ctx.rotate(lean * this.face); ctx.scale(this.face * k * kk, k * br * kk); ctx.drawImage(img, -(WX + M + (img === this._sg ? 30 : 0)), -WY - (img === this._sg ? 40 : 0)); ctx.restore() };
-    // отпечатки при быстром полёте
-    this.trail = this.trail || []; const sp = Math.abs(this.vx) + Math.abs(this.vz) * 600; if (sp > 160 && (this._tk = (this._tk || 0) + 1) % 3 === 0) this.trail.push({ x: this.x, z: this.z, h: this.h, t: tt, f: this.face });
-    this.trail = this.trail.filter(q => tt - q.t < .35);
-    for (const q of this.trail) { const a = (1 - (tt - q.t) / .35) * .22 * this.alpha; put(c, a, 'lighter', sx(q.x) - X, zy(q.z) - q.h - Y) }
-    // сияние вокруг силуэта и мягкий ореол
-    const pl = .75 + .25 * Math.sin(tt * 2.2);
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = this.alpha * .5 * pl; const gr = 300 * zs(this.z); ctx.drawImage(IM.soul.glow, X - gr / 2, Y - gr * .55, gr, gr); ctx.restore();
-    put(this._sg, this.alpha * .55 * pl, 'lighter');
-    // сама душа и светлая полоса по ней
-    put(c, this.alpha * .9, 'source-over'); put(s, this.alpha * .55, 'lighter');
+    const { c, M } = this.soulCanvas(), { gl } = this.spirit(), lean = cl(this.vx * .0011, -.5, .5) + .03 * Math.sin(tt * 1.3), br = 1 + .012 * Math.sin(tt * 2.2);
+    const put = (img, a, mode, ox, oy) => { ctx.save(); ctx.globalCompositeOperation = mode; ctx.globalAlpha = a; ctx.translate(X, Y); ctx.rotate(lean); ctx.scale(this.face * k, k * br); ctx.drawImage(img, -(WX + ox), -(WY + oy)); ctx.restore() };
+    // шлейф: лента за кончиком хвоста (точки пишутся по игровому времени в update)
+    const tr = this.ribbon || [];
+    if (tr.length > 1 && this.ph === 'free') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
+      for (let i = 1; i < tr.length; i++) { const p0 = tr[i - 1], p1 = tr[i], u = 1 - (this.t - p1.t) / .35; if (u <= 0) continue;
+        for (const [wk, al, col] of [[2.6, .07, '120,235,255'], [1, .2, '210,255,255']]) { ctx.strokeStyle = `rgba(${col},${al * u * u * this.alpha})`; ctx.lineWidth = Math.max(.8, 5 * u * wk * zs(this.z)); ctx.beginPath(); ctx.moveTo(sx(p0.x), zy(p0.z) - p0.h); ctx.lineTo(sx(p1.x), zy(p1.z) - p1.h); ctx.stroke() } }
+      ctx.restore() }
+    // сияние: мягкое и «дышит»
+    const pl = .7 + .3 * Math.sin(tt * 1.8);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = this.alpha * .45 * pl; const gr = 300 * zs(this.z); ctx.drawImage(IM.soul.glow, X - gr / 2, Y - gr * .55, gr, gr); ctx.restore();
+    put(gl, this.alpha * .42 * pl, 'lighter', 30, 30);
+    // сама душа (уже полупрозрачная) и лёгкое свечение поверх
+    put(c, this.alpha, 'source-over', M, 0); put(c, this.alpha * .22 * pl, 'lighter', M, 0);
     // глаза
     { const ex = X + this.face * (141 - WX) * k, ey = Y + (73 - WY) * k * br, r = 7 * zs(this.z) * (1 + .2 * Math.sin(tt * 7)); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = this.alpha * .7; ctx.drawImage(FX.glow('190,250,255'), ex - r, ey - r, 2 * r, 2 * r); ctx.restore() }
+    // кончик хвоста в мире — для шлейфа
+    { const ty = 600 - WY, tx = Math.sin(tt * 2.4 - 4.4) * 23 - cl(this.vx * this.face, -600, 600) * .085, ca = Math.cos(lean), sa = Math.sin(lean), lx = this.face * tx * k, ly = ty * k;
+      this._tip = { dx: lx * ca - ly * sa, dy: lx * sa + ly * ca } }
     // несомые осколки — по кругу у души
     this.carried.forEach((s, i) => { const a = tt * 2 + i * TAU / 3, r = 46; this.drawShard(s, this.x + Math.cos(a) * r, this.z + Math.sin(a) * .03, this.h + 70 + Math.sin(a) * 18, .8) });
   },

@@ -53,7 +53,7 @@ const Game = {
   },
   step(dt) {
     if (this.scene === 'load') return;
-    this.t += dt; if (this.scene !== 'pause') { UI.step(dt); this.healFx = Math.max(0, this.healFx - dt); this.hurtFx = Math.max(0, (this.hurtFx || 0) - dt * 2.4); this.ultFx = Math.max(0, (this.ultFx || 0) - dt * 1.6); { const zt = this.zoomT || 1, z = this.zoom || 1; this.zoom = lp(z, zt, 1 - Math.exp(-dt * (zt > z ? 2.2 : 9))); if (!(Hero.st.ak === 5 && Hero.st.atk >= 0)) this.ultDim = Math.max(0, (this.ultDim || 0) - dt * .9) } this.chainT = Math.max(0, (this.chainT || 0) - dt); this.chainPop = Math.max(0, (this.chainPop || 0) - dt * 6) } // в паузе надписи не убегают
+    this.t += dt; if (this.scene !== 'pause') { UI.step(dt); this.healFx = Math.max(0, this.healFx - dt); this.hurtFx = Math.max(0, (this.hurtFx || 0) - dt * 2.4); this.ultFx = Math.max(0, (this.ultFx || 0) - dt * 1.6); if (this.ultFlashT != null) this.ultFlashT += dt; { const zt = this.zoomT || 1, z = this.zoom || 1; this.zoom = lp(z, zt, 1 - Math.exp(-dt * (zt > z ? 2.2 : 9))); if (!(Hero.st.ak === 5 && Hero.st.atk >= 0)) this.ultDim = Math.max(0, (this.ultDim || 0) - dt * .9) } this.chainT = Math.max(0, (this.chainT || 0) - dt); this.chainPop = Math.max(0, (this.chainPop || 0) - dt * 6) } // в паузе надписи не убегают
     if (Input.hit('Minus') || Input.hit('NumpadSubtract')) Snd.setVol(Snd.vol - .1); if (Input.hit('Equal') || Input.hit('NumpadAdd')) Snd.setVol(Snd.vol + .1);
     if (this.scene === 'title') {
       if (Input.hit('ArrowLeft') || Input.hit('KeyA')) this.setDiff(0); if (Input.hit('ArrowRight') || Input.hit('KeyD')) this.setDiff(1);
@@ -96,9 +96,9 @@ const Game = {
     if ((this.zoom || 1) > 1.001) { const z = this.zoom, cx = sx(Hero.H.x), cy = zy(Hero.H.z) + (Hero.H.dyS || 0) - Hero.height() * .6; ctx.translate(cx, cy); ctx.scale(z, z); ctx.translate(-cx, -cy) }
     World.drawBack(t); Soul.drawFloorDim(); FX.drawGround(); World.drawLights(t); if (this.scene !== 'load') Hero.drawBack();
     const list = []; World.propDrawables(list); Enemies.drawables(list); Boss.drawables(list); Soul.drawables(list);
-    if (this.scene !== 'load') { list.push({ z: Hero.H.z, draw: () => Hero.draw(), shadow: () => Hero.shadow() }); Eye.drawables(list) }
+    if (this.scene !== 'load') { list.push({ z: Hero.H.z, draw: () => Hero.draw(), shadow: () => Hero.shadow(), hero: 1 }); Eye.drawables(list) }
     for (const d of list) if (d.shadow) d.shadow();
-    list.sort((a, b) => a.z - b.z); for (const d of list) d.draw();
+    list.sort((a, b) => a.z - b.z); for (const d of list) { d.draw(); if (d.hero) Hero.drawDim() }
     FX.drawAir(); Soul.drawTop(); World.drawFront();
     ctx.restore();
     // форма души: мир синеет и темнеет по краям
@@ -109,7 +109,8 @@ const Game = {
     { const H = Hero.H, low = this.scene === 'play' && !H.dead && H.hp < H.maxhp * .25 ? .22 + .12 * Math.sin(t * 5) : 0, a = Math.max(low, (this.hurtFx || 0) * .8);
       if (a > .01) { if (!this.vigR) { const w = VW / 4, h = VH / 4; this.vigR = mkCanvas(w, h); const x = this.vigR.getContext('2d'); x.scale(1, h / w); const vg = x.createRadialGradient(w / 2, w / 2, w * .4, w / 2, w / 2, w * .72); vg.addColorStop(0, 'rgba(255,30,20,0)'); vg.addColorStop(1, 'rgba(255,30,20,.85)'); x.fillStyle = vg; x.fillRect(0, 0, w, w) } ctx.globalAlpha = a; ctx.drawImage(this.vigR, 0, 0, VW, VH); ctx.globalAlpha = 1 } }
     // вспышка «Разлома»: весь экран заливает светом и он медленно гаснет
-    if (this.ultFx > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(200,180,255,${.7 * this.ultFx ** 1.5})`; ctx.fillRect(0, 0, VW, VH); ctx.restore() }
+    // кадр удара: 3 кадра почти белого экрана, затем за 0,15 с — обратно в тёмную сцену
+    if (this.ultFlashT != null && this.ultFlashT < .2) { const u = this.ultFlashT, a = u < .05 ? .85 : .85 * (1 - (u - .05) / .15) ** 2; ctx.fillStyle = `rgba(245,240,255,${a})`; ctx.fillRect(0, 0, VW, VH) }
     if (this.scene === 'title' || this.scene === 'load') UI.title(t, this.loadK);
     else { UI.hud(); if (this.scene === 'pause') UI.pause(); if (this.scene === 'win' || this.scene === 'lose') UI.end(this.scene === 'win', t) }
   },

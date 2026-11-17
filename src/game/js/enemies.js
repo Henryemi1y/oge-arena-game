@@ -172,7 +172,7 @@ const Enemies = {
     if (rip) { FX.sparks(at[0], e.z, zy(e.z) - at[1], 12, '255,214,120', 360); Game.score += 10 }
     const hy = zy(e.z) - at[1], fc = Hero.FACE;
     e.hp -= dmg; e.flash = 1; e.hpT = 2.6; Game.chain(); Snd.hit(); FX.sparks(at[0], e.z, hy, 7, '255,214,170', 300); FX.sparks(at[0], e.z, hy, 6, '150,40,50', 240); FX.flash(at[0], e.z, hy, 46, '255,200,170', .1); Game.hitStop(rip ? .08 : .05); Cam.kick(rip ? 6 : 3);
-    FX.cut(at[0], e.z, hy, [fc > 0 ? 1.0 : PI - 1.0, fc > 0 ? .12 : PI - .12, fc > 0 ? -.9 : PI + .9][b.ak] ?? (fc > 0 ? .12 : PI - .12), b.dmgE ? 150 : rip ? 120 : 84, b.col || (rip ? '255,226,150' : '255,255,255'));
+    if (b.ak === 5) { FX.dust(e.x, e.z, 4, .6); FX.sparks(e.x, e.z, hy * .6, 8, b.col || "220,200,255", 360) } else FX.cut(at[0], e.z, hy, [fc > 0 ? 1.0 : PI - 1.0, fc > 0 ? .12 : PI - .12, fc > 0 ? -.9 : PI + .9][b.ak] ?? (fc > 0 ? .12 : PI - .12), b.dmgE ? 150 : rip ? 120 : 84, b.col || (rip ? '255,226,150' : '255,255,255'));
     FX.num(at[0], e.z, hy + 26, Math.round(dmg), rip ? '#ffd98a' : '#ffffff', rip ? 26 : 19);
     // первые два удара серии почти не отталкивают (враг остаётся под клинком), третий — отбрасывает
     e.kbv = Math.sign(e.x - Hero.H.x) * (b.kb ? b.kb * (e.T.poise ? .5 : 1) : (e.T.poise ? [25, 25, 80] : [70, 70, 240])[b.ak] ?? 80) * (rip ? 1.3 : 1);

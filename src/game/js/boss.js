@@ -301,7 +301,7 @@ const Boss = {
     if (!real) { Critic.fake++; return } // душа вне тела: тело дерётся только для вида (без стоп-кадра и тряски — душа не дёргается)
     Cam.kick(b.dmgB ? 9 : 4); Game.hitStop(b.dmgB ? .09 : .06); if (b.ak !== 5) Hero.gainUlt(b.dmgB ? 4 : 2.5);
     lm.hp -= dmg; B.flash[part] = 1; Game.stats.hits++; Game.chain(); for (const l of LIMBS) B.limbs[l].showT = 0; lm.showT = 2.2; lm.at = { x: at[0], h: zy(B.z) - at[1] };
-    const fc = Hero.FACE; FX.cut(at[0], B.z, zy(B.z) - at[1], [fc > 0 ? 1.0 : PI - 1.0, fc > 0 ? .12 : PI - .12, fc > 0 ? -.9 : PI + .9][b.ak] ?? (fc > 0 ? .12 : PI - .12), b.dmgB ? 160 : 90, b.col || (B.open > 0 ? '255,226,150' : '235,240,255'));
+    const fc = Hero.FACE; if (b.ak === 5) FX.sparks(at[0], B.z, zy(B.z) - at[1], 14, b.col || '220,200,255', 420); else FX.cut(at[0], B.z, zy(B.z) - at[1], [fc > 0 ? 1.0 : PI - 1.0, fc > 0 ? .12 : PI - .12, fc > 0 ? -.9 : PI + .9][b.ak] ?? (fc > 0 ? .12 : PI - .12), b.dmgB ? 160 : 90, b.col || (B.open > 0 ? '255,226,150' : '235,240,255'));
     FX.num(at[0], B.z, zy(B.z) - at[1] + 30, Math.round(dmg), B.open > 0 ? '#ffd98a' : '#e6eeff', B.open > 0 ? 25 : 19);
     if (lm.hp <= 0) this.breakLimb(B, part);
   },

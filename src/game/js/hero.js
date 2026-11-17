@@ -104,7 +104,7 @@ const ATK=[
  // собирается призрачный клинок и мир замедляется; падение и удар клинком в землю с колена; долгая стойка на колене
  // (высота, замедление, приближение камеры — в update)
  mkA(2.2,[1.30,1.305],[1.17,1.36],[{t:0,...G0},{t:.30,e:2,ru:-2.55,rf:-3.0,w:.55,ya:0,ln:-.14,ox:-12,LG:.55,Ff:205,Rr:-215,fru:1.05,ffx:.3,cp:-.25},
-  {t:.80,e:2,ru:-2.75,rf:-3.15,w:.6,ln:-.05,ox:0,LG:.2,fru:-.9,ffx:.9,cp:.4},{t:1.14,e:3,ru:-2.85,rf:-3.2,w:.62,ln:-.08,ox:-4,LG:.15,fru:-1.0,ffx:.95,cp:.45},
+  {t:.80,e:2,ru:-3.0,rf:-3.15,w:1.1,ln:-.06,ox:0,LG:.9,Ff:40,Rr:-70,fru:-2.75,ffx:.45,cp:.4},{t:1.14,e:3,ru:-3.05,rf:-3.18,w:1.12,ln:-.08,ox:-4,LG:.9,Ff:40,Rr:-70,fru:-2.8,ffx:.45,cp:.45},
   {t:1.22,e:1,ru:-2.2,rf:-2.6,w:.7,ln:.2,ox:30,LG:.7,fru:.8,ffx:.6,cp:.2},
   {t:1.30,e:1,ru:-.55,rf:-.48,w:.95,ln:.5,ox:62,LG:1,Ff:230,Rr:-150,fru:.2,ffx:1.3,cp:.5},{t:1.305,e:3,ru:-.54,rf:-.47,ln:.5,ox:62},
   {t:1.78,e:3,ru:-.5,rf:-.44,ln:.46,ox:58,cp:.3},{t:2.2,e:0,...G0,ln:.04}])];
@@ -252,9 +252,9 @@ function special(dt,inp){
   // подъём плавный (с замедлением к вершине), зависание с лёгким покачиванием, падение — с ускорением
   const y=t<U_UP?0:t<U_TOP?-U_HY*(1-Math.pow(1-(t-U_UP)/(U_TOP-U_UP),3)):t<U_FALL?-U_HY-7*Math.sin(PI*(t-U_TOP)/(U_FALL-U_TOP)):t<U_HIT?-U_HY*(1-Math.pow((t-U_FALL)/(U_HIT-U_FALL),2)):0;H.dyS=y;H.air=y<-1?1:0;
   // мир замедляется, темнеет и приближается, пока герой собирает силу; удар возвращает всё рывком
-  const g_=t<U_HIT?sm((t-.2)/.35):0;Game.slow=lp(1,.28,g_);Game.zoomT=lp(1,1.12,sm((t-.25)/.8))*(t<U_HIT?1:0)||1;Game.ultDim=Math.max(Game.ultDim||0,.6*g_);
+  const g_=t<U_HIT?sm((t-.2)/.35):0;Game.slow=lp(1,.28,g_);Game.zoomT=lp(1,1.2,sm((t-.25)/.75))*(t<U_HIT?1:0)||1;Game.ultDim=Math.max(Game.ultDim||0,.6*g_);
   if(t>.25&&t<U_HIT){const n=t<U_FALL?2:1;for(let i=0;i<n;i++){const a=rnd(0,TAU),r=rnd(90,260);H.motes.push({x:H.x+Math.cos(a)*r,y:zy(H.z)+y-Hero.height()*.55+Math.sin(a)*r*.75,t:0,life:rnd(.45,.8),col:Math.random()<.3?'255,240,255':'200,170,255'})}}
-  if(t>=U_FALL&&t<U_HIT&&(H.gk=(H.gk||0)+1)%2===0)H.ghosts.push({f:H.f,x:H.x,z:H.z,face:FACE,t:0,col:'200,170,255',dy:y});
+  if(t>=U_FALL&&t<U_HIT&&(H.gk=(H.gk||0)+1)%3===0)H.ghosts.push({f:H.f,x:H.x,z:H.z,face:FACE,t:0,col:'200,170,255',dy:y,al:.4});
   // призрачный клинок над героем: проступает в зависании, падает вместе с ним и вонзается в землю
   H.us=t<.62?null:{a:t<U_HIT?sm((t-.62)/.4):1-sm((t-U_HIT-.08)/.4),fall:t<U_FALL?0:Math.pow(cl((t-U_FALL)/(U_HIT-U_FALL),0,1),2),hover:t<U_FALL?Math.sin(st.t*3)*6:0,hit:t>=U_HIT};
   if(t>U_HIT+.18&&!H.uEcho){H.uEcho=1;FX.ring(H.x,H.z,1100,1.1,'235,225,255',3);Cam.kick(14)}}
@@ -268,18 +268,19 @@ function special(dt,inp){
  H.waves=H.waves.filter(w=>w.t<w.life&&w.x>W.XMIN-200&&w.x<W.XMAX+200);
  for(const m of H.motes)m.t+=dt;H.motes=H.motes.filter(m=>m.t<m.life);
  for(const g of H.ghosts)g.t+=dt;H.ghosts=H.ghosts.filter(g=>g.t<.32);
- for(const b of H.beams)b.t+=dt;H.beams=H.beams.filter(b=>b.t<(b.hero?1.4:1.1));
+ for(const b of H.beams){b.t+=dt;if(b.t<.7&&Math.random()<.5)FX.soulMote(b.x+rnd(-20,20),b.z,rnd(0,140),'220,200,255')}H.beams=H.beams.filter(b=>b.t<(b.hero?1.4:1.1));
  // рывок: призрачный след
  if(st.dsh>=0&&st.dsh<.34&&H.f&&Math.floor(st.dsh*60)%2===0)H.ghosts.push({f:H.f,x:H.x,z:H.z,face:FACE,t:0,col:'110,190,255'});
 }
 function chargeHit(f){const L=H.chgLv||0;Game.hitStop(.05+.03*L);Cam.kick(8+6*L);const b=bladeLocal(f),q=toWorld(b.tx,b.ty),col=L>1?'255,210,120':'150,215,255';
  FX.flash(q.x,H.z,zy(H.z)-q.y,90+40*L,col,.22);FX.ring(H.x+FACE*60,H.z,160+70*L,.45,col,4);FX.dust(H.x+FACE*40,H.z,6+4*L,.8);
  if(L>=1)H.waves.push({x:H.x+FACE*90,z:H.z,dir:FACE,t:0,life:.55+.1*L,v:1500,lv:L,h:Hero.height()*(L>1?.95:.8),hit:new Set(),bossHit:0,col})}
-function ultBlast(){const R_=760,col='200,170,255';Game.hitStop(.3);Cam.kick(40);Game.ultFx=1;Snd.ultSlam();Game.zoom=1.02;Game.slow=1;
- for(const r of[260,560,900])FX.ring(H.x,H.z,r,.8+r/1800,col,7);FX.ring(H.x,H.z,420,.45,'255,255,255',10);for(let i=-4;i<=4;i++)FX.crack(H.x+i*85,H.z+rnd(-.05,.05),1.4,7);FX.chips(H.x,H.z,10,30,620);FX.sparks(H.x,H.z,20,40,'225,205,255',700);
+function ultBlast(){const R_=760,col='200,170,255';Game.hitStop(.3);Cam.kick(40);Game.ultFx=1;Game.ultFlashT=0;Snd.ultSlam();Game.zoom=1;Game.slow=1;
+ for(const r of[260,560,900])FX.ring(H.x,H.z,r,.8+r/1800,col,7);FX.ring(H.x,H.z,420,.45,'255,255,255',10);for(let i=-4;i<=4;i++)FX.crack(H.x+i*85,H.z+rnd(-.05,.05),1.4,7);FX.chips(H.x,H.z,10,12,520);FX.sparks(H.x,H.z,20,40,'225,205,255',700);
  H.beams.push({x:H.x,z:H.z,t:0,big:1,hero:1});
  // светящиеся трещины по полу: ломаные лучи от точки удара, гаснут за полторы секунды
- H.fiss=[];for(let i=0;i<11;i++){const a=(i/11)*TAU+rnd(-.2,.2),L=rnd(320,760),pts=[[H.x,H.z]];let x=H.x,z=H.z;const n=7;for(let j=1;j<=n;j++){const d=L/n,aj=a+rnd(-.45,.45);x+=Math.cos(aj)*d;z+=Math.sin(aj)*d/2200;pts.push([x,cl(z,0,1)])}H.fiss.push({pts,t:0,life:rnd(1.4,2),w:rnd(3,6)})}
+ H.fiss=[];const ZK=.3/(W.NEAR_Y-W.FAR_Y),walk=(x,z,a,L,n)=>{const p=[[x,z]];for(let j=1;j<=n;j++){const d=L/n,aj=a+rnd(-.5,.5);x+=Math.cos(aj)*d;z=cl(z+Math.sin(aj)*d*ZK,0,1);p.push([x,z])}return p};
+ for(let i=0;i<9;i++){const a=(i/9)*TAU+rnd(-.25,.25),main=walk(H.x,H.z,a,rnd(180,400),6),br=[main];for(let k=0;k<2;k++){const j=irnd(2,4),[bx,bz]=main[j];const sub=walk(bx,bz,a+(k?.7:-.7)*rnd(.6,1.2),rnd(60,140),3);sub.d=j/6;br.push(sub)}main.d=0;H.fiss.push({br,t:0,life:rnd(1.4,2),w:rnd(3.5,6)})}
  for(const e of [...Enemies.list]){if(!e.G||e.st==='dead'||e.st==='dying'||e.st==='gone'||Math.abs(e.x-H.x)>R_)continue;H.beams.push({x:e.x,z:e.z,t:0});H.hitSet.delete(e);Enemies.damage(e,{ak:5,dmgE:75,kb:420,col},[e.x,zy(e.z)-Hero.height()*.55]);if(e.hp>0&&e.st!=='dying'){e.st='stun';e.t=0}}
  const B=Boss.b;if(B&&!H.soul&&B.st!=='enter'&&B.st!=='dying'&&Math.abs(B.x-H.x)<R_+200){H.beams.push({x:B.x,z:B.z,t:0,big:1});const p=Boss.nearLimb(B,H.x);
   for(const l of LIMBS){const lm=B.limbs[l];if(!lm.alive||(p&&l===p.part))continue;lm.hp=Math.max(1,lm.hp-30);B.flash[l]=1}
@@ -375,7 +376,7 @@ let gcv=null;
 function drawGhosts(){if(!H.ghosts.length)return;if(!gcv||gcv.width!==ctx.canvas.width||gcv.height!==ctx.canvas.height)gcv=mkCanvas(ctx.canvas.width,ctx.canvas.height);
  const by={};for(const g of H.ghosts)(by[g.col]=by[g.col]||[]).push(g);const old=ctx,T=old.getTransform();
  for(const col in by){const gx=gcv.getContext('2d');gx.setTransform(1,0,0,1,0,0);gx.clearRect(0,0,gcv.width,gcv.height);gx.setTransform(T);ctx=gx;
-  try{for(const g of by[col]){const a=1-g.t/.32;drawAt(g.f,g.x,g.z,g.face,.75*a*a,false,{dy:g.dy??0,spin:g.spin??0})}}finally{ctx=old}
+  try{for(const g of by[col]){const a=1-g.t/.32;drawAt(g.f,g.x,g.z,g.face,(g.al??.75)*a*a,false,{dy:g.dy??0,spin:g.spin??0})}}finally{ctx=old}
   gx.setTransform(1,0,0,1,0,0);gx.globalCompositeOperation='source-in';gx.fillStyle=`rgb(${col})`;gx.fillRect(0,0,gcv.width,gcv.height);gx.globalCompositeOperation='source-over';
   ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalCompositeOperation='lighter';ctx.globalAlpha=.8*H.alpha;ctx.drawImage(gcv,0,0);ctx.restore()}}
 function drawFx(f){ctx.save();ctx.globalCompositeOperation='lighter';
@@ -383,50 +384,71 @@ function drawFx(f){ctx.save();ctx.globalCompositeOperation='lighter';
  if(st.ak===4&&st.atk>=0&&st.atk<=ATK[4].hs[1]){const L=st.hold?H.chgL:H.chgLv||0,k=st.hold?Math.min(1,H.chg/CH_LV[0]):1,col=L>1?'255,200,110':L>0?'140,210,255':'190,220,255',b=bladeLocal(f),p=toWorld(b.bx,b.by),q=toWorld(b.tx,b.ty),pl=1+.15*Math.sin(st.t*22);
   for(let i=0;i<=6;i++){const u=i/6,x=sx(lp(p.x,q.x,u)),y=lp(p.y,q.y,u)+(H.dyD||0),r=(14+10*L)*k*pl*(.7+.5*u);ctx.globalAlpha=.55+.15*L;ctx.drawImage(FX.glow(col),x-r,y-r,2*r,2*r)}
   const X=sx(H.x),Y=zy(H.z),rr=(70+30*L)*k*pl;ctx.globalAlpha=.35+.2*L;ctx.strokeStyle=`rgba(${col},.9)`;ctx.lineWidth=2+L;ctx.beginPath();ctx.ellipse(X,Y,rr,rr*.2,0,0,TAU);ctx.stroke();ctx.globalAlpha=.25*k;ctx.drawImage(FX.glow(col),X-rr,Y-rr*.5,2*rr,rr)}
- for(const m of H.motes){const u=m.t/m.life,b=bladeLocal(f),q=toWorld((b.bx+b.tx)/2,(b.by+b.ty)/2),x=lp(m.x,q.x,u*u),y=lp(m.y,q.y+(H.dyD||0),u*u),r=5+4*(1-u);ctx.globalAlpha=Math.sin(PI*u);ctx.drawImage(FX.glow(m.col||(H.chgL>1?'255,200,110':'140,210,255')),sx(x)-r,y-r,2*r,2*r)}
+ for(const m of H.motes){const u=m.t/m.life,b=bladeLocal(f),UG=m.col&&H.us?swordGeom():null,q=UG?{x:H.x,y:UG.Ytip-UG.L*rnd(.15,.55)}:toWorld((b.bx+b.tx)/2,(b.by+b.ty)/2),x=lp(m.x,q.x,u*u),y=lp(m.y,UG?q.y:q.y+(H.dyD||0),u*u),r=5+4*(1-u);ctx.globalAlpha=Math.sin(PI*u);ctx.drawImage(FX.glow(m.col||(H.chgL>1?'255,200,110':'140,210,255')),sx(x)-r,y-r,2*r,2*r)}
  // волна заряженного удара — серп света, летящий вперёд
  for(const w of H.waves){const a=1-w.t/w.life,X=sx(w.x),Y=zy(w.z)-w.h*.5,ry=w.h*.55,rx=ry*.42*(1+.4*(1-a));ctx.save();ctx.translate(X,Y);ctx.scale(w.dir,1);
   for(const[k,al,c]of[[1.25,.25*a,w.col],[1,.6*a,w.col],[.7,.85*a,'255,255,255']]){ctx.globalAlpha=al;ctx.fillStyle=`rgb(${c})`;ctx.beginPath();ctx.ellipse(0,0,rx*k,ry*k,0,-PI/2,PI/2);ctx.ellipse(-rx*.55*k,0,rx*.5*k,ry*.92*k,0,PI/2,-PI/2,true);ctx.fill()}
   ctx.restore();ctx.globalAlpha=.4*a;ctx.drawImage(FX.glow(w.col),X-ry,Y-ry,2*ry,2*ry)}
- // ульта: столбы света на каждом враге
- for(const b of H.beams){const L=b.hero?1.4:1.1,u=b.t/L,a=u<.06?u/.06:1-sm((u-.06)/.94),X=sx(b.x),Y=zy(b.z),w=(b.hero?190:b.big?120:64)*(1-.55*u)*(u<.06?.4+u/.1:1),h=Y+60;
-  // столб: широкое мягкое свечение и узкий белый стержень
-  for(const[k,c,al]of[[1,'170,130,255',.6],[.32,'255,250,255',1]]){const ww=w*k,gr=ctx.createLinearGradient(X-ww,0,X+ww,0);gr.addColorStop(0,`rgba(${c},0)`);gr.addColorStop(.5,`rgba(${c},${al*a})`);gr.addColorStop(1,`rgba(${c},0)`);ctx.fillStyle=gr;ctx.globalAlpha=1;ctx.fillRect(X-ww,Y-h,2*ww,h)}
-  ctx.globalAlpha=a;ctx.drawImage(FX.glow('210,180,255'),X-w*2.2,Y-w*.7,w*4.4,w*1.4)}
- // призрачный клинок над героем
- if(H.us&&H.us.a>.01)specSword(f);
  ctx.restore()}
-// призрачный клинок «Разлома»: огромный, остриём вниз; висит над героем, падает вместе с ним и вонзается в землю
-function specSword(f){const U=H.us,hh=Hero.height(),L=hh*1.5,X=sx(H.x)+FACE*hh*.5,Yg=zy(H.z),Ytip=lp(Yg-U_HY+hh*.15+U.hover,Yg+hh*.1,U.fall),Y0=Ytip-L,a=U.a,pl=.85+.15*Math.sin(st.t*9);
- ctx.save();ctx.globalCompositeOperation='lighter';
- // ореол вдоль клинка
- for(let i=0;i<=8;i++){const yy=lp(Ytip,Y0+L*.2,i/8),r=L*.11*(1-.4*i/8);ctx.globalAlpha=.35*a*pl;ctx.drawImage(FX.glow('190,160,255'),X-r,yy-r,2*r,2*r)}
- const bw=L*.075,gy=Ytip-L*.74,col=(al,c)=>`rgba(${c},${al*a})`;
- const blade=(k,c,al)=>{ctx.fillStyle=col(al,c);ctx.beginPath();ctx.moveTo(X,Ytip);ctx.lineTo(X-bw*k,gy-L*.02);ctx.lineTo(X-bw*k*.9,gy);ctx.lineTo(X+bw*k*.9,gy);ctx.lineTo(X+bw*k,gy-L*.02);ctx.closePath();ctx.fill()};
- ctx.globalAlpha=1;blade(1.6,'150,110,255',.35);blade(1,'200,180,255',.75);blade(.35,'255,255,255',.95);
- // гарда, рукоять, навершие
- ctx.fillStyle=col(.8,'220,200,255');ctx.fillRect(X-L*.17,gy-L*.035,L*.34,L*.035);ctx.fillStyle=col(.6,'190,160,255');ctx.fillRect(X-bw*.45,gy-L*.2,bw*.9,L*.165);
- ctx.globalAlpha=a;const pr=L*.035;ctx.drawImage(FX.glow('255,240,255'),X-pr*2,gy-L*.2-pr*2,pr*4,pr*4);
- // руны вдоль клинка
- ctx.strokeStyle=col(.7,'255,255,255');ctx.lineWidth=1.5;for(let i=0;i<5;i++){const yy=lp(gy-4,Ytip+L*.15,(i+.5)/5),s_=bw*.35*(1-i/7);ctx.beginPath();ctx.moveTo(X-s_,yy);ctx.lineTo(X,yy-s_*1.4);ctx.lineTo(X+s_,yy);ctx.stroke()}
+// призрачный клинок «Разлома»: в три с лишним роста героя, ровно над ним, остриём вниз. Выходит из столба света, висит,
+// пока в него стягивается свет, падает вместе с героем и вонзается остриём в центр разлома. Рисуется за героем.
+function swordGeom(){const U=H.us,hh=Hero.height(),L=hh*3.3,X=sx(H.x),Yg=zy(H.z),Ytip=lp(Yg-U_HY-hh*1.55+U.hover,Yg+hh*.06,U.fall);return{L,X,Ytip,hh}}
+function specSword(){const U=H.us;if(!U||U.a<.01)return;const{L,X,Ytip}=swordGeom(),a=U.a,pl=.9+.1*Math.sin(st.t*8),Y0=Ytip-L,gy=Ytip-L*.76,bw=L*.068;
+ const bwAt=y=>bw*cl((Ytip-y)/(Ytip-gy),0,1)**.55; // ширина лезвия на высоте y (сужается к острию)
+ ctx.save();
+ // ореол
+ ctx.globalCompositeOperation='lighter';for(let i=0;i<=10;i++){const yy=lp(Ytip,Y0+L*.1,i/10),r=L*.1*(1-.35*i/10);ctx.globalAlpha=.3*a*pl;ctx.drawImage(FX.glow('170,140,255'),X-r,yy-r,2*r,2*r)}
+ ctx.globalCompositeOperation='source-over';
+ // лезвие: светлая и тёмная половины (объём), дол по центру
+ const half=(sgn,c0,c1)=>{const gr=ctx.createLinearGradient(X,0,X+sgn*bw,0);gr.addColorStop(0,c0);gr.addColorStop(1,c1);ctx.fillStyle=gr;ctx.beginPath();ctx.moveTo(X,Ytip);
+  for(let i=0;i<=12;i++){const y=lp(Ytip,gy,i/12);ctx.lineTo(X+sgn*bwAt(y),y)}ctx.lineTo(X,gy);ctx.closePath();ctx.fill()};
+ ctx.globalAlpha=.88*a;half(-1,'rgba(250,246,255,1)','rgba(196,176,255,.92)');half(1,'rgba(176,150,250,1)','rgba(96,70,190,.9)');
+ ctx.globalAlpha=.55*a;ctx.fillStyle='rgba(70,46,150,1)';ctx.beginPath();ctx.moveTo(X-bw*.12,gy+L*.02);ctx.lineTo(X+bw*.12,gy+L*.02);ctx.lineTo(X,gy+L*.55);ctx.closePath();ctx.fill();
+ // кромки светятся
+ ctx.globalCompositeOperation='lighter';ctx.globalAlpha=a;ctx.lineWidth=2.2;ctx.strokeStyle='rgba(235,225,255,.9)';
+ for(const sgn of[-1,1]){ctx.beginPath();ctx.moveTo(X,Ytip);for(let i=0;i<=12;i++){const y=lp(Ytip,gy,i/12);ctx.lineTo(X+sgn*bwAt(y),y)}ctx.stroke()}
+ // руны — только внутри лезвия
+ ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=1.6;for(let i=0;i<5;i++){const yy=lp(gy+L*.07,Ytip-L*.2,i/4),w_=bwAt(yy)*.45,hh_=w_*1.2,ph=(st.t*1.5+i)%3;ctx.globalAlpha=a*(.55+.45*Math.sin(st.t*4+i));ctx.beginPath();
+  if(ph<1){ctx.moveTo(X-w_,yy);ctx.lineTo(X,yy-hh_);ctx.lineTo(X+w_,yy)}else if(ph<2){ctx.moveTo(X,yy-hh_);ctx.lineTo(X,yy+hh_*.3);ctx.moveTo(X-w_,yy-hh_*.4);ctx.lineTo(X+w_,yy-hh_*.4)}else{ctx.moveTo(X-w_,yy-hh_*.5);ctx.lineTo(X+w_,yy);ctx.lineTo(X-w_,yy+hh_*.5)}ctx.stroke()}
+ ctx.globalCompositeOperation='source-over';
+ // гарда: изогнутая, концы опущены к лезвию; камень в центре
+ const gw=L*.2,gt=L*.028;ctx.globalAlpha=.9*a;const gg=ctx.createLinearGradient(0,gy-gt*2,0,gy+gt);gg.addColorStop(0,'rgba(245,238,255,1)');gg.addColorStop(1,'rgba(120,90,210,1)');ctx.fillStyle=gg;
+ ctx.beginPath();ctx.moveTo(X-gw,gy+gt*1.6);ctx.quadraticCurveTo(X-gw*.55,gy-gt*1.8,X,gy-gt);ctx.quadraticCurveTo(X+gw*.55,gy-gt*1.8,X+gw,gy+gt*1.6);ctx.quadraticCurveTo(X+gw*.5,gy-gt*.2,X,gy+gt*.6);ctx.quadraticCurveTo(X-gw*.5,gy-gt*.2,X-gw,gy+gt*1.6);ctx.closePath();ctx.fill();
+ // рукоять с обмоткой и навершие
+ const gh=L*.17,gw2=bw*.42,gr2=ctx.createLinearGradient(X-gw2,0,X+gw2,0);gr2.addColorStop(0,'rgba(220,205,255,1)');gr2.addColorStop(1,'rgba(90,64,180,1)');ctx.fillStyle=gr2;ctx.fillRect(X-gw2,gy-gt-gh,gw2*2,gh);
+ ctx.strokeStyle='rgba(60,40,130,.8)';ctx.lineWidth=1.4;for(let i=1;i<6;i++){const yy=gy-gt-gh*i/6;ctx.beginPath();ctx.moveTo(X-gw2,yy+3);ctx.lineTo(X+gw2,yy-3);ctx.stroke()}
+ const pr=bw*.62,py=gy-gt-gh-pr*.6;ctx.fillStyle='rgba(235,225,255,1)';ctx.beginPath();ctx.arc(X,py,pr,0,TAU);ctx.fill();
+ ctx.globalCompositeOperation='lighter';ctx.globalAlpha=a*pl;ctx.drawImage(FX.glow('255,240,255'),X-pr*3,py-pr*3,pr*6,pr*6);ctx.drawImage(FX.glow('230,200,255'),X-gt*4,gy-gt*4,gt*8,gt*8);
  ctx.restore()}
-// под героем (до врагов и самого героя): мир темнеет, за героем — столб света с неба, на полу — круг из рун; трещины
+// столб света: мягкие края, к верху гаснет (свет льётся из неба, а не обрезан краем экрана), мерцает
+function beamAt(X,Y,w,a,core){const top=Math.max(-60,Y-900);for(const[k,al,c]of[[1,.32,'150,110,255'],[.6,.38,'190,160,255'],[.3,.6,'235,225,255'],[.12*core,.9,'255,255,255']]){if(k<=0)continue;const ww=w*k,gr=ctx.createLinearGradient(0,top,0,Y);
+  gr.addColorStop(0,`rgba(${c},0)`);gr.addColorStop(.55,`rgba(${c},${al*a*.6})`);gr.addColorStop(1,`rgba(${c},${al*a})`);ctx.fillStyle=gr;ctx.fillRect(X-ww,top,2*ww,Y-top+20)}
+ ctx.globalAlpha=a;ctx.drawImage(FX.glow('210,180,255'),X-w*2.2,Y-w*.6,w*4.4,w*1.2);ctx.globalAlpha=1}
+// под героем и врагами: мир темнеет, столб света с неба, круг из рун на полу, трещины, столбы на врагах, призрачный клинок
 function drawBack(){const UL=st.ak===5&&st.atk>=0,t=st.atk,d=Game.ultDim||0;
  if(d>.01){ctx.fillStyle=`rgba(6,2,20,${d})`;ctx.fillRect(-60,-60,VW+120,VH+120)}
- if(!UL&&!(H.fiss&&H.fiss.length))return;const X=sx(H.x),Y=zy(H.z),s=zs(H.z);ctx.save();ctx.globalCompositeOperation='lighter';
+ if(!UL&&!(H.fiss&&H.fiss.length)&&!H.beams.length)return;const X=sx(H.x),Y=zy(H.z),s=zs(H.z);ctx.save();ctx.globalCompositeOperation='lighter';
  if(UL&&t<U_HIT+.6){const k=t<U_HIT?sm((t-.25)/.6):1-sm((t-U_HIT)/.6),rot=st.t*.6,R=230*s*(.7+.3*k);
-  // столб света с неба за героем
-  const w=70*s*k,gr=ctx.createLinearGradient(X-w,0,X+w,0);gr.addColorStop(0,'rgba(160,120,255,0)');gr.addColorStop(.5,`rgba(220,205,255,${.45*k})`);gr.addColorStop(1,'rgba(160,120,255,0)');ctx.fillStyle=gr;ctx.fillRect(X-w,-60,2*w,Y+60);
-  // круг: два кольца, насечки и треугольники-руны, медленно вращается
+  beamAt(X,Y,75*s*k*(.92+.08*Math.sin(st.t*13)),.75*k,0);
+  // круг: кольца, насечки и треугольники-руны, медленно вращается
   ctx.save();ctx.translate(X,Y);ctx.scale(1,.24);ctx.globalAlpha=k;ctx.strokeStyle='rgba(205,180,255,.85)';
   for(const[r,lw]of[[R,3],[R*.82,1.5],[R*.42,2]]){ctx.lineWidth=lw/.24*.3;ctx.beginPath();ctx.arc(0,0,r,0,TAU);ctx.stroke()}
   ctx.lineWidth=2;for(let i=0;i<24;i++){const a=rot+i*TAU/24,c=Math.cos(a),sn=Math.sin(a);ctx.beginPath();ctx.moveTo(c*R*.84,sn*R*.84);ctx.lineTo(c*R*(i%3?.9:.98),sn*R*(i%3?.9:.98));ctx.stroke()}
   for(let i=0;i<6;i++){const a=-rot*1.4+i*TAU/6,r=R*.62,cx=Math.cos(a)*r,cy=Math.sin(a)*r,q=R*.07;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*q,cy+Math.sin(a)*q);ctx.lineTo(cx+Math.cos(a+2.1)*q,cy+Math.sin(a+2.1)*q);ctx.lineTo(cx+Math.cos(a-2.1)*q,cy+Math.sin(a-2.1)*q);ctx.closePath();ctx.stroke()}
   ctx.globalAlpha=.5*k;ctx.drawImage(FX.glow('190,160,255'),-R,-R,2*R,2*R);ctx.restore()}
- // трещины: широкий мягкий штрих и тонкий яркий
- for(const q of H.fiss||[]){const u=q.t/q.life,a=1-sm(u),grow=sm(q.t/.18);const n=Math.max(2,Math.ceil(q.pts.length*grow));
-  for(const[w,c,al]of[[q.w*3.2,'150,110,255',.35],[q.w,'245,235,255',.9]]){ctx.strokeStyle=`rgba(${c},${al*a})`;ctx.lineWidth=w*s;ctx.lineJoin='round';ctx.beginPath();q.pts.slice(0,n).forEach(([x,z],i)=>i?ctx.lineTo(sx(x),zy(z)):ctx.moveTo(sx(x),zy(z)));ctx.stroke()}}
- ctx.restore()}
+ // трещины: растут от центра, сужаются к концам, светятся и гаснут
+ for(const q of H.fiss||[]){const a=1-sm(q.t/q.life),grow=sm(q.t/.25);
+  for(const br of q.br){const n=br.length,m=Math.max(1,(n-1)*cl((grow-br.d)/(1-br.d),0,1));
+   for(let i=0;i<Math.ceil(m);i++){const[x0,z0]=br[i],[x1,z1]=br[i+1],u=Math.min(1,m-i),xe=lp(x0,x1,u),ze=lp(z0,z1,u),wv=q.w*s*(1-i/n)*(br.d?.6:1);
+    for(const[k,c,al]of[[3.2,'150,110,255',.32],[1,'245,235,255',.95]]){ctx.strokeStyle=`rgba(${c},${al*a})`;ctx.lineWidth=Math.max(.6,wv*k);ctx.lineCap='round';ctx.beginPath();ctx.moveTo(sx(x0),zy(z0));ctx.lineTo(sx(xe),zy(ze));ctx.stroke()}}}}
+ // столбы света над героем и врагами — позади них
+ for(const b of H.beams){const L_=b.hero?1.3:1.1,u=b.t/L_,a=(u<.05?u/.05:1-sm((u-.05)/.95))*(.88+.12*Math.sin(st.t*31+b.x)),w=(b.hero?150:b.big?110:60)*(1-.5*u)*(u<.05?.5+u*10:1);beamAt(sx(b.x),zy(b.z),w,a,1)}
+ ctx.restore();
+ // призрачный клинок — за героем
+ specSword()}
+// поверх врагов (но не героя): пока герой собирает силу, всё вокруг него приглушено
+function drawDim(){const d=Game.ultDim||0;if(d<.02)return;const X=sx(H.x),Y=zy(H.z)+(H.dyS||0)-Hero.height()*.55,hh=Hero.height(),gr=ctx.createRadialGradient(X,Y,hh*.55,X,Y,hh*1.7);
+ gr.addColorStop(0,'rgba(6,2,20,0)');gr.addColorStop(1,`rgba(6,2,20,${d*.6})`);ctx.fillStyle=gr;ctx.fillRect(-60,-60,VW+120,VH+120)}
 function draw(){const f=H.f;if(!f||H.hidden)return;
  drawGhosts();
  drawAt(f,H.x,H.z,FACE,H.alpha,true);drawFx(f);
@@ -434,5 +456,5 @@ function draw(){const f=H.f;if(!f||H.hidden)return;
  if(H.inv>0&&!H.soul&&f.D<.05&&Math.floor(H.t*20)%2)drawAt(f,H.x,H.z,FACE,.25,false)}
 function shadow(){if(!H.hidden)drawShadow(H.x,H.z,40,.4)}
 function height(){return 1180*W.CS*zs(H.z)}
-return{init,update,draw,drawBack,shadow,damage,reset,hit,dash,parry,gainUlt,guardState,PARRY,critic,frame,bladeLocal,toWorld,height,H,st,LS,ATK,VB,get FACE(){return FACE},set FACE(v){FACE=v},VB,J};
+return{init,update,draw,drawBack,drawDim,shadow,damage,reset,hit,dash,parry,gainUlt,guardState,PARRY,critic,frame,bladeLocal,toWorld,height,H,st,LS,ATK,VB,get FACE(){return FACE},set FACE(v){FACE=v},VB,J};
 })();
