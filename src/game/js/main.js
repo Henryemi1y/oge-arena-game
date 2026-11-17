@@ -17,13 +17,13 @@ const Game = {
   heal(n) { const H = Hero.H, h0 = H.hp; H.hp = Math.min(H.maxhp, H.hp + n); this.healAmt = Math.round(H.hp - h0); if (this.healAmt > 0) this.healFx = 1.6 },
   setDiff(d) { this.diff = d; this.dmgK = d ? .5 : 1; Soul.TMAX = d ? 130 : 95 },
   reset0() { Snd.init(); FX.reset(); Enemies.reset(); Boss.reset(); Soul.reset(); this.setDiff(this.diff) },
-  start() {
+  start() { this.zoom = 1; this.zoomT = 1; this.slow = 1; this.ultDim = 0;
     this.reset0(); Problems.reset();
     Object.assign(this, { scene: 'play', time: 0, score: 0, level: 0, stats: { solved: 0, tasks: 0, broken: 0, hits: 0, topics: {} }, pi: -1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false, sealBroken: false });
     Hero.reset(W.ARENA / 2 - 260, .62); Eye.reset(Hero.H.x - 60, .62); Cam.snap(Hero.H.x); UI.helpT = 0; this.next();
   },
   // после поражения — заново с начала этапа: счёт и статистика — как были на входе в этап
-  retry() {
+  retry() { this.zoom = 1; this.zoomT = 1; this.slow = 1; this.ultDim = 0;
     const c = this.check; if (!c) return this.start();
     this.reset0(); Object.assign(this, { scene: 'play', time: c.time, score: c.score, level: c.level, stats: JSON.parse(JSON.stringify(c.stats)), pi: c.pi - 1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false, sealBroken: false });
     Hero.reset(W.ARENA / 2 - 260, .62); Eye.reset(Hero.H.x - 60, .62); Cam.snap(Hero.H.x); this.check = c; this.next(true);
@@ -53,7 +53,7 @@ const Game = {
   },
   step(dt) {
     if (this.scene === 'load') return;
-    this.t += dt; if (this.scene !== 'pause') { UI.step(dt); this.healFx = Math.max(0, this.healFx - dt); this.hurtFx = Math.max(0, (this.hurtFx || 0) - dt * 2.4); this.ultFx = Math.max(0, (this.ultFx || 0) - dt * 1.6); this.chainT = Math.max(0, (this.chainT || 0) - dt); this.chainPop = Math.max(0, (this.chainPop || 0) - dt * 6) } // в паузе надписи не убегают
+    this.t += dt; if (this.scene !== 'pause') { UI.step(dt); this.healFx = Math.max(0, this.healFx - dt); this.hurtFx = Math.max(0, (this.hurtFx || 0) - dt * 2.4); this.ultFx = Math.max(0, (this.ultFx || 0) - dt * 1.6); { const zt = this.zoomT || 1, z = this.zoom || 1; this.zoom = lp(z, zt, 1 - Math.exp(-dt * (zt > z ? 2.2 : 9))); if (!(Hero.st.ak === 5 && Hero.st.atk >= 0)) this.ultDim = Math.max(0, (this.ultDim || 0) - dt * .9) } this.chainT = Math.max(0, (this.chainT || 0) - dt); this.chainPop = Math.max(0, (this.chainPop || 0) - dt * 6) } // в паузе надписи не убегают
     if (Input.hit('Minus') || Input.hit('NumpadSubtract')) Snd.setVol(Snd.vol - .1); if (Input.hit('Equal') || Input.hit('NumpadAdd')) Snd.setVol(Snd.vol + .1);
     if (this.scene === 'title') {
       if (Input.hit('ArrowLeft') || Input.hit('KeyA')) this.setDiff(0); if (Input.hit('ArrowRight') || Input.hit('KeyD')) this.setDiff(1);
@@ -74,7 +74,7 @@ const Game = {
     if (!this.deadT) Hero.update(wdt, inp);
     const b = H.blade; if (b && !H.dead) { Enemies.bladeHits(b); const r = Boss.bladeHits(b); if (r && r.part) Boss.hitLimb(r.part, b, r.p, !H.soul) }
     // душа живёт в реальном времени: стоп-кадры ударов тела её не тормозят
-    Enemies.update(wdt); Boss.update(wdt); Soul.update(dt); Eye.update(wdt); World.update(wdt); FX.step(wdt);
+    const sw = wdt * (this.slow || 1); Enemies.update(sw); Boss.update(sw); Soul.update(dt); Eye.update(sw); World.update(wdt); FX.step(wdt);
     // фазы
     const P = this.phase;
     if (P && P.type === 'wave') {
@@ -92,7 +92,9 @@ const Game = {
   render() {
     const t = this.t;
     ctx.save(); ctx.translate(Cam.ox, Cam.oy);
-    World.drawBack(t); Soul.drawFloorDim(); FX.drawGround(); World.drawLights(t);
+    // «Разлом»: камера медленно наезжает на героя, удар возвращает её рывком
+    if ((this.zoom || 1) > 1.001) { const z = this.zoom, cx = sx(Hero.H.x), cy = zy(Hero.H.z) + (Hero.H.dyS || 0) - Hero.height() * .6; ctx.translate(cx, cy); ctx.scale(z, z); ctx.translate(-cx, -cy) }
+    World.drawBack(t); Soul.drawFloorDim(); FX.drawGround(); World.drawLights(t); if (this.scene !== 'load') Hero.drawBack();
     const list = []; World.propDrawables(list); Enemies.drawables(list); Boss.drawables(list); Soul.drawables(list);
     if (this.scene !== 'load') { list.push({ z: Hero.H.z, draw: () => Hero.draw(), shadow: () => Hero.shadow() }); Eye.drawables(list) }
     for (const d of list) if (d.shadow) d.shadow();

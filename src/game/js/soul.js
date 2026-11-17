@@ -126,24 +126,42 @@ const Soul = {
     if (s.d === '−') { ctx.fillStyle = 'rgba(150,225,255,.95)'; ctx.shadowColor = '#5fc8ff'; ctx.shadowBlur = 8; ctx.fillRect(-img.width * k * .26, -img.height * k * .06, img.width * k * .52, img.height * k * .13) }
     ctx.restore();
   },
+  // душа героя: цельная фигура с листа (без стыков рук, головы и хвоста), полы плаща и хвост струятся волной
+  // и тянутся за движением; за ней — мягкое сияние силуэта, по телу проходит полоса света, глаза светятся,
+  // при быстром полёте остаются гаснущие отпечатки
+  soulCanvas() {
+    const F = IM.soul.full, M = 70, w = F.width + 2 * M, h = F.height + 20, tt = performance.now() / 1000;
+    if (!this._sc) { this._sc = mkCanvas(w, h); this._sh = mkCanvas(w, h);
+      const g = mkCanvas(w + 60, h + 60), x = g.getContext('2d'); x.filter = 'blur(14px)'; x.drawImage(F, M + 30, 40); x.filter = 'none';
+      x.globalCompositeOperation = 'source-in'; x.fillStyle = 'rgb(120,235,255)'; x.fillRect(0, 0, g.width, g.height); this._sg = g }
+    const c = this._sc, x = c.getContext('2d'), Y0 = 250, n = 92, sh = (F.height - Y0) / n, vx = cl(this.vx * this.face, -600, 600);
+    x.clearRect(0, 0, w, h); x.drawImage(F, 0, 0, F.width, Y0, M, 0, F.width, Y0);
+    // ниже пояса: каждая полоса сдвигается волной, амплитуда растёт к кончику хвоста; движение оттягивает хвост назад
+    for (let i = 0; i < n; i++) { const y = Y0 + i * sh, u = i / n, amp = 3 + 22 * Math.pow(u, 1.4), dx = Math.sin(tt * 2.6 - u * 4.6) * amp + Math.sin(tt * 4.1 - u * 7) * 4 * u - vx * .055 * u * u;
+      x.drawImage(F, 0, y, F.width, sh + 1, M + dx, y, F.width, sh + 1) }
+    // полоса света сверху вниз (раз в 3 с), только по телу души
+    const s2 = this._sh, y2 = s2.getContext('2d'), ph = (tt % 3) / 3, by = -120 + ph * (h + 240);
+    y2.globalCompositeOperation = 'source-over'; y2.clearRect(0, 0, w, h); y2.drawImage(c, 0, 0); y2.globalCompositeOperation = 'source-in';
+    const gr = y2.createLinearGradient(0, by - 70, 0, by + 70); gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(.5, 'rgba(235,255,255,.85)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); y2.fillStyle = gr; y2.fillRect(0, 0, w, h);
+    return { c, s: s2, M };
+  },
   drawSoul() {
-    const S = ASSETS.soul, I = IM.soul, k = W.CS / S._k * zs(this.z), X = sx(this.x), Y = zy(this.z) - this.h, t = this.t + performance.now() / 1000 * .0001, tt = performance.now() / 1000;
-    // свечение
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = this.alpha * (.75 + .15 * Math.sin(tt * 3)); const gr = 330 * zs(this.z); ctx.drawImage(I.glow, X - gr / 2, Y - gr * .62, gr, gr); ctx.restore();
-    ctx.save(); ctx.translate(X, Y); ctx.scale(this.face * k, k); ctx.rotate(this.vx * .0005 * this.face); ctx.globalAlpha = this.alpha;
-    const T = S.torso; ctx.translate(-T.waist[0], -T.waist[1]);
-    // хвост: полосы, качающиеся по синусу (сильнее к кончику)
-    const tl = S.tail, ti = I.tail, n = 24, sh = ti.height / n;
-    for (let i = 0; i < n; i++) { const u = i / n, dx = Math.sin(tt * 3.2 - u * 5) * 26 * Math.pow(u, 1.3) - this.vx * .05 * u * u * this.face; ctx.drawImage(ti, 0, i * sh, ti.width, sh + 1, T.waist[0] - tl.top[0] + dx, T.waist[1] - tl.top[1] + i * sh, ti.width, sh + 1) }
-    const arm = (key, at, ang, a) => { const P = S[key]; ctx.save(); ctx.globalAlpha = this.alpha * a; ctx.translate(at[0], at[1]); ctx.rotate(ang); ctx.drawImage(I[key], -P.root[0], -P.root[1]); ctx.restore() };
-    const sw = Math.sin(tt * 1.8), mv = cl(Math.abs(this.vx) / 300, 0, 1);
-    arm('armF', T.shF, .22 + .1 * sw + .25 * mv, .75);
-    ctx.drawImage(I.torso, 0, 0);
-    ctx.save(); ctx.translate(T.neck[0], T.neck[1]); ctx.rotate(.04 * Math.sin(tt * 1.3) - .08 * mv); ctx.drawImage(I.head, -S.head.neck[0], -S.head.neck[1]); ctx.restore();
-    arm('armN', T.shN, -.12 - .1 * sw + .3 * mv, 1);
-    // наплечник поверх верха руки (как шапка сустава)
-    const c = T.cap; ctx.save(); ctx.beginPath(); ctx.arc(c[0], c[1], c[2], 0, TAU); ctx.clip(); ctx.drawImage(I.torso, 0, 0); ctx.restore();
-    ctx.restore();
+    const S = ASSETS.soul, F = IM.soul.full; if (!F) return;
+    const k = W.CS / S._k * zs(this.z), X = sx(this.x), Y = zy(this.z) - this.h, tt = performance.now() / 1000, WX = 105, WY = 212;
+    const { c, s, M } = this.soulCanvas(), lean = cl(this.vx * this.face * .0006, -.25, .3), br = 1 + .012 * Math.sin(tt * 2.2);
+    const put = (img, a, mode, ox = 0, oy = 0, kk = 1) => { ctx.save(); ctx.globalCompositeOperation = mode; ctx.globalAlpha = a; ctx.translate(X + ox, Y + oy); ctx.rotate(lean * this.face); ctx.scale(this.face * k * kk, k * br * kk); ctx.drawImage(img, -(WX + M + (img === this._sg ? 30 : 0)), -WY - (img === this._sg ? 40 : 0)); ctx.restore() };
+    // отпечатки при быстром полёте
+    this.trail = this.trail || []; const sp = Math.abs(this.vx) + Math.abs(this.vz) * 600; if (sp > 160 && (this._tk = (this._tk || 0) + 1) % 3 === 0) this.trail.push({ x: this.x, z: this.z, h: this.h, t: tt, f: this.face });
+    this.trail = this.trail.filter(q => tt - q.t < .35);
+    for (const q of this.trail) { const a = (1 - (tt - q.t) / .35) * .22 * this.alpha; put(c, a, 'lighter', sx(q.x) - X, zy(q.z) - q.h - Y) }
+    // сияние вокруг силуэта и мягкий ореол
+    const pl = .75 + .25 * Math.sin(tt * 2.2);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = this.alpha * .5 * pl; const gr = 300 * zs(this.z); ctx.drawImage(IM.soul.glow, X - gr / 2, Y - gr * .55, gr, gr); ctx.restore();
+    put(this._sg, this.alpha * .55 * pl, 'lighter');
+    // сама душа и светлая полоса по ней
+    put(c, this.alpha * .9, 'source-over'); put(s, this.alpha * .55, 'lighter');
+    // глаза
+    { const ex = X + this.face * (141 - WX) * k, ey = Y + (73 - WY) * k * br, r = 7 * zs(this.z) * (1 + .2 * Math.sin(tt * 7)); ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = this.alpha * .7; ctx.drawImage(FX.glow('190,250,255'), ex - r, ey - r, 2 * r, 2 * r); ctx.restore() }
     // несомые осколки — по кругу у души
     this.carried.forEach((s, i) => { const a = tt * 2 + i * TAU / 3, r = 46; this.drawShard(s, this.x + Math.cos(a) * r, this.z + Math.sin(a) * .03, this.h + 70 + Math.sin(a) * 18, .8) });
   },

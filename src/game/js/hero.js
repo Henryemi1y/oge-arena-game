@@ -100,12 +100,15 @@ const ATK=[
   {t:.30,e:3,ru:.86,rf:.3,w:-.6,ya:2.95,ln:-.02,ox:-42},{t:.385,e:1,ru:-.35,rf:-.42,w:.85,ya:1.35,ln:.24,ox:40,LG:1,fru:.2,ffx:.8,cp:.15},
   {t:.445,e:1,ru:-1.12,rf:-1.18,w:.92,ya:0,ln:.44,ox:96,LG:1,fru:1.0,ffx:1.25,cp:.5},{t:.45,e:3,ru:-1.1,rf:-1.16,ln:.45,ox:98},
   {t:.66,e:2,ru:-2.05,rf:-2.5,w:.7,ya:-1.1,ln:.3,ox:90,fru:.6,ffx:1,cp:.2},{t:1.02,e:0,...G0,ln:.04}]),
- // 5 — «Разлом» (ульта): присед с мечом над головой, прыжок с переворотом (вертикаль и вращение — в update), удар клинком
- // в землю с колена, долгая стойка на колене, пока расходится волна
- mkA(1.62,[.86,.865],[.74,.92],[{t:0,...G0},{t:.26,e:2,ru:-2.55,rf:-3.0,w:.55,ya:0,ln:-.14,ox:-12,LG:.55,Ff:205,Rr:-215,fru:1.05,ffx:.3,cp:-.25},
-  {t:.62,e:0,ru:-2.75,rf:-3.15,w:.6,ln:-.05,ox:0,LG:.2,fru:-.9,ffx:.9,cp:.4},{t:.78,e:1,ru:-2.2,rf:-2.6,w:.7,ln:.2,ox:30,LG:.7,fru:.8,ffx:.6,cp:.2},
-  {t:.86,e:1,ru:-.55,rf:-.48,w:.95,ln:.5,ox:62,LG:1,Ff:230,Rr:-150,fru:.2,ffx:1.3,cp:.5},{t:.865,e:3,ru:-.54,rf:-.47,ln:.5,ox:62},
-  {t:1.22,e:3,ru:-.5,rf:-.44,ln:.46,ox:58,cp:.3},{t:1.62,e:0,...G0,ln:.04}])];
+ // 5 — «Разлом» (ульта): присед, медленный подъём в воздух с мечом, вскинутым над головой; зависание, пока над героем
+ // собирается призрачный клинок и мир замедляется; падение и удар клинком в землю с колена; долгая стойка на колене
+ // (высота, замедление, приближение камеры — в update)
+ mkA(2.2,[1.30,1.305],[1.17,1.36],[{t:0,...G0},{t:.30,e:2,ru:-2.55,rf:-3.0,w:.55,ya:0,ln:-.14,ox:-12,LG:.55,Ff:205,Rr:-215,fru:1.05,ffx:.3,cp:-.25},
+  {t:.80,e:2,ru:-2.75,rf:-3.15,w:.6,ln:-.05,ox:0,LG:.2,fru:-.9,ffx:.9,cp:.4},{t:1.14,e:3,ru:-2.85,rf:-3.2,w:.62,ln:-.08,ox:-4,LG:.15,fru:-1.0,ffx:.95,cp:.45},
+  {t:1.22,e:1,ru:-2.2,rf:-2.6,w:.7,ln:.2,ox:30,LG:.7,fru:.8,ffx:.6,cp:.2},
+  {t:1.30,e:1,ru:-.55,rf:-.48,w:.95,ln:.5,ox:62,LG:1,Ff:230,Rr:-150,fru:.2,ffx:1.3,cp:.5},{t:1.305,e:3,ru:-.54,rf:-.47,ln:.5,ox:62},
+  {t:1.78,e:3,ru:-.5,rf:-.44,ln:.46,ox:58,cp:.3},{t:2.2,e:0,...G0,ln:.04}])];
+const U_UP=.30,U_TOP=.80,U_FALL=1.16,U_HIT=1.30,U_HY=175;
 const CH_HOLD=.30,CH_LV=[.45,1.15],CH_DMG=[[20,16,260],[34,26,380],[50,38,520]],CH_LUNGE=[80,150,220];
 // окно парирования (время позы 3): раньше .26 — чистое парирование, до .42 — блок
 const PARRY=[0,.18],BLOCK=.34;
@@ -220,7 +223,7 @@ function critic(){const dt=1/60,T=30,pf=t=>t<2?0:t<5?lp(0,1,(t-2)/3):t<8?1:t<10?
 // ================= игра =================
 const H={ult:0,waves:[],motes:[],beams:[],ghosts:[],fs:[{},{}],dir:null,qk:-1,pf:1,turnT:0,dyD:0,x:1000,z:.62,hp:100,maxhp:100,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,f:null,hist:[],swing:0,hitSet:new Set(),blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},t:0,kbv:0,flash:0,alpha:1,stepAcc:0,hidden:false};
 function reset(x,z){Object.assign(H,{fs:[{},{}],dir:null,x,z,hp:H.maxhp,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,hist:[],blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},kbv:0,kb:null,rot:0,dy:0,flash:0,alpha:1,hidden:false});
- Object.assign(st,{X:0,F:.3,t:0,atk:-1,dsh:-1,Pa:0,Pf:null,Pfv:0,hurtL:0,fl:null,contact:undefined,pk:null,kc:null});tips=[];H.qq=[];st.hold=0;H.chg=0;H.chgL=0;H.chgLv=0;H.waves=[];H.motes=[];H.beams=[];H.ghosts=[];H.air=0;H.dyS=0;H.spin=0;H.press=0;H.holdT=0;Snd.chargeOff&&Snd.chargeOff();H.parCd=0;H.parT=0;H.blkT=0;H.parQ=0;H.parOn=0;H.dyD=0;H.dy=0;H.turnT=0;LS.forEach(q=>{q.pu=0;q.lt=null;q.se=null;q.se0=null;q.ts=null});FACE=1;H.f=frame(0,DT)}
+ Object.assign(st,{X:0,F:.3,t:0,atk:-1,dsh:-1,Pa:0,Pf:null,Pfv:0,hurtL:0,fl:null,contact:undefined,pk:null,kc:null});tips=[];H.qq=[];st.hold=0;H.fiss=[];H.us=null;H.chg=0;H.chgL=0;H.chgLv=0;H.waves=[];H.motes=[];H.beams=[];H.ghosts=[];H.air=0;H.dyS=0;H.spin=0;H.press=0;H.holdT=0;Snd.chargeOff&&Snd.chargeOff();H.parCd=0;H.parT=0;H.blkT=0;H.parQ=0;H.parOn=0;H.dyD=0;H.dy=0;H.turnT=0;LS.forEach(q=>{q.pu=0;q.lt=null;q.se=null;q.se0=null;q.ts=null});FACE=1;H.f=frame(0,DT)}
 function hit(k){if(st.atk<0&&!H.dead){st.atk=0;st.ak=k;st.hd=0;st.bo=0;st.pk=null;H.swing++;H.hitSet=new Set();Snd.swing(k);return true}return false}
 function parry(){if(H.dead||H.soul||(H.parCd||0)>0)return false;if(st.atk>=0&&!(st.ak!==3&&st.atk>ATK[st.ak].hs[1])){H.parQ=.14;return false}st.atk=0;st.ak=3;st.hd=0;st.bo=0;st.pk=null;H.hitSet=new Set();H.parQ=0;H.qq=[];H.combo.q=0;H.parOk=0;H.parOn=1;Snd.guard();return true}
 function guardState(fromX){if(st.ak!==3||st.atk<0)return 0;const d=fromX-H.x;if(Math.abs(d)>24&&Math.sign(d)!==FACE)return 0;return st.atk>=PARRY[0]&&st.atk<=PARRY[1]?2:st.atk<=BLOCK?1:0}
@@ -243,13 +246,20 @@ function special(dt,inp){
  if(st.ak===4&&!st.hold&&st.atk>CH_HOLD&&st.atk<.47){const u=cl((st.atk-CH_HOLD)/(.47-CH_HOLD),0,1),s=zs(H.z),v=CH_LUNGE[H.chgLv||0]/(.47-CH_HOLD)*s;if(!blocked(FACE))H.x=cl(H.x+FACE*v*dt*Math.sin(PI*u)*1.57,W.XMIN,W.XMAX);H.air=1;H.dyS=-(10+8*(H.chgLv||0))*Math.sin(PI*u);
   if((H.gk=(H.gk||0)+1)%3===0)H.ghosts.push({f:H.f,x:H.x,z:H.z,face:FACE,t:0,col:H.chgLv>1?'255,200,110':'130,200,255',dy:H.dyS})}
  // ульта: R, когда шкала полна
- if(inp.ult&&H.ult>=100&&!H.dead&&!H.soul&&!H.kb&&!(st.ak===5&&st.atk>=0)){H.swing++;st.pk=st.atk>=0&&st.kc?{...st.kc}:null;st.atk=0;st.ak=5;st.hd=0;st.bo=st.pk?1:0;st.hold=0;Snd.chargeOff();H.ult=0;H.hitSet=new Set();H.qq=[];H.combo.q=0;H.inv=Math.max(H.inv,1.9);Snd.ultRise();Game.ultFx=0;Cam.kick(6)}
- if(st.ak===5&&st.atk>=0){const t=st.atk;H.inv=Math.max(H.inv,.2);
-  // подъём быстро, зависание с переворотом, падение вниз ускоряясь
-  const y=t<.3?0:t<.56?-210*Math.sin(PI/2*(t-.3)/.26):t<.7?-210:t<.86?-210*(1-Math.pow((t-.7)/.16,2)):0;H.dyS=y;H.air=y<-1?1:0;
-  H.spin=t>.42&&t<.74?FACE*TAU*sm((t-.42)/.32):0;
-  if(t>.24&&t<.86&&Math.random()<.8){const a=rnd(0,TAU),r=rnd(60,160);H.motes.push({x:H.x+Math.cos(a)*r,y:zy(H.z)+y-Hero.height()*.5+Math.sin(a)*r*.8,t:0,life:rnd(.3,.5),col:'200,170,255'})}
-  if(t>.7&&t<.86&&(H.gk=(H.gk||0)+1)%2===0)H.ghosts.push({f:H.f,x:H.x,z:H.z,face:FACE,t:0,col:'190,160,255',dy:y,spin:H.spin})}
+ if(inp.ult&&H.ult>=100&&!H.dead&&!H.soul&&!H.kb&&!(st.ak===5&&st.atk>=0)){H.swing++;st.pk=st.atk>=0&&st.kc?{...st.kc}:null;st.atk=0;st.ak=5;st.hd=0;st.bo=st.pk?1:0;st.hold=0;Snd.chargeOff();H.ult=0;H.hitSet=new Set();H.qq=[];H.combo.q=0;H.inv=Math.max(H.inv,2.6);Snd.ultRise();Game.ultFx=0;Cam.kick(4);H.fiss=[];H.uEcho=0}
+ const UL=st.ak===5&&st.atk>=0&&!H.dead;
+ if(UL){const t=st.atk;H.inv=Math.max(H.inv,.3);
+  // подъём плавный (с замедлением к вершине), зависание с лёгким покачиванием, падение — с ускорением
+  const y=t<U_UP?0:t<U_TOP?-U_HY*(1-Math.pow(1-(t-U_UP)/(U_TOP-U_UP),3)):t<U_FALL?-U_HY-7*Math.sin(PI*(t-U_TOP)/(U_FALL-U_TOP)):t<U_HIT?-U_HY*(1-Math.pow((t-U_FALL)/(U_HIT-U_FALL),2)):0;H.dyS=y;H.air=y<-1?1:0;
+  // мир замедляется, темнеет и приближается, пока герой собирает силу; удар возвращает всё рывком
+  const g_=t<U_HIT?sm((t-.2)/.35):0;Game.slow=lp(1,.28,g_);Game.zoomT=lp(1,1.12,sm((t-.25)/.8))*(t<U_HIT?1:0)||1;Game.ultDim=Math.max(Game.ultDim||0,.6*g_);
+  if(t>.25&&t<U_HIT){const n=t<U_FALL?2:1;for(let i=0;i<n;i++){const a=rnd(0,TAU),r=rnd(90,260);H.motes.push({x:H.x+Math.cos(a)*r,y:zy(H.z)+y-Hero.height()*.55+Math.sin(a)*r*.75,t:0,life:rnd(.45,.8),col:Math.random()<.3?'255,240,255':'200,170,255'})}}
+  if(t>=U_FALL&&t<U_HIT&&(H.gk=(H.gk||0)+1)%2===0)H.ghosts.push({f:H.f,x:H.x,z:H.z,face:FACE,t:0,col:'200,170,255',dy:y});
+  // призрачный клинок над героем: проступает в зависании, падает вместе с ним и вонзается в землю
+  H.us=t<.62?null:{a:t<U_HIT?sm((t-.62)/.4):1-sm((t-U_HIT-.08)/.4),fall:t<U_FALL?0:Math.pow(cl((t-U_FALL)/(U_HIT-U_FALL),0,1),2),hover:t<U_FALL?Math.sin(st.t*3)*6:0,hit:t>=U_HIT};
+  if(t>U_HIT+.18&&!H.uEcho){H.uEcho=1;FX.ring(H.x,H.z,1100,1.1,'235,225,255',3);Cam.kick(14)}}
+ else{if(Game.slow!==1)Game.slow=1;Game.zoomT=1;if(H.us&&!(st.ak===5&&st.atk>=0))H.us=null}
+ for(const q of H.fiss||[])q.t+=dt;if(H.fiss)H.fiss=H.fiss.filter(q=>q.t<q.life);
  // волны и частицы
  for(const w of H.waves){const x0=w.x;w.t+=dt;w.x+=w.dir*w.v*dt*(1-.5*w.t/w.life);
   for(const e of Enemies.list){if(w.hit.has(e)||!e.G||e.st==='dead'||e.st==='dying'||e.st==='gone'||e.st==='enter'&&e.alpha<.7||Math.abs(e.z-w.z)>.17)continue;if((e.x-x0)*w.dir>-40&&(e.x-w.x)*w.dir<30){w.hit.add(e);H.hitSet.delete(e);Enemies.damage(e,{ak:4,dmgE:w.lv>1?34:22,kb:300,col:w.col},[e.x,zy(e.z)-Hero.height()*.5])}}
@@ -258,15 +268,18 @@ function special(dt,inp){
  H.waves=H.waves.filter(w=>w.t<w.life&&w.x>W.XMIN-200&&w.x<W.XMAX+200);
  for(const m of H.motes)m.t+=dt;H.motes=H.motes.filter(m=>m.t<m.life);
  for(const g of H.ghosts)g.t+=dt;H.ghosts=H.ghosts.filter(g=>g.t<.32);
- for(const b of H.beams)b.t+=dt;H.beams=H.beams.filter(b=>b.t<.9);
+ for(const b of H.beams)b.t+=dt;H.beams=H.beams.filter(b=>b.t<(b.hero?1.4:1.1));
  // рывок: призрачный след
  if(st.dsh>=0&&st.dsh<.34&&H.f&&Math.floor(st.dsh*60)%2===0)H.ghosts.push({f:H.f,x:H.x,z:H.z,face:FACE,t:0,col:'110,190,255'});
 }
 function chargeHit(f){const L=H.chgLv||0;Game.hitStop(.05+.03*L);Cam.kick(8+6*L);const b=bladeLocal(f),q=toWorld(b.tx,b.ty),col=L>1?'255,210,120':'150,215,255';
  FX.flash(q.x,H.z,zy(H.z)-q.y,90+40*L,col,.22);FX.ring(H.x+FACE*60,H.z,160+70*L,.45,col,4);FX.dust(H.x+FACE*40,H.z,6+4*L,.8);
  if(L>=1)H.waves.push({x:H.x+FACE*90,z:H.z,dir:FACE,t:0,life:.55+.1*L,v:1500,lv:L,h:Hero.height()*(L>1?.95:.8),hit:new Set(),bossHit:0,col})}
-function ultBlast(){const R_=760,col='200,170,255';Game.hitStop(.22);Cam.kick(34);Game.ultFx=1;Snd.ultSlam();
- for(const r of[260,520,820])FX.ring(H.x,H.z,r,.7+r/2000,col,6);for(let i=-3;i<=3;i++)FX.crack(H.x+i*90,H.z+rnd(-.04,.04),1.3,6);FX.dust(H.x,H.z,24,1.4);FX.chips(H.x,H.z,10,26,520);
+function ultBlast(){const R_=760,col='200,170,255';Game.hitStop(.3);Cam.kick(40);Game.ultFx=1;Snd.ultSlam();Game.zoom=1.02;Game.slow=1;
+ for(const r of[260,560,900])FX.ring(H.x,H.z,r,.8+r/1800,col,7);FX.ring(H.x,H.z,420,.45,'255,255,255',10);for(let i=-4;i<=4;i++)FX.crack(H.x+i*85,H.z+rnd(-.05,.05),1.4,7);FX.chips(H.x,H.z,10,30,620);FX.sparks(H.x,H.z,20,40,'225,205,255',700);
+ H.beams.push({x:H.x,z:H.z,t:0,big:1,hero:1});
+ // светящиеся трещины по полу: ломаные лучи от точки удара, гаснут за полторы секунды
+ H.fiss=[];for(let i=0;i<11;i++){const a=(i/11)*TAU+rnd(-.2,.2),L=rnd(320,760),pts=[[H.x,H.z]];let x=H.x,z=H.z;const n=7;for(let j=1;j<=n;j++){const d=L/n,aj=a+rnd(-.45,.45);x+=Math.cos(aj)*d;z+=Math.sin(aj)*d/2200;pts.push([x,cl(z,0,1)])}H.fiss.push({pts,t:0,life:rnd(1.4,2),w:rnd(3,6)})}
  for(const e of [...Enemies.list]){if(!e.G||e.st==='dead'||e.st==='dying'||e.st==='gone'||Math.abs(e.x-H.x)>R_)continue;H.beams.push({x:e.x,z:e.z,t:0});H.hitSet.delete(e);Enemies.damage(e,{ak:5,dmgE:75,kb:420,col},[e.x,zy(e.z)-Hero.height()*.55]);if(e.hp>0&&e.st!=='dying'){e.st='stun';e.t=0}}
  const B=Boss.b;if(B&&!H.soul&&B.st!=='enter'&&B.st!=='dying'&&Math.abs(B.x-H.x)<R_+200){H.beams.push({x:B.x,z:B.z,t:0,big:1});const p=Boss.nearLimb(B,H.x);
   for(const l of LIMBS){const lm=B.limbs[l];if(!lm.alive||(p&&l===p.part))continue;lm.hp=Math.max(1,lm.hp-30);B.flash[l]=1}
@@ -376,8 +389,43 @@ function drawFx(f){ctx.save();ctx.globalCompositeOperation='lighter';
   for(const[k,al,c]of[[1.25,.25*a,w.col],[1,.6*a,w.col],[.7,.85*a,'255,255,255']]){ctx.globalAlpha=al;ctx.fillStyle=`rgb(${c})`;ctx.beginPath();ctx.ellipse(0,0,rx*k,ry*k,0,-PI/2,PI/2);ctx.ellipse(-rx*.55*k,0,rx*.5*k,ry*.92*k,0,PI/2,-PI/2,true);ctx.fill()}
   ctx.restore();ctx.globalAlpha=.4*a;ctx.drawImage(FX.glow(w.col),X-ry,Y-ry,2*ry,2*ry)}
  // ульта: столбы света на каждом враге
- for(const b of H.beams){const u=b.t/.9,a=u<.1?u/.1:1-sm((u-.1)/.9),X=sx(b.x),Y=zy(b.z),w=(b.big?120:60)*(1-.5*u),h=Y+40,gr=ctx.createLinearGradient(X-w,0,X+w,0);
-  gr.addColorStop(0,'rgba(170,130,255,0)');gr.addColorStop(.5,`rgba(235,225,255,${.85*a})`);gr.addColorStop(1,'rgba(170,130,255,0)');ctx.fillStyle=gr;ctx.globalAlpha=1;ctx.fillRect(X-w,Y-h,2*w,h);ctx.globalAlpha=a;ctx.drawImage(FX.glow('200,170,255'),X-w*2,Y-w*.6,w*4,w*1.2)}
+ for(const b of H.beams){const L=b.hero?1.4:1.1,u=b.t/L,a=u<.06?u/.06:1-sm((u-.06)/.94),X=sx(b.x),Y=zy(b.z),w=(b.hero?190:b.big?120:64)*(1-.55*u)*(u<.06?.4+u/.1:1),h=Y+60;
+  // столб: широкое мягкое свечение и узкий белый стержень
+  for(const[k,c,al]of[[1,'170,130,255',.6],[.32,'255,250,255',1]]){const ww=w*k,gr=ctx.createLinearGradient(X-ww,0,X+ww,0);gr.addColorStop(0,`rgba(${c},0)`);gr.addColorStop(.5,`rgba(${c},${al*a})`);gr.addColorStop(1,`rgba(${c},0)`);ctx.fillStyle=gr;ctx.globalAlpha=1;ctx.fillRect(X-ww,Y-h,2*ww,h)}
+  ctx.globalAlpha=a;ctx.drawImage(FX.glow('210,180,255'),X-w*2.2,Y-w*.7,w*4.4,w*1.4)}
+ // призрачный клинок над героем
+ if(H.us&&H.us.a>.01)specSword(f);
+ ctx.restore()}
+// призрачный клинок «Разлома»: огромный, остриём вниз; висит над героем, падает вместе с ним и вонзается в землю
+function specSword(f){const U=H.us,hh=Hero.height(),L=hh*1.5,X=sx(H.x)+FACE*hh*.5,Yg=zy(H.z),Ytip=lp(Yg-U_HY+hh*.15+U.hover,Yg+hh*.1,U.fall),Y0=Ytip-L,a=U.a,pl=.85+.15*Math.sin(st.t*9);
+ ctx.save();ctx.globalCompositeOperation='lighter';
+ // ореол вдоль клинка
+ for(let i=0;i<=8;i++){const yy=lp(Ytip,Y0+L*.2,i/8),r=L*.11*(1-.4*i/8);ctx.globalAlpha=.35*a*pl;ctx.drawImage(FX.glow('190,160,255'),X-r,yy-r,2*r,2*r)}
+ const bw=L*.075,gy=Ytip-L*.74,col=(al,c)=>`rgba(${c},${al*a})`;
+ const blade=(k,c,al)=>{ctx.fillStyle=col(al,c);ctx.beginPath();ctx.moveTo(X,Ytip);ctx.lineTo(X-bw*k,gy-L*.02);ctx.lineTo(X-bw*k*.9,gy);ctx.lineTo(X+bw*k*.9,gy);ctx.lineTo(X+bw*k,gy-L*.02);ctx.closePath();ctx.fill()};
+ ctx.globalAlpha=1;blade(1.6,'150,110,255',.35);blade(1,'200,180,255',.75);blade(.35,'255,255,255',.95);
+ // гарда, рукоять, навершие
+ ctx.fillStyle=col(.8,'220,200,255');ctx.fillRect(X-L*.17,gy-L*.035,L*.34,L*.035);ctx.fillStyle=col(.6,'190,160,255');ctx.fillRect(X-bw*.45,gy-L*.2,bw*.9,L*.165);
+ ctx.globalAlpha=a;const pr=L*.035;ctx.drawImage(FX.glow('255,240,255'),X-pr*2,gy-L*.2-pr*2,pr*4,pr*4);
+ // руны вдоль клинка
+ ctx.strokeStyle=col(.7,'255,255,255');ctx.lineWidth=1.5;for(let i=0;i<5;i++){const yy=lp(gy-4,Ytip+L*.15,(i+.5)/5),s_=bw*.35*(1-i/7);ctx.beginPath();ctx.moveTo(X-s_,yy);ctx.lineTo(X,yy-s_*1.4);ctx.lineTo(X+s_,yy);ctx.stroke()}
+ ctx.restore()}
+// под героем (до врагов и самого героя): мир темнеет, за героем — столб света с неба, на полу — круг из рун; трещины
+function drawBack(){const UL=st.ak===5&&st.atk>=0,t=st.atk,d=Game.ultDim||0;
+ if(d>.01){ctx.fillStyle=`rgba(6,2,20,${d})`;ctx.fillRect(-60,-60,VW+120,VH+120)}
+ if(!UL&&!(H.fiss&&H.fiss.length))return;const X=sx(H.x),Y=zy(H.z),s=zs(H.z);ctx.save();ctx.globalCompositeOperation='lighter';
+ if(UL&&t<U_HIT+.6){const k=t<U_HIT?sm((t-.25)/.6):1-sm((t-U_HIT)/.6),rot=st.t*.6,R=230*s*(.7+.3*k);
+  // столб света с неба за героем
+  const w=70*s*k,gr=ctx.createLinearGradient(X-w,0,X+w,0);gr.addColorStop(0,'rgba(160,120,255,0)');gr.addColorStop(.5,`rgba(220,205,255,${.45*k})`);gr.addColorStop(1,'rgba(160,120,255,0)');ctx.fillStyle=gr;ctx.fillRect(X-w,-60,2*w,Y+60);
+  // круг: два кольца, насечки и треугольники-руны, медленно вращается
+  ctx.save();ctx.translate(X,Y);ctx.scale(1,.24);ctx.globalAlpha=k;ctx.strokeStyle='rgba(205,180,255,.85)';
+  for(const[r,lw]of[[R,3],[R*.82,1.5],[R*.42,2]]){ctx.lineWidth=lw/.24*.3;ctx.beginPath();ctx.arc(0,0,r,0,TAU);ctx.stroke()}
+  ctx.lineWidth=2;for(let i=0;i<24;i++){const a=rot+i*TAU/24,c=Math.cos(a),sn=Math.sin(a);ctx.beginPath();ctx.moveTo(c*R*.84,sn*R*.84);ctx.lineTo(c*R*(i%3?.9:.98),sn*R*(i%3?.9:.98));ctx.stroke()}
+  for(let i=0;i<6;i++){const a=-rot*1.4+i*TAU/6,r=R*.62,cx=Math.cos(a)*r,cy=Math.sin(a)*r,q=R*.07;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*q,cy+Math.sin(a)*q);ctx.lineTo(cx+Math.cos(a+2.1)*q,cy+Math.sin(a+2.1)*q);ctx.lineTo(cx+Math.cos(a-2.1)*q,cy+Math.sin(a-2.1)*q);ctx.closePath();ctx.stroke()}
+  ctx.globalAlpha=.5*k;ctx.drawImage(FX.glow('190,160,255'),-R,-R,2*R,2*R);ctx.restore()}
+ // трещины: широкий мягкий штрих и тонкий яркий
+ for(const q of H.fiss||[]){const u=q.t/q.life,a=1-sm(u),grow=sm(q.t/.18);const n=Math.max(2,Math.ceil(q.pts.length*grow));
+  for(const[w,c,al]of[[q.w*3.2,'150,110,255',.35],[q.w,'245,235,255',.9]]){ctx.strokeStyle=`rgba(${c},${al*a})`;ctx.lineWidth=w*s;ctx.lineJoin='round';ctx.beginPath();q.pts.slice(0,n).forEach(([x,z],i)=>i?ctx.lineTo(sx(x),zy(z)):ctx.moveTo(sx(x),zy(z)));ctx.stroke()}}
  ctx.restore()}
 function draw(){const f=H.f;if(!f||H.hidden)return;
  drawGhosts();
@@ -386,5 +434,5 @@ function draw(){const f=H.f;if(!f||H.hidden)return;
  if(H.inv>0&&!H.soul&&f.D<.05&&Math.floor(H.t*20)%2)drawAt(f,H.x,H.z,FACE,.25,false)}
 function shadow(){if(!H.hidden)drawShadow(H.x,H.z,40,.4)}
 function height(){return 1180*W.CS*zs(H.z)}
-return{init,update,draw,shadow,damage,reset,hit,dash,parry,gainUlt,guardState,PARRY,critic,frame,bladeLocal,toWorld,height,H,st,LS,ATK,VB,get FACE(){return FACE},set FACE(v){FACE=v},VB,J};
+return{init,update,draw,drawBack,shadow,damage,reset,hit,dash,parry,gainUlt,guardState,PARRY,critic,frame,bladeLocal,toWorld,height,H,st,LS,ATK,VB,get FACE(){return FACE},set FACE(v){FACE=v},VB,J};
 })();
