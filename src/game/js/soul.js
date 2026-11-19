@@ -144,7 +144,6 @@ const Soul = {
     x.globalCompositeOperation = 'source-over'; x.drawImage(rim, 0, 0);
     // к хвосту фигура тает
     x.globalCompositeOperation = 'destination-in'; const v = x.createLinearGradient(0, 0, 0, h); v.addColorStop(0, 'rgba(0,0,0,1)'); v.addColorStop(.5, 'rgba(0,0,0,.92)'); v.addColorStop(.8, 'rgba(0,0,0,.55)'); v.addColorStop(1, 'rgba(0,0,0,.15)'); x.fillStyle = v; x.fillRect(0, 0, w, h);
-    const gl = mkCanvas(w + 60, h + 60), gx = gl.getContext('2d'); gx.filter = 'blur(14px)'; gx.drawImage(F, 30, 30); gx.filter = 'none'; gx.globalCompositeOperation = 'source-in'; gx.fillStyle = 'rgb(120,235,255)'; gx.fillRect(0, 0, gl.width, gl.height);
     const ARM = [[118, 148], [155, 145], [165, 190], [180, 225], [200, 258], [216, 290], [216, 342], [172, 342], [165, 295], [156, 262], [146, 238], [137, 215], [128, 195], [118, 170]];
     const path = q => { q.beginPath(); ARM.forEach(([px, py], i) => i ? q.lineTo(px, py) : q.moveTo(px, py)); q.closePath() };
     const arm = mk(), ax = arm.getContext('2d'); ax.save(); path(ax); ax.clip(); ax.drawImage(c, 0, 0); ax.restore();
@@ -152,6 +151,8 @@ const Soul = {
     ax.globalCompositeOperation = 'destination-in'; const ag = ax.createLinearGradient(0, 150, 0, 340); ag.addColorStop(0, 'rgba(0,0,0,1)'); ag.addColorStop(1, 'rgba(0,0,0,.72)'); ax.fillStyle = ag; ax.fillRect(0, 0, w, h);
     x.globalCompositeOperation = 'destination-out'; path(x); x.fill(); x.globalCompositeOperation = 'source-over';
     // наплечник поверх руки (шапка сустава)
+    // мягкое свечение силуэта — из тела уже без ближней руки (иначе на её прежнем месте остаётся «вторая рука»)
+    const gl = mkCanvas(w + 60, h + 60), gx = gl.getContext('2d'); gx.filter = 'blur(14px)'; gx.drawImage(c, 30, 30); gx.filter = 'none'; gx.globalCompositeOperation = 'source-in'; gx.fillStyle = 'rgb(120,235,255)'; gx.fillRect(0, 0, gl.width, gl.height);
     const cap = mk(), cx = cap.getContext('2d'); cx.beginPath(); cx.ellipse(132, 130, 27, 26, 0, 0, TAU); cx.clip(); cx.drawImage(c, 0, 0);
     return this._sp = { c, gl, arm, cap };
   },
@@ -159,7 +160,9 @@ const Soul = {
     const { c: SP } = this.spirit(), M = 80, w = SP.width + 2 * M, h = SP.height + 20, tt = performance.now() / 1000;
     if (!this._sc || this._sc.width !== w) this._sc = mkCanvas(w, h);
     const c = this._sc, x = c.getContext('2d'), Y0 = 95, H_ = SP.height, vx = cl(this.vx * this.face, -600, 600);
-    x.clearRect(0, 0, w, h); x.drawImage(SP, 0, 0, SP.width, Y0, M, 0, SP.width, Y0);
+    x.clearRect(0, 0, w, h);
+    // голова и капюшон держатся ровнее корпуса: поворот против наклона вокруг шеи
+    { const hl = -cl(this.vx * .0008, -.35, .35) * .5; x.save(); x.translate(M + 112, Y0); x.rotate(hl * this.face); x.drawImage(SP, 0, 0, SP.width, Y0, -112, -Y0, SP.width, Y0); x.restore() }
     // от плеч вниз: волна с растущей амплитудой; в полёте нижняя часть отстаёт (дуга назад)
     // полосы по 2 px встык, без перекрытия (иначе на полупрозрачной фигуре видны горизонтальные линии)
     for (let y = Y0; y < H_; y += 2) { const hh = Math.min(2, H_ - y), u = (y - Y0) / (H_ - Y0), amp = 1 + 22 * Math.pow(u, 1.5), dx = Math.sin(tt * 2.4 - u * 4.4) * amp + Math.sin(tt * 3.9 - u * 7) * 3.5 * u - vx * .085 * u * u;
@@ -172,7 +175,7 @@ const Soul = {
   drawSoul() {
     const S = ASSETS.soul, F = IM.soul.full; if (!F) return;
     const k = W.CS / S._k * zs(this.z), X = sx(this.x), Y = zy(this.z) - this.h, tt = performance.now() / 1000, WX = 105, WY = 212;
-    const { c, M } = this.soulCanvas(), { gl } = this.spirit(), lean = cl(this.vx * .0011, -.5, .5) + .03 * Math.sin(tt * 1.3), br = 1 + .012 * Math.sin(tt * 2.2);
+    const { c, M } = this.soulCanvas(), { gl } = this.spirit(), lean = cl(this.vx * .0008, -.35, .35) + .03 * Math.sin(tt * 1.3), br = 1 + .012 * Math.sin(tt * 2.2);
     const put = (img, a, mode, ox, oy) => { ctx.save(); ctx.globalCompositeOperation = mode; ctx.globalAlpha = a; ctx.translate(X, Y); ctx.rotate(lean); ctx.scale(this.face * k, k * br); ctx.drawImage(img, -(WX + ox), -(WY + oy)); ctx.restore() };
     // шлейф: лента за кончиком хвоста (точки пишутся по игровому времени в update)
     const tr = this.ribbon || [];

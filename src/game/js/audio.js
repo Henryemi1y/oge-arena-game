@@ -91,8 +91,9 @@ const Snd = (() => {
     chargeOff() { if (!ac || !S._ch) return; const t = now(); S._ch.v.forEach(v => v.stop(.04, t)); const { o, e } = S._ch.sub; e.gain.cancelScheduledValues(t); e.gain.setTargetAtTime(.0001, t, .01); o.stop(t + .1); S._ch = null },
     chargeLvl(l) { if (!ac) return; if (S._ch) S._ch.v.push(voice(A * (l > 1 ? 12 : 8), { a: .15, vol: l > 1 ? .055 : .065, vowel: l > 1 ? [520, 1000, 2600] : [730, 1090, 2440], pan: l > 1 ? .45 : -.45 })); oBell(A * (l > 1 ? 24 : 16), .06, 2, { pan: l > 1 ? .3 : -.3 }); timp(A * (l > 1 ? 1.5 : 1), .16) },
     // выпуск: щелчок и литавра в первые миллисекунды, медь (ля мажор, темперированный), шорох рассечения
-    chargeRelease(l) { if (!ac) return; noise(.015, 'lowpass', 5000, 3000, .7, .55, { a: .001 }); timp(A, .32 + .05 * l); timp(A * 1.5, .2, { t: now() + .01 });
-      oBrass([A * 2, A * 3, et(28), A * 4, ...(l ? [A * 6] : []), ...(l > 1 ? [A * 8] : [])], .16 + .02 * l, .7 + .25 * l, { hall: .25 * l }); tone(80, 55, 'sine', .3, .1, { a: .002 });
+    chargeRelease(l) { if (!ac) return; noise(.015, 'lowpass', 5000, 3000, .7, .55, { a: .001 }); timp(A, .2 + .03 * l); timp(A * 1.5, .13, { t: now() + .01 });
+      noise(.16, 'bandpass', 3400, 2200, 2.2, .32 + .06 * l, { a: .002 }); [2637, 3520].forEach((f, i) => tone(f, f * .99, 'sine', .5 + .2 * l, .035, { a: .002, verb: .5, pan: i ? .3 : -.3 }));
+      oBrass([A * 2, A * 3, et(28), A * 4, ...(l ? [A * 6] : []), ...(l > 1 ? [A * 8] : [])], .24 + .025 * l, .7 + .25 * l, { hall: .25 * l }); tone(80, 55, 'sine', .3, .1, { a: .002 });
       noise(.24, 'bandpass', 3000, 700, 1.4, .26, { a: .002 }); if (l > 1) crash(.12, 1.4); else if (l) oBell(A * 16, .05, 1.4) },
     // «Разлом» готов: колокол и короткий вдох хора
     ultReady() { if (!ac) return; const t = now(); oBell(A * 12, .08, 2.6, { pan: -.25 }); oBell(A * 16, .06, 2.6, { t: t + .14, pan: .25 }); const v = voice(A * 8, { a: .3, vol: .045, verb: .8 }); v.stop(1, t + .5) },
@@ -104,14 +105,15 @@ const Snd = (() => {
       const roll = []; for (let tt = t + .2; tt < t + T - .05;) { const k = (tt - t) / T; roll.push(tt); tt += lp(.15, .05, k) }
       const tm = roll.map((tt, i) => (timp(A, .02 + .07 * ((tt - t) / T) ** 2, { t: tt, dur: .32 }), tt)), sw = swell(t + .1, t + T, .1);
       S.ultEnd = (at = now()) => { v.forEach(x => x.stop(.03, at)); sw.stop(at); hallOut.gain.setTargetAtTime(.04, at, .015); S.ultEnd = null } },
-    ultCut() { if (ac && S.ultEnd) S.ultEnd() },
+    ultCut() { if (!ac) return; if (S.ultEnd) S.ultEnd(); noise(.17, 'bandpass', 2200, 450, 1.6, .09, { a: .05 }) },
     // удар: первые 10–30 мс — щелчок, две литавры и медь; хор вступает позже и тише, внизу держится медь (ля мажор)
     ultSlam() { if (!ac) return; const t = now(); if (S.ultEnd) S.ultEnd(t); hallOut.gain.cancelScheduledValues(t); hallOut.gain.setValueAtTime(.5, t);
       noise(.025, 'lowpass', 6000, 2500, .7, .6, { a: .001 }); timp(A, .42, { t, hall: .4 }); timp(A * 1.5, .3, { t: t + .012 }); tone(70, 40, 'sine', 1.2, .26, { t, a: .002 }); noise(1, 'lowpass', 700, 80, .7, .14, { t, a: .002 });
       oBrass([A * 2, A * 3, et(28), A * 4, et(40), A * 6, A * 8], .1, 2.6, { t, hall: .45 });
+      noise(.14, 'bandpass', 1900, 1100, .9, .34, { t, a: .001 }); [.03, .07, .12].forEach((d, i) => noise(.05, 'bandpass', 2600 - i * 500, 1400, 1.5, .16, { t: t + d, a: .001 })); // хруст камня
       oBrass([A * 2, A * 3, et(28)], .07, 2.4, { t: t + .25, hall: .3, verb: .3 }); // низкая медь держит хвост
       crash(.2, 1.8, { t }); oBell(A * 4, .1, 4.5, { t, hall: .6 });
-      const v = [[A * 4, -.4], [et(28), .4], [A * 6, -.15], [A * 8, .3], [et(40), -.3]].map(([f, pan], i) => voice(f, { t: t + .16, a: .3, vol: .065 - i * .007, hall: .6, verb: .4, pan, f2: .38 })); v.forEach(x => x.stop(2.6, t + .9));
+      const v = [[A * 4, -.4], [et(28), .4], [A * 6, -.15], [A * 8, .3], [et(40), -.3]].map(([f, pan], i) => voice(f, { t: t + .16, a: .3, vol: .065 - i * .007, hall: .6, verb: .4, pan, f2: .38, vowel: [660, 1090, 2440] })); v.forEach(x => x.stop(2.6, t + .9));
       musicG.gain.setTargetAtTime(.32, t + 2.6, 1.2) },
     dash() { noise(.25, 'bandpass', 1300, 380, 1.1, .2, { a: .02 }) },
     roar() { if (!ac) return; tone(68, 52, 'sawtooth', 1.6, .2, { a: .3 }); tone(71, 50, 'sawtooth', 1.6, .2, { a: .3, det: 20 }); noise(1.6, 'lowpass', 300, 1100, 2, .25, { a: .4 }); S.quake(.8) },
