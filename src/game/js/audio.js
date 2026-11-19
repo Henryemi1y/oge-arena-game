@@ -7,7 +7,9 @@ const Snd = (() => {
   function init() {
     if (ac) { if (ac.state === 'suspended') ac.resume(); return }
     const C = window.AudioContext || window.webkitAudioContext; if (!C) return; ac = new C();
-    master = g(ac.destination, muted ? 0 : vol);
+    // лимитер на самом выходе: в бою удар ульты совпадает с попаданиями и смертями — без него звук перегружался
+    const lim = ac.createDynamicsCompressor(); lim.threshold.value = -4; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = .001; lim.release.value = .09; lim.connect(ac.destination);
+    master = g(lim, muted ? 0 : vol);
     const comp = ac.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.connect(master);
     musicG = g(comp, .32); sfxG = g(comp, .9);
     const cv = ac.createConvolver(); cv.buffer = impulse(2.8, 2.4); verbIn = g(cv, 1); const cvl = ac.createBiquadFilter(); cvl.type = 'lowpass'; cvl.frequency.value = 6000; cv.connect(cvl); cvl.connect(g(comp, .32));
@@ -61,7 +63,8 @@ const Snd = (() => {
   const S = {
     step(p = .3, heavy = 0) { if (!ac) return; if (heavy) { tone(72, 30, 'sine', .55, .25 + .55 * p); noise(.45, 'lowpass', 260, 90, .7, .28 * p) } else { noise(.05, 'bandpass', 900, 600, 1.2, .045 + .05 * p); tone(130, 70, 'sine', .07, .05 + .05 * p) } },
     swing(k = 0) { noise(.2 + .03 * k, 'bandpass', 500 + 120 * k, 2600, 1.6, .22, { a: .03 }) },
-    hit() { tone(150, 50, 'sine', .16, .45); noise(.09, 'lowpass', 1600, 400, .8, .32) },
+    // во время удара ульты попадания и смерти приглушены — их перекрывает сам удар
+    hit() { const k = now() < (S._duck || 0) ? .2 : 1; tone(150, 50, 'sine', .16, .45 * k); noise(.09, 'lowpass', 1600, 400, .8, .32 * k) },
     stoneHit() { tone(1900, 900, 'triangle', .07, .16); noise(.09, 'highpass', 2800, 2000, .7, .22); tone(95, 48, 'sine', .22, .38) },
     clang() { tone(2350, 2300, 'triangle', .35, .12); tone(3170, 3100, 'triangle', .25, .08); noise(.06, 'highpass', 4000, 3000, .7, .12) },
     breakStone() { if (!ac) return; const t = now(); noise(.9, 'lowpass', 900, 120, .6, .6); tone(60, 28, 'sine', .8, .6); for (let i = 0; i < 14; i++) noise(.04 + Math.random() * .05, 'bandpass', 1500 + Math.random() * 3000, 1200, 2, .12 + Math.random() * .1, { t: t + Math.random() * .6 }) },
@@ -73,7 +76,7 @@ const Snd = (() => {
     soulOut() { noise(.9, 'bandpass', 300, 3000, 1.2, .22, { a: .2, verb: .8 }); tone(440, 990, 'sine', .9, .1, { a: .2, verb: 1 }) },
     soulIn() { noise(.7, 'bandpass', 3000, 300, 1.2, .2, { a: .1, verb: .6 }); tone(990, 440, 'sine', .7, .09, { verb: .8 }) },
     hurt() { noise(.16, 'bandpass', 420, 260, 1.3, .35); tone(210, 95, 'square', .14, .1) },
-    death() { noise(.45, 'lowpass', 600, 120, .8, .35); tone(95, 38, 'sine', .45, .35) },
+    death() { const k = now() < (S._duck || 0) ? .2 : 1; noise(.45, 'lowpass', 600, 120, .8, .35 * k); tone(95, 38, 'sine', .45, .35 * k) },
     flask() { noise(.18, 'bandpass', 700, 1800, 1.4, .08, { a: .02 }) },
     glass() { if (!ac) return; const t = now(); for (let i = 0; i < 5; i++) noise(.03, 'bandpass', 4500 + Math.random() * 3000, 4000, 4, .14, { t: t + i * .025 }); tone(2600, 2500, 'triangle', .4, .07, { verb: .5 }); noise(.6, 'lowpass', 900, 300, .7, .1, { t: t + .05 }) },
     // парирование: звонкий удар стали; блок — глуше; подъём меча — короткий шорох
@@ -107,7 +110,7 @@ const Snd = (() => {
       S.ultEnd = (at = now()) => { v.forEach(x => x.stop(.03, at)); sw.stop(at); hallOut.gain.setTargetAtTime(.04, at, .015); S.ultEnd = null } },
     ultCut() { if (!ac) return; if (S.ultEnd) S.ultEnd(); noise(.17, 'bandpass', 2200, 450, 1.6, .09, { a: .05 }) },
     // удар: первые 10–30 мс — щелчок, две литавры и медь; хор вступает позже и тише, внизу держится медь (ля мажор)
-    ultSlam() { if (!ac) return; const t = now(); if (S.ultEnd) S.ultEnd(t); hallOut.gain.cancelScheduledValues(t); hallOut.gain.setValueAtTime(.5, t);
+    ultSlam() { if (!ac) return; const t = now(); S._duck = t + .35; if (S.ultEnd) S.ultEnd(t); hallOut.gain.cancelScheduledValues(t); hallOut.gain.setValueAtTime(.5, t);
       noise(.025, 'lowpass', 6000, 2500, .7, .6, { a: .001 }); timp(A, .42, { t, hall: .4 }); timp(A * 1.5, .3, { t: t + .012 }); tone(70, 40, 'sine', 1.2, .26, { t, a: .002 }); noise(1, 'lowpass', 700, 80, .7, .14, { t, a: .002 });
       oBrass([A * 2, A * 3, et(28), A * 4, et(40), A * 6, A * 8], .1, 2.6, { t, hall: .45 });
       noise(.14, 'bandpass', 1900, 1100, .9, .34, { t, a: .001 }); [.03, .07, .12].forEach((d, i) => noise(.05, 'bandpass', 2600 - i * 500, 1400, 1.5, .16, { t: t + d, a: .001 })); // хруст камня

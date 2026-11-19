@@ -8,13 +8,13 @@ const Soul = {
   // разрушена конечность босса: осколки летят из неё
   begin(B, part, pos, last) {
     this.start({ mode: 'limb', B, part, pos, last });
-    if (!Game.soulSeen) { Game.soulSeen = 1; UI.banner('Душа покинула тело', 'Собери осколки с цифрами ответа (E) и сложи их на монолите', '#bfefff', 4.2) }
-    else UI.banner('Душа вне тела', LIMB_NAME[part] + ' разбита — реши задачу на монолите', '#bfefff', 2.2);
+    if (!Game.soulSeen) { Game.soulSeen = 1; UI.banner('Душа покинула тело', '', '#bfefff', 2.4) }
+    else UI.banner('Душа вне тела', '', '#bfefff', 2);
   },
   // печать монолита между волнами: задача без босса, награда — здоровье
   seal() {
     const M = World.monolith; this.start({ mode: 'seal', pos: { x: M.x, z: .05, h: 300 }, spread: 650 });
-    UI.banner('Печать монолита', 'Реши задачу — монолит вернёт силы и откроет ворота', '#bfefff', 3.2);
+    UI.banner('Печать монолита', '', '#bfefff', 2.2);
   },
   start(o) {
     Input.clearPresses(); Hero.H.qq = [];
@@ -42,7 +42,11 @@ const Soul = {
     // полёт осколков
     for (const s of this.shards) if (!s.landed && !s.carried && !s.placed && !s.back) { s.t += dt; s.x += s.vx * dt; s.z += s.vz * dt; s.h += s.vh * dt; s.vh -= s.g * dt; s.r += s.vr * dt; if (s.t >= s.tt) { s.landed = true; s.h = 0; FX.dust(s.x, s.z, 3, .3); FX.chips(s.x, s.z, 0, 3, 150); Snd.step(.3, 0) } }
     for (const s of this.shards) if (s.back) { s.t += dt; const k = sm(s.t / 1); s.x = lp(s.bx, s.tx, k); s.z = lp(s.bz, s.tz, k); s.h = lp(s.bh, s.th, k) + Math.sin(PI * k) * 120; if (s.t >= 1) s.gone = 1 }
-    if (this.ph === 'out') { const k = sm(this.t / .8); this.alpha = k * .92; this.h = lp(Hero.height() * .55, 70, k); if (Math.random() < .6) FX.soulMote(this.x + rnd(-20, 20), this.z, this.h + rnd(0, 80)); if (this.t > .8) { this.ph = 'free'; this.t = 0 } }
+    if (this.ph === 'out') { const t = this.t, hh = Hero.height(), eob = u => { u = cl(u, 0, 1); const c = 1.7; return 1 + (c + 1) * (u - 1) ** 3 + c * (u - 1) ** 2 };
+      if (t <= dt + 1e-6) { this.x0 = this.x; FX.ring(this.x, this.z, 140, .45, '170,240,255', 3); FX.sparks(this.x, this.z, hh * .5, 14, '190,245,255', 320) }
+      const p = eob((t - .06) / .38); this.x = this.x0 - this.face * 46 * p; this.alpha = sm(t / .1) * .95;
+      this.h = t < .44 ? lp(hh * .45, hh * .45 + 80, p) : lp(hh * .45 + 80, 70, sm((t - .44) / .36)); this.sq = 1 + .38 * (1 - sm(t / .36));
+      if (Math.random() < .7) FX.soulMote(this.x + rnd(-20, 20), this.z, this.h + rnd(-30, 90)); if (t > .8) { this.ph = 'free'; this.t = 0; this.sq = 1 } }
     else if (this.ph === 'free') {
       this.T -= dt; this.used += dt; const a = Input.axis(), sp = a.run ? 520 : 380, ax = a.x * sp, az = a.z * (a.run ? 1.45 : 1.15);
       this.vx = lp(this.vx, ax, 1 - Math.exp(-dt * 9)); this.vz = lp(this.vz, az, 1 - Math.exp(-dt * 9));
@@ -137,8 +141,9 @@ const Soul = {
     const rim = mk(), r = rim.getContext('2d'), solid = sil(F, '#fff');
     for (const [dx, dy] of [[-2, 0], [2, 0], [0, -2], [0, 2], [-1.5, -1.5], [1.5, 1.5], [-1.5, 1.5], [1.5, -1.5]]) r.drawImage(solid, dx, dy);
     r.globalCompositeOperation = 'destination-out'; r.drawImage(solid, 0, 0); r.globalCompositeOperation = 'source-in'; r.fillStyle = 'rgb(215,255,255)'; r.fillRect(0, 0, w, h);
+    r.globalCompositeOperation = 'destination-in'; const rg = r.createRadialGradient(40, 40, 30, 40, 40, h * .95); rg.addColorStop(0, 'rgba(0,0,0,1)'); rg.addColorStop(.45, 'rgba(0,0,0,.6)'); rg.addColorStop(1, 'rgba(0,0,0,.08)'); r.fillStyle = rg; r.fillRect(0, 0, w, h); r.globalCompositeOperation = 'source-over';
     const c = mk(), x = c.getContext('2d');
-    x.globalAlpha = .62; x.drawImage(sil(F, null, 2.5), 0, 0); x.globalAlpha = .3; x.drawImage(F, 0, 0); x.globalAlpha = 1;
+    x.globalAlpha = .5; x.drawImage(sil(F, null, 1.4), 0, 0); x.globalAlpha = .38; x.drawImage(F, 0, 0); x.globalAlpha = 1;
     // свет в груди
     x.globalCompositeOperation = 'source-atop'; const g = x.createRadialGradient(104, 178, 0, 104, 178, 105); g.addColorStop(0, 'rgba(235,255,255,.9)'); g.addColorStop(.45, 'rgba(210,250,255,.35)'); g.addColorStop(1, 'rgba(230,255,255,0)'); x.fillStyle = g; x.fillRect(0, 0, w, h);
     x.globalCompositeOperation = 'source-over'; x.drawImage(rim, 0, 0);
@@ -146,14 +151,16 @@ const Soul = {
     x.globalCompositeOperation = 'destination-in'; const v = x.createLinearGradient(0, 0, 0, h); v.addColorStop(0, 'rgba(0,0,0,1)'); v.addColorStop(.5, 'rgba(0,0,0,.92)'); v.addColorStop(.8, 'rgba(0,0,0,.55)'); v.addColorStop(1, 'rgba(0,0,0,.15)'); x.fillStyle = v; x.fillRect(0, 0, w, h);
     const ARM = [[118, 148], [155, 145], [165, 190], [180, 225], [200, 258], [216, 290], [216, 342], [172, 342], [165, 295], [156, 262], [146, 238], [137, 215], [128, 195], [118, 170]];
     const path = q => { q.beginPath(); ARM.forEach(([px, py], i) => i ? q.lineTo(px, py) : q.moveTo(px, py)); q.closePath() };
-    const arm = mk(), ax = arm.getContext('2d'); ax.save(); path(ax); ax.clip(); ax.drawImage(c, 0, 0); ax.restore();
+    // маска руки с мягким краем (2 px): шов на груди не читается прямой линией
+    const mask = mk(), mx = mask.getContext('2d'); mx.filter = 'blur(2px)'; mx.fillStyle = '#fff'; path(mx); mx.fill(); mx.filter = 'none';
+    const arm = mk(), ax = arm.getContext('2d'); ax.drawImage(c, 0, 0); ax.globalCompositeOperation = 'destination-in'; ax.drawImage(mask, 0, 0); ax.globalCompositeOperation = 'source-over';
     // кисть чуть тусклее груди
     ax.globalCompositeOperation = 'destination-in'; const ag = ax.createLinearGradient(0, 150, 0, 340); ag.addColorStop(0, 'rgba(0,0,0,1)'); ag.addColorStop(1, 'rgba(0,0,0,.72)'); ax.fillStyle = ag; ax.fillRect(0, 0, w, h);
-    x.globalCompositeOperation = 'destination-out'; path(x); x.fill(); x.globalCompositeOperation = 'source-over';
+    x.globalCompositeOperation = 'destination-out'; x.drawImage(mask, 0, 0); x.globalCompositeOperation = 'source-over';
     // наплечник поверх руки (шапка сустава)
     // мягкое свечение силуэта — из тела уже без ближней руки (иначе на её прежнем месте остаётся «вторая рука»)
     const gl = mkCanvas(w + 60, h + 60), gx = gl.getContext('2d'); gx.filter = 'blur(14px)'; gx.drawImage(c, 30, 30); gx.filter = 'none'; gx.globalCompositeOperation = 'source-in'; gx.fillStyle = 'rgb(120,235,255)'; gx.fillRect(0, 0, gl.width, gl.height);
-    const cap = mk(), cx = cap.getContext('2d'); cx.beginPath(); cx.ellipse(132, 130, 27, 26, 0, 0, TAU); cx.clip(); cx.drawImage(c, 0, 0);
+    const cap = mk(), cx = cap.getContext('2d'); cx.filter = 'blur(3px)'; cx.fillStyle = '#fff'; cx.beginPath(); cx.ellipse(132, 128, 26, 25, 0, 0, TAU); cx.fill(); cx.filter = 'none'; cx.globalCompositeOperation = 'source-in'; cx.drawImage(c, 0, 0); cx.globalCompositeOperation = 'source-over';
     return this._sp = { c, gl, arm, cap };
   },
   soulCanvas() {
@@ -161,11 +168,10 @@ const Soul = {
     if (!this._sc || this._sc.width !== w) this._sc = mkCanvas(w, h);
     const c = this._sc, x = c.getContext('2d'), Y0 = 95, H_ = SP.height, vx = cl(this.vx * this.face, -600, 600);
     x.clearRect(0, 0, w, h);
-    // голова и капюшон держатся ровнее корпуса: поворот против наклона вокруг шеи
-    { const hl = -cl(this.vx * .0008, -.35, .35) * .5; x.save(); x.translate(M + 112, Y0); x.rotate(hl * this.face); x.drawImage(SP, 0, 0, SP.width, Y0, -112, -Y0, SP.width, Y0); x.restore() }
+    x.drawImage(SP, 0, 0, SP.width, Y0, M + vx * .012, 0, SP.width, Y0);
     // от плеч вниз: волна с растущей амплитудой; в полёте нижняя часть отстаёт (дуга назад)
     // полосы по 2 px встык, без перекрытия (иначе на полупрозрачной фигуре видны горизонтальные линии)
-    for (let y = Y0; y < H_; y += 2) { const hh = Math.min(2, H_ - y), u = (y - Y0) / (H_ - Y0), amp = 1 + 22 * Math.pow(u, 1.5), dx = Math.sin(tt * 2.4 - u * 4.4) * amp + Math.sin(tt * 3.9 - u * 7) * 3.5 * u - vx * .085 * u * u;
+    for (let y = Y0; y < H_; y += 2) { const hh = Math.min(2, H_ - y), u = (y - Y0) / (H_ - Y0), amp = 1 + 22 * Math.pow(u, 1.5), dx = Math.sin(tt * 2.4 - u * 4.4) * amp + Math.sin(tt * 3.9 - u * 7) * 3.5 * u - vx * .13 * u * u + vx * .012 * (1 - u);
       x.drawImage(SP, 0, y, SP.width, hh, M + dx, y, SP.width, hh) }
     // рука: в полёте отводится назад (до 0,75 рад), в покое — чуть в сторону и покачивается
     const { arm, cap } = this.spirit(), PX = 138, PY = 150, ra = cl(vx * .0014, -.12, .75) - .1 + .07 * Math.sin(tt * 1.6), sdx = Math.sin(tt * 2.4 - (PY - Y0) / (H_ - Y0) * 4.4) * 1.5;
@@ -175,16 +181,8 @@ const Soul = {
   drawSoul() {
     const S = ASSETS.soul, F = IM.soul.full; if (!F) return;
     const k = W.CS / S._k * zs(this.z), X = sx(this.x), Y = zy(this.z) - this.h, tt = performance.now() / 1000, WX = 105, WY = 212;
-    const { c, M } = this.soulCanvas(), { gl } = this.spirit(), lean = cl(this.vx * .0008, -.35, .35) + .03 * Math.sin(tt * 1.3), br = 1 + .012 * Math.sin(tt * 2.2);
-    const put = (img, a, mode, ox, oy) => { ctx.save(); ctx.globalCompositeOperation = mode; ctx.globalAlpha = a; ctx.translate(X, Y); ctx.rotate(lean); ctx.scale(this.face * k, k * br); ctx.drawImage(img, -(WX + ox), -(WY + oy)); ctx.restore() };
-    // шлейф: лента за кончиком хвоста (точки пишутся по игровому времени в update)
-    const tr = this.ribbon || [];
-    if (tr.length > 1 && this.ph === 'free') { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-      // ленту рисуем четырьмя кусками-путями (а не отрезками): без «бусин» от наложения концов
-      const ch = 4, per = Math.ceil(tr.length / ch); ctx.lineJoin = 'round';
-      for (let c = 0; c < ch; c++) { const seg = tr.slice(c * per, (c + 1) * per + 1); if (seg.length < 2) continue; const u = cl(1 - (this.t - seg[seg.length - 1].t) / .35, 0, 1); if (u <= 0) continue;
-        for (const [wk, al, col] of [[2.6, .12, '120,235,255'], [1, .38, '215,255,255']]) { ctx.strokeStyle = `rgba(${col},${al * u * u * this.alpha})`; ctx.lineWidth = Math.max(.8, 9 * u * wk * zs(this.z)); ctx.beginPath(); seg.forEach((q, i) => i ? ctx.lineTo(sx(q.x), zy(q.z) - q.h) : ctx.moveTo(sx(q.x), zy(q.z) - q.h)); ctx.stroke() } }
-      ctx.restore() }
+    const { c, M } = this.soulCanvas(), { gl } = this.spirit(), lean = cl(this.vx * .0004, -.15, .15) + .03 * Math.sin(tt * 1.3), br = 1 + .012 * Math.sin(tt * 2.2);
+    const put = (img, a, mode, ox, oy) => { ctx.save(); ctx.globalCompositeOperation = mode; ctx.globalAlpha = a; ctx.translate(X, Y); ctx.rotate(lean); const q = this.sq || 1; ctx.scale(this.face * k / Math.sqrt(q), k * br * q); ctx.drawImage(img, -(WX + ox), -(WY + oy)); ctx.restore() };
     // сияние: мягкое и «дышит»
     const pl = .7 + .3 * Math.sin(tt * 1.8);
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = this.alpha * .45 * pl; const gr = 300 * zs(this.z); ctx.drawImage(IM.soul.glow, X - gr / 2, Y - gr * .55, gr, gr); ctx.restore();

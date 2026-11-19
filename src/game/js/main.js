@@ -17,7 +17,9 @@ const Game = {
   heal(n) { const H = Hero.H, h0 = H.hp; H.hp = Math.min(H.maxhp, H.hp + n); this.healAmt = Math.round(H.hp - h0); if (this.healAmt > 0) this.healFx = 1.6 },
   setDiff(d) { this.diff = d; this.dmgK = d ? .5 : 1; Soul.TMAX = d ? 130 : 95 },
   reset0() { Snd.init(); FX.reset(); Enemies.reset(); Boss.reset(); Soul.reset(); this.setDiff(this.diff) },
-  start() { this.zoom = 1; this.zoomT = 1; this.slow = 1; this.ultDim = 0;
+  // обучение: какие действия игрок уже сделал (запоминается в браузере, чтобы не показывать повторно)
+  tutMark(k) { const T = this.tut; if (!T || T[k]) return; T[k] = 1; T.fade = 0; try { localStorage.setItem('oge_tut', JSON.stringify(T)) } catch (e) { } },
+  start() { try { this.tut = JSON.parse(localStorage.getItem('oge_tut') || '{}') } catch (e) { this.tut = {} } this.zoom = 1; this.zoomT = 1; this.slow = 1; this.ultDim = 0;
     this.reset0(); Problems.reset();
     Object.assign(this, { scene: 'play', time: 0, score: 0, level: 0, stats: { solved: 0, tasks: 0, broken: 0, hits: 0, topics: {} }, pi: -1, phase: null, queue: [], spawnT: 1.5, hs: 0, nextT: 0, deadT: 0, sealing: false, sealBroken: false });
     Hero.reset(W.ARENA / 2 - 260, .62); Eye.reset(Hero.H.x - 60, .62); Cam.snap(Hero.H.x); UI.helpT = 0; this.next();
@@ -32,16 +34,16 @@ const Game = {
     this.pi++; if (this.pi >= PHASES.length) { this.scene = 'win'; this.endT = this.t; Snd.setMode('victory'); Snd.correct(); return }
     const P = this.phase = PHASES[this.pi]; if (!retry && this.pi) this.heal(40);
     if (!retry || !this.check || this.check.pi !== this.pi) this.check = { pi: this.pi, score: this.score, level: P.level ?? this.level, stats: JSON.parse(JSON.stringify(this.stats)), time: this.time };
-    if (P.type === 'wave') { this.queue = shuffle(Object.entries(P.spawn).flatMap(([k, n]) => Array(n).fill(k))); this.spawnT = 1.6; UI.banner(P.name, this.pi < 2 ? 'F или ПКМ чуть раньше удара — отбить и оглушить врага' : 'Враги выходят из ворот', undefined, this.pi < 2 ? 3.2 : undefined); Snd.setMode('wave') }
-    else { this.level = P.level; this.queue = []; this.bossT = 1.2; UI.banner(DRESS[P.id].name, this.level ? 'Отбитый удар раскалывает руку босса · волну по земле не отбить' : 'Разбей конечности — собери ответ из осколков', '#f0e2c0', 3.2); Snd.setMode('boss') }
+    if (P.type === 'wave') { this.queue = shuffle(Object.entries(P.spawn).flatMap(([k, n]) => Array(n).fill(k))); this.spawnT = 1.6; UI.banner(P.name, ''); Snd.setMode('wave') }
+    else { this.level = P.level; this.queue = []; this.bossT = 1.2; UI.banner(DRESS[P.id].name, '', '#f0e2c0', 3.2); Snd.setMode('boss') }
   },
   // разбитая и «запечатанная» верным ответом конечность — контрольная точка: после поражения бой с боссом продолжается без неё
   limbCheckpoint(parts) { if (this.check) Object.assign(this.check, { limbs: parts, score: this.score, stats: JSON.parse(JSON.stringify(this.stats)), time: this.time }) },
   bossDown(id) { this.score += 500; UI.banner(DRESS[id].name + ' повержен', '', '#bfefff', 2.6); this.nextT = 3 },
   // волна отбита: печать монолита — задача без боя, верный ответ возвращает силы
-  waveDone() { if (this.sealBroken) { this.sealBroken = false; this.nextT = 1.2; return } this.sealing = true; Snd.seal(); Soul.seal(); if (!this.soulSeen) { this.soulSeen = 1; UI.banner('Печать монолита', 'Душа выходит из тела: собери цифры ответа (E) и сложи их на монолите', '#bfefff', 4.6) } },
+  waveDone() { if (this.sealBroken) { this.sealBroken = false; this.nextT = 1.2; return } this.sealing = true; Snd.seal(); Soul.seal(); if (!this.soulSeen) { this.soulSeen = 1; UI.banner('Печать монолита', '', '#bfefff', 2.6) } },
   // неверный ответ на печати: печать трескается, из ворот выходят ещё два врага
-  sealDone(ok) { this.sealing = false; if (ok) { this.nextT = 1.2; return } this.sealBroken = true; this.queue.push('ghoul', pick(['knight', 'doctor'])); this.spawnT = 1.4; UI.banner('Печать треснула', 'Из ворот выходят ещё враги', '#ffb59a', 2.6) },
+  sealDone(ok) { this.sealing = false; if (ok) { this.nextT = 1.2; return } this.sealBroken = true; this.queue.push('ghoul', pick(['knight', 'doctor'])); this.spawnT = 1.4; UI.banner('Печать треснула', '', '#ffb59a', 2.2) },
   // тело героя, пока душа вне тела: подходит к боссу и рубит (для вида — урона нет); без босса — стоит в стойке
   bodyAI() {
     const B = Boss.b, H = Hero.H; if (!B) return { x: 0, z: 0, atk: -1 };
@@ -56,10 +58,7 @@ const Game = {
     this.t += dt; if (this.scene !== 'pause') { UI.step(dt); this.healFx = Math.max(0, this.healFx - dt); this.hurtFx = Math.max(0, (this.hurtFx || 0) - dt * 2.4); this.ultFx = Math.max(0, (this.ultFx || 0) - dt * 1.6); if (this.ultFlashT != null) this.ultFlashT += dt; { const zt = this.zoomT || 1, z = this.zoom || 1; this.zoom = lp(z, zt, 1 - Math.exp(-dt * (zt > z ? 2.2 : 9))); if (!(Hero.st.ak === 5 && Hero.st.atk >= 0)) this.ultDim = Math.max(0, (this.ultDim || 0) - dt * .9) } this.chainT = Math.max(0, (this.chainT || 0) - dt); this.chainPop = Math.max(0, (this.chainPop || 0) - dt * 6) } // в паузе надписи не убегают
     if (Input.hit('Minus') || Input.hit('NumpadSubtract')) Snd.setVol(Snd.vol - .1); if (Input.hit('Equal') || Input.hit('NumpadAdd')) Snd.setVol(Snd.vol + .1);
     if (this.scene === 'title') {
-      if (Input.hit('ArrowLeft') || Input.hit('KeyA')) this.setDiff(0); if (Input.hit('ArrowRight') || Input.hit('KeyD')) this.setDiff(1);
-      // щелчок по плашке сложности выбирает её, щелчок мимо — начинает игру
-      const click = Input.hit('Mouse0'), my = Input.my, di = click && my >= VH - 128 && my <= VH - 74 ? [0, 1].find(i => Input.mx >= VW / 2 - 250 + i * 260 && Input.mx <= VW / 2 - 10 + i * 260) : undefined;
-      if (di !== undefined) this.setDiff(di); else if (Input.hit('Enter') || click) { if (this.loadK >= 1) this.start() } Hero.update(dt, { x: 0, z: 0, atk: -1 }); Eye.update(dt); World.update(dt); FX.step(dt); Cam.x = (Math.sin(this.t * .05) * .5 + .5) * (W.ARENA - VW); return }
+      if (Input.hit('Enter') || Input.hit('Mouse0') || Input.hit('Space')) { if (this.loadK >= 1) this.start() } Hero.update(dt, { x: 0, z: 0, atk: -1 }); Eye.update(dt); World.update(dt); FX.step(dt); Cam.x = (Math.sin(this.t * .05) * .5 + .5) * (W.ARENA - VW); return }
     if (this.scene === 'win' || this.scene === 'lose') { FX.step(dt); if (this.scene === 'lose' && Input.hit('KeyN')) this.start(); else if (Input.hit('Enter') || (this.t - (this.endT || 0) > 1.5 && Input.hit('Mouse0'))) this.scene === 'lose' ? this.retry() : this.start(); else Input.p.Mouse0 = 0; return }
     if (this.scene === 'pause') { if (Input.hit('Enter') || Input.hit('Escape') || Input.hit('Mouse0')) { this.scene = 'play'; Input.clearPresses() } if (Input.hit('KeyM')) Snd.toggleMute(); return }
     if (Input.hit('Enter') || Input.hit('Escape')) { this.scene = 'pause'; return }

@@ -225,15 +225,16 @@ const H={ult:0,waves:[],motes:[],beams:[],ghosts:[],fs:[{},{}],dir:null,qk:-1,pf
 function reset(x,z){Object.assign(H,{fs:[{},{}],dir:null,x,z,hp:H.maxhp,inv:0,hurt:0,dead:0,SV:0,SZ:0,soul:false,hist:[],blade:null,prevBlade:null,combo:{n:0,q:0,last:-9},kbv:0,kb:null,rot:0,dy:0,flash:0,alpha:1,hidden:false});
  Object.assign(st,{X:0,F:.3,t:0,atk:-1,dsh:-1,Pa:0,Pf:null,Pfv:0,hurtL:0,fl:null,contact:undefined,pk:null,kc:null});tips=[];H.qq=[];st.hold=0;H.fiss=[];H.us=null;H.chg=0;H.chgL=0;H.chgLv=0;H.waves=[];H.motes=[];H.beams=[];H.ghosts=[];H.air=0;H.dyS=0;H.spin=0;H.press=0;H.holdT=0;Snd.chargeOff&&Snd.chargeOff();H.parCd=0;H.parT=0;H.blkT=0;H.parQ=0;H.parOn=0;H.dyD=0;H.dy=0;H.turnT=0;LS.forEach(q=>{q.pu=0;q.lt=null;q.se=null;q.se0=null;q.ts=null});FACE=1;H.f=frame(0,DT)}
 function hit(k){if(st.atk<0&&!H.dead){st.atk=0;st.ak=k;st.hd=0;st.bo=0;st.pk=null;H.swing++;H.hitSet=new Set();Snd.swing(k);return true}return false}
-function parry(){if(H.dead||H.soul||(H.parCd||0)>0)return false;if(st.atk>=0&&!(st.ak!==3&&st.atk>ATK[st.ak].hs[1])){H.parQ=.14;return false}st.atk=0;st.ak=3;st.hd=0;st.bo=0;st.pk=null;H.hitSet=new Set();H.parQ=0;H.qq=[];H.combo.q=0;H.parOk=0;H.parOn=1;Snd.guard();return true}
+function parry(){if(H.dead||H.soul||(H.parCd||0)>0)return false;if(st.atk>=0&&!(st.ak!==3&&st.atk>ATK[st.ak].hs[1])){H.parQ=.14;return false}st.atk=0;st.ak=3;st.hd=0;st.bo=0;st.pk=null;H.hitSet=new Set();H.parQ=0;H.qq=[];H.combo.q=0;H.parOk=0;H.parOn=1;Snd.guard();Game.tutMark('parry');return true}
 function guardState(fromX){if(st.ak!==3||st.atk<0)return 0;const d=fromX-H.x;if(Math.abs(d)>24&&Math.sign(d)!==FACE)return 0;return st.atk>=PARRY[0]&&st.atk<=PARRY[1]?2:st.atk<=BLOCK?1:0}
 function dash(){if(st.dsh<0&&!H.dead){st.dsh=0;H.inv=Math.max(H.inv,.42);Snd.dash();FX.dust(H.x,H.z,4,.4)}}
 // ЛКМ: три удара по очереди; клик во время удара ставится в очередь; пауза >1,5 с — серия заново (как в hero_run.html)
-function cbHit(){const c=H.combo;if(st.atk<0){if(H.t-c.last>1.5)c.n=0;hit(c.n);c.n=(c.n+1)%3;c.last=H.t;c.q=0}else c.q=1}
+function cbHit(){Game.tutMark('hit');const c=H.combo;if(st.atk<0){if(H.t-c.last>1.5)c.n=0;hit(c.n);c.n=(c.n+1)%3;c.last=H.t;c.q=0}else c.q=1}
 // ---------- заряженный удар и «Разлом» ----------
 // заряд: ЛКМ зажата дольше .2 с, пока удар ещё в замахе (или герой свободен) — замах перетекает в стойку заряда;
 // уровни через .45 и 1,15 с; отпущена — выпад и удар, на 1-м и 2-м уровне клинок пускает вперёд волну
 function special(dt,inp){
+ if(inp.x&&!H.dead){H.movT=(H.movT||0)+dt;if(H.movT>.6)Game.tutMark('move')}
  H.holdT=inp.hold?H.holdT+dt:0;if(!inp.hold)H.press=0;
  const A=ATK[st.ak|0],can=!H.dead&&!H.soul&&!H.kb&&(st.atk<0||(st.ak<=2&&st.atk<A.hs[0]-.02));
  if(H.press&&H.holdT>.18&&can&&!st.hold){H.swing++;st.pk=st.atk>=0&&st.kc?{...st.kc}:null;st.atk=0;st.ak=4;st.hd=0;st.bo=st.pk?1:0;st.hold=1;H.chg=0;H.chgL=0;H.chgLv=0;H.hitSet=new Set();H.combo.q=0;H.combo.n=0;H.qq=[];H.press=0;Snd.chargeOn()}
@@ -246,7 +247,7 @@ function special(dt,inp){
  if(st.ak===4&&!st.hold&&st.atk>CH_HOLD&&st.atk<.47){const u=cl((st.atk-CH_HOLD)/(.47-CH_HOLD),0,1),s=zs(H.z),v=CH_LUNGE[H.chgLv||0]/(.47-CH_HOLD)*s;if(!blocked(FACE))H.x=cl(H.x+FACE*v*dt*Math.sin(PI*u)*1.57,W.XMIN,W.XMAX);H.air=1;H.dyS=-(10+8*(H.chgLv||0))*Math.sin(PI*u);
   if((H.gk=(H.gk||0)+1)%3===0)H.ghosts.push({f:H.f,x:H.x,z:H.z,face:FACE,t:0,col:H.chgLv>1?'255,200,110':'130,200,255',dy:H.dyS})}
  // ульта: R, когда шкала полна
- if(inp.ult&&H.ult>=100&&!H.dead&&!H.soul&&!H.kb&&!(st.ak===5&&st.atk>=0)){H.swing++;st.pk=st.atk>=0&&st.kc?{...st.kc}:null;st.atk=0;st.ak=5;st.hd=0;st.bo=st.pk?1:0;st.hold=0;Snd.chargeOff();H.ult=0;H.hitSet=new Set();H.qq=[];H.combo.q=0;H.inv=Math.max(H.inv,2.6);Snd.ultRise();Game.ultFx=0;Cam.kick(4);H.fiss=[];H.uEcho=0;H.uCut=0;H.ux=null}
+ if(inp.ult&&H.ult>=100&&!H.dead&&!H.soul&&!H.kb&&!(st.ak===5&&st.atk>=0)){H.swing++;st.pk=st.atk>=0&&st.kc?{...st.kc}:null;st.atk=0;st.ak=5;st.hd=0;st.bo=st.pk?1:0;st.hold=0;Snd.chargeOff();Game.tutMark('ult');H.ult=0;H.hitSet=new Set();H.qq=[];H.combo.q=0;H.inv=Math.max(H.inv,2.6);Snd.ultRise();Game.ultFx=0;Cam.kick(4);H.fiss=[];H.uEcho=0;H.uCut=0;H.ux=null}
  const UL=st.ak===5&&st.atk>=0&&!H.dead;
  if(UL){const t=st.atk;H.inv=Math.max(H.inv,.3);
   // подъём плавный (с замедлением к вершине), зависание с лёгким покачиванием, падение — с ускорением
@@ -273,7 +274,7 @@ function special(dt,inp){
  // рывок: призрачный след
  if(st.dsh>=0&&st.dsh<.34&&H.f&&Math.floor(st.dsh*60)%2===0)H.ghosts.push({f:H.f,x:H.x,z:H.z,face:FACE,t:0,col:'110,190,255'});
 }
-function chargeHit(f){const L=H.chgLv||0;Game.hitStop(.05+.03*L);Cam.kick(8+6*L);const b=bladeLocal(f),q=toWorld(b.tx,b.ty),col=L>1?'255,210,120':'150,215,255';
+function chargeHit(f){Game.tutMark('charge');const L=H.chgLv||0;Game.hitStop(.05+.03*L);Cam.kick(8+6*L);const b=bladeLocal(f),q=toWorld(b.tx,b.ty),col=L>1?'255,210,120':'150,215,255';
  FX.flash(q.x,H.z,zy(H.z)-q.y,90+40*L,col,.22);FX.ring(H.x+FACE*60,H.z,160+70*L,.45,col,4);FX.dust(H.x+FACE*40,H.z,6+4*L,.8);
  if(L>=1)H.waves.push({x:H.x+FACE*90,z:H.z,dir:FACE,t:0,life:.55+.1*L,v:1500,lv:L,h:Hero.height()*(L>1?.95:.8),hit:new Set(),bossHit:0,col})}
 function ultBlast(){const R_=760,col='200,170,255',bl=bladeLocal(H.f),tq=toWorld(bl.tx,bl.ty);H.ux=tq.x;const CX=H.ux;Game.hitStop(.3);Cam.kick(40);Game.ultFx=1;Game.ultFlashT=0;Snd.ultSlam();Game.zoom=1;Game.slow=1;
@@ -287,7 +288,7 @@ function ultBlast(){const R_=760,col='200,170,255',bl=bladeLocal(H.f),tq=toWorld
  const B=Boss.b;if(B&&!H.soul&&B.st!=='enter'&&B.st!=='dying'&&Math.abs(B.x-H.x)<R_+200){H.beams.push({x:B.x,z:B.z,t:0,big:1});const p=Boss.nearLimb(B,H.x);
   for(const l of LIMBS){const lm=B.limbs[l];if(!lm.alive||(p&&l===p.part))continue;lm.hp=Math.max(1,lm.hp-30);B.flash[l]=1}
   if(p)Boss.hitLimb(p.part,{ak:5,dmgB:80,col},p.p,true);B.open=Math.max(B.open||0,2.5);B.cd=Math.max(B.cd,2)}}
-function gainUlt(n){if(H.dead)return;const was=H.ult;H.ult=Math.min(100,(H.ult||0)+n);if(was<100&&H.ult>=100){Snd.ultReady();H.ultPop=1;if(!Game.ultSeen){Game.ultSeen=1;UI.banner('Разлом готов','R — удар в землю по всей арене','#d9c8ff',3)}}}
+function gainUlt(n){if(H.dead)return;const was=H.ult;H.ult=Math.min(100,(H.ult||0)+n);if(was<100&&H.ult>=100){Snd.ultReady();H.ultPop=1;if(!Game.ultSeen){Game.ultSeen=1;UI.banner('Разлом готов','','#d9c8ff',2.2)}}}
 // геометрия клинка в локальных координатах героя (та же, что в drawArm при рисовании меча)
 function bladeLocal(f){const j=J.armN,a=f.arm[0],dx=j.fist[0]-j.el[0],dy=j.fist[1]-j.el[1],fx=a.ex+dx*Math.cos(a.rf)-dy*Math.sin(a.rf),fy=a.ey+dx*Math.sin(a.rf)+dy*Math.cos(a.rf),ph=a.rf+a.w,vx=Math.cos(ph)*Math.cos(a.ya||0),vy=Math.sin(ph),ln=Math.max(.04,Math.hypot(vx,vy)),ang=Math.atan2(vy,vx);
  return{bx:fx+f.ox+Math.cos(ang)*SWH*.1*ln,by:fy+Math.sin(ang)*SWH*.1*ln,tx:fx+f.ox+Math.cos(ang)*SWH*.82*ln,ty:fy+Math.sin(ang)*SWH*.82*ln}}
@@ -309,7 +310,7 @@ function update(dt,inp){
  H.SZ+=cl(tz-H.SZ,-3.2*dt,3.2*dt);if(Math.abs(H.SZ)<1e-3&&!tz)H.SZ=0;
  st.as=st.ak>=3?1:st.atk>=0&&st.atk<A0.hs[0]?1.5:1.25;st.contact=st.atk>=0?H.hitSet.size>0:undefined;
  // рывок отменяет любую фазу удара (уворот)
- if(inp.dash&&st.dsh<0&&!H.dead&&!(st.ak===5&&st.atk>=0)){if(st.atk>=0)st.atk=Math.max(st.atk,ATK[st.ak].T-.22);st.hold=0;
+ if(inp.dash&&st.dsh<0&&!H.dead&&!(st.ak===5&&st.atk>=0)){Game.tutMark('dash');if(st.atk>=0)st.atk=Math.max(st.atk,ATK[st.ak].T-.22);st.hold=0;
   // рывок — туда, куда нажато (уворот от удара назад — без разворота шагами); без направления — вперёд по взгляду
   if(inp.x&&Math.sign(inp.x)!==FACE){FACE=Math.sign(inp.x);H.SV=0;H.fs.forEach(F=>{F.x=null;F.st=false})}dash()}// стойка кончилась без отбитого удара — следующая только через секунду (иначе частые нажатия заменяют точность)
  if(H.parOn&&!(st.ak===3&&st.atk>=0)){H.parOn=0;if(!H.parOk)H.parCd=1.1}

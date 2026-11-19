@@ -36,8 +36,7 @@ const UI = {
     if (Soul.on && Soul.prob) this.soulTablet();
     // подсказка управления в начале
     const live = Game.scene === 'play';
-    if (live && this.helpT < 16 && !Soul.on) { const a = Math.min(1, (16 - this.helpT) / 2); ctx.globalAlpha = a; this.panel(16, VH - 70, 680, 54, .62);
-      this.text('A/D — шаг · Shift — бег · W/S — вглубь/ближе · Space — рывок', 28, VH - 47, 16, '#c9d3e6', FONT_UI, 'left', 500); this.text('ЛКМ — серия · зажать ЛКМ — заряд · J/K/L — удары · F/ПКМ — парировать · R — Разлом', 28, VH - 25, 16, '#c9d3e6', FONT_UI, 'left', 500); ctx.globalAlpha = 1 }
+    if (live && !Soul.on) this.tutorial(G.t);
     // баннеры
     // в форме души экран занят табличкой и монолитом — баннер идёт одной строкой над подсказкой внизу
     if (live) for (const b of this.banners) { const k = b.t / b.life, a = Math.min(1, b.t * 4) * Math.min(1, (b.life - b.t) * 2.5); ctx.globalAlpha = a;
@@ -64,13 +63,12 @@ const UI = {
     // подсказка внизу — по состоянию
     const at = S.atMonolith(), near = S.nearShard(), nx = S.carried[0] ? `«${S.carried[0].d}»` : '';
     const ans = S.placed.map(s => s.d).join('');
-    const tip = S.ph !== 'free' ? '' : at && S.confirm > 0 ? `E — да, проверить «${ans}» · Q — забрать последнюю цифру`
-      : at && full ? 'Ячейки заполнены: E — проверить · Q — забрать последнюю цифру'
-      : at && S.carried.length ? `E — положить ${nx} в следующую ячейку · R — поменять порядок · Q — забрать последнюю`
-      : at && S.placed.length ? 'E — проверить ответ · Q — забрать последнюю · или принеси ещё цифры'
-      : near && S.carried.length < 3 ? `E — подобрать «${near.d}»` : S.carried.length >= 3 ? 'Руки заняты — неси цифры к монолиту (Q — бросить последнюю)'
-      : 'Собери цифры ответа и неси к монолиту в центре арены';
-    if (tip) { const tw = Math.min(VW - 40, 720); this.panel(VW / 2 - tw / 2, VH - 58, tw, 40, .74); this.text(tip, VW / 2, VH - 31, 18, S.hint > 0 ? '#ffd27a' : '#cfe9f6', FONT_UI, 'center', 600) }
+    const tips = S.ph !== 'free' ? [] : at && S.confirm > 0 ? [['E', `проверить ${ans}`], ['Q', 'забрать']]
+      : at && full ? [['E', 'проверить'], ['Q', 'забрать']]
+      : at && S.carried.length ? [['E', `положить ${S.carried[0].d}`], ['R', 'порядок'], ['Q', 'забрать']]
+      : at && S.placed.length ? [['E', 'проверить'], ['Q', 'забрать']]
+      : near && S.carried.length < 3 ? [['E', `взять ${near.d}`]] : S.carried.length >= 3 ? [['Q', 'бросить']] : [];
+    if (tips.length) this.keyTips(tips, VW / 2, VH - 44, S.hint > 0);
     if (S.msg && S.ph === 'result') {
       const m = S.msg, cy2 = VH * .40; this.panel(VW / 2 - 330, cy2 - 58, 660, m.ok ? 92 : 150, .82);
       this.text(m.text, VW / 2, cy2, 44, m.ok ? '#8dffb3' : '#ff8a7a', FONT_TITLE, 'center', 700);
@@ -85,14 +83,35 @@ const UI = {
   title(t, loadK) {
     this.overlay(.55); const y = 200;
     ctx.save(); ctx.shadowColor = '#3f8cff'; ctx.shadowBlur = 24; this.text('Арена осколков', VW / 2, y, 86, '#e8eefc', FONT_TITLE, 'center', 700); ctx.restore();
-    this.text('Разбей каменных стражей. Собери ответ из осколков.', VW / 2, y + 46, 22, '#b6c3db', FONT_UI, 'center', 500);
-    this.controls(y + 70);
-    // сложность
-    const D = [['Обычная', 'полный урон · 95 с на ответ'], ['Лёгкая', 'урон вдвое меньше · 130 с']], by = VH - 128;
-    D.forEach(([n, d], i) => { const sel = Game.diff === i, x = VW / 2 - 250 + i * 260; this.panel(x, by, 240, 54, sel ? .92 : .8); if (sel) { ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 2; rr(x, by, 240, 54, 6); ctx.stroke() } this.text(n, x + 120, by + 24, 20, sel ? '#ffe7b0' : '#9aa6bb', FONT_TITLE, 'center', 700); this.text(d, x + 120, by + 44, 13, sel ? '#cfd8e8' : '#7d889c', FONT_UI, 'center', 500) });
-    if (loadK < 1) this.text(`Загрузка… ${Math.round(loadK * 100)}%`, VW / 2, VH - 30, 22, '#9fb0c8', FONT_UI, 'center', 600);
-    else { this.panel(VW / 2 - 300, VH - 62, 600, 42, .7); ctx.globalAlpha = .8 + .2 * Math.sin(t * 3.2); this.text('← / → — сложность · Enter или щелчок — начать', VW / 2, VH - 33, 22, '#f3e7c4', FONT_TITLE, 'center', 700); ctx.globalAlpha = 1 }
+    if (loadK < 1) this.text(`Загрузка… ${Math.round(loadK * 100)}%`, VW / 2, VH - 120, 22, '#9fb0c8', FONT_UI, 'center', 600);
+    else { ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.9)'; ctx.shadowBlur = 10; ctx.globalAlpha = .75 + .25 * Math.sin(t * 2.6); this.text('Нажмите, чтобы начать', VW / 2, VH - 120, 28, '#f6ecd0', FONT_TITLE, 'center', 700); ctx.restore() }
   },
+  // клавиша-плашка
+  keycap(x, y, label, hot = 0) { ctx.font = `700 17px ${FONT_UI}`; const w = Math.max(30, ctx.measureText(label).width + 18), h = 30, X = x - w / 2, Y = y - h / 2;
+    ctx.fillStyle = 'rgba(8,10,18,.55)'; rr(X, Y + 3, w, h, 6); ctx.fill(); const g = ctx.createLinearGradient(0, Y, 0, Y + h); g.addColorStop(0, hot ? '#fff1c8' : '#e9edf5'); g.addColorStop(1, hot ? '#d9b46a' : '#aeb7c8'); ctx.fillStyle = g; rr(X, Y - (hot ? 0 : 1), w, h, 6); ctx.fill();
+    ctx.strokeStyle = 'rgba(20,24,36,.8)'; ctx.lineWidth = 1.5; rr(X, Y - (hot ? 0 : 1), w, h, 6); ctx.stroke(); this.text(label, x, y + 6 - (hot ? 0 : 1), 17, '#1a1e2a', FONT_UI, 'center', 700); return w },
+  // мышь: левая или правая кнопка подсвечена; hold — кольцо заполнения (зажать)
+  mouse(x, y, btn, t, hold = -1) { const w = 34, h = 48, X = x - w / 2, Y = y - h / 2, on = .5 + .5 * Math.sin(t * 7);
+    ctx.fillStyle = 'rgba(8,10,18,.55)'; rr(X, Y + 3, w, h, 15); ctx.fill(); ctx.fillStyle = '#dfe4ee'; rr(X, Y, w, h, 15); ctx.fill(); ctx.strokeStyle = 'rgba(20,24,36,.85)'; ctx.lineWidth = 1.5; rr(X, Y, w, h, 15); ctx.stroke();
+    ctx.save(); rr(X, Y, w, h, 15); ctx.clip(); ctx.fillStyle = `rgba(255,${190 + 40 * on | 0},90,${.55 + .4 * on})`; ctx.fillRect(btn ? x : X, Y, w / 2, h * .42); ctx.restore();
+    ctx.beginPath(); ctx.moveTo(x, Y); ctx.lineTo(x, Y + h * .42); ctx.moveTo(X, Y + h * .42); ctx.lineTo(X + w, Y + h * .42); ctx.stroke();
+    if (hold >= 0) { ctx.strokeStyle = 'rgba(255,214,120,.95)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(x, y, 34, -PI / 2, -PI / 2 + TAU * hold); ctx.stroke() } },
+  // ряд подсказок «клавиша — действие»
+  keyTips(tips, cx, y, hot) { ctx.font = `600 18px ${FONT_UI}`; const ws = tips.map(([k, v]) => Math.max(30, ctx.measureText(k).width + 18) + 10 + ctx.measureText(v).width), gap = 34, tot = ws.reduce((a, b) => a + b, 0) + gap * (tips.length - 1);
+    let x = cx - tot / 2; this.panel(x - 16, y - 24, tot + 32, 48, .62); tips.forEach(([k, v], i) => { const kw = this.keycap(x + Math.max(30, (ctx.font = `700 17px ${FONT_UI}`, ctx.measureText(k).width + 18)) / 2, y, k, hot); this.text(v, x + kw + 10, y + 6, 18, hot ? '#ffe2a0' : '#e3e9f4', FONT_UI, 'left', 600); x += ws[i] + gap }) },
+  // вводное обучение: одно действие за раз, иконка мыши или клавиши; гаснет, когда игрок это сделал
+  TUT: [['move', 'идти'], ['hit', 'удар'], ['charge', 'зажать — сильный удар'], ['dash', 'рывок'], ['parry', 'отбить удар']],
+  tutorial(t) { const T = Game.tut; if (!T) return; const st = this.TUT.find(([k]) => !T[k]);
+    if (T.fade > 0) T.fade = Math.max(0, T.fade - 1 / 60);
+    if (!st && !(Hero.H.ult >= 100 && !T.ult)) return; const [k, v] = st && !(Hero.H.ult >= 100 && !T.ult) ? st : ['ult', 'Разлом'], a = 1 - (T.fade || 0), x = VW / 2, y = VH - 92;
+    ctx.globalAlpha = a; this.panel(x - 170, y - 40, 340, 80, .6);
+    if (k === 'move') { this.keycap(x - 96, y, 'A'); this.keycap(x - 58, y, 'D') }
+    else if (k === 'hit') this.mouse(x - 80, y, 0, t);
+    else if (k === 'charge') { const hp = Hero.st.hold ? Math.min(1, (Hero.H.chg || 0) / 1.15) : (t * .7) % 1; this.mouse(x - 80, y, 0, t, hp) }
+    else if (k === 'dash') this.keycap(x - 80, y, 'Пробел')
+    else if (k === 'parry') { this.keycap(x - 104, y, 'F'); this.mouse(x - 60, y, 1, t) }
+    else if (k === 'ult') this.keycap(x - 80, y, 'R', 1);
+    this.text(v, x - 30, y + 7, 22, '#f0e6c8', FONT_TITLE, 'left', 700); ctx.globalAlpha = 1 },
   controls(y) {
     const lines = [['A / D, ← / →', 'шаг влево и вправо'], ['Shift', 'бег'], ['W / S, ↑ / ↓', 'вглубь и ближе'], ['Space', 'рывок (уворот)'], ['ЛКМ', 'серия из трёх ударов'], ['ЛКМ (зажать)', 'заряженный удар: чем дольше, тем сильнее'], ['R', 'Разлом — когда шкала полна'], ['J / K / L', 'удар сверху, вбок, снизу'], ['F · ПКМ', 'парировать: нажми чуть раньше удара'], ['E · Q · R', 'душой: подобрать / вернуть / порядок'], ['Enter · M · − / +', 'пауза · звук · громкость']];
     this.panel(VW / 2 - 270, y, 540, lines.length * 25 + 20, .88);
@@ -102,7 +121,6 @@ const UI = {
   end(win, t) {
     this.overlay(.68); const G = Game, s = G.stats, tm = Math.floor(G.time);
     ctx.save(); ctx.shadowColor = win ? '#4fd6ff' : '#ff4a3a'; ctx.shadowBlur = 26; this.text(win ? 'Победа' : 'Поражение', VW / 2, 150, 84, win ? '#dff7ff' : '#ffd2cc', FONT_TITLE, 'center', 700); ctx.restore();
-    this.text(win ? 'Страж и палач повержены. Арена молчит.' : 'Арена забрала героя. Этап можно пройти заново.', VW / 2, 194, 22, '#b6c3db', FONT_UI, 'center', 500);
     this.panel(VW / 2 - 440, 222, 400, 154, .6);
     [['Решено задач', `${s.solved} из ${s.tasks}`], ['Разбито конечностей', `${s.broken}`], ['Отбито ударов', `${s.parries || 0}`], ['Лучшая серия', `×${s.best || 0}`], ['Время', `${Math.floor(tm / 60)}:${String(tm % 60).padStart(2, '0')}`], ['Очки', `${G.score}`]].forEach(([k, v], i) => { this.text(k, VW / 2 - 420, 254 + i * 26, 18, '#aeb9cf', FONT_UI, 'left', 500); this.text(v, VW / 2 - 60, 254 + i * 26, 18, '#f0e6c8', FONT_UI, 'right', 700) });
     // темы: что получилось, что повторить
