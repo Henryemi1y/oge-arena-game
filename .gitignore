@@ -2,3 +2,4 @@ __pycache__/
 *.pyc
 .DS_Store
 hero_build.html
+src/game/.assets_cache.json
