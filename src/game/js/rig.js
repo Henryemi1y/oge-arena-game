@@ -79,16 +79,18 @@ function cutLimb(img, P, leg, R0) {
   const ft = leg ? piece(E[1] - e, h, x => { x.save(); x.beginPath(); x.rect(0, E[1] - e, w, h); x.clip(); x.drawImage(img, 0, 0); x.restore(); x.globalCompositeOperation = 'destination-out'; circ(x, E, rE - e); x.fill() }) : null;
   return img._cut = { up, lo, ft, rJ, rE };
 }
-function cutFor(R, part, v, dark) { const base = R.I[part], c0 = cutLimb(base, R.P[part], part.startsWith('leg')); const im = rimg(R.I, part, v, dark); return im === base ? c0 : cutLimb(im, R.P[part], part.startsWith('leg'), c0) }
+// готовые куски (страж v2): у каждой детали свой рисунок на общем холсте конечности, резать не нужно
+function cutFor(R, part, v, dark, mir) { if (R.P[part].pc) { const g = r => { const i = (mir && rimg(R.I, r + 'm_' + part, v, dark)) || rimg(R.I, r + '_' + part, v, dark); return i && { c: i, oy: 0 } }; return { up: g('up'), lo: g('lo'), ft: g('ft') } } return cutFor0(R, part, v, dark) }
+function cutFor0(R, part, v, dark) { const base = R.I[part], c0 = cutLimb(base, R.P[part], part.startsWith('leg')); const im = rimg(R.I, part, v, dark); return im === base ? c0 : cutLimb(im, R.P[part], part.startsWith('leg'), c0) }
 const drawCut = (pc, piv, at, rot) => { ctx.save(); ctx.translate(at[0], at[1]); ctx.rotate(rot); ctx.drawImage(pc.c, -piv[0], pc.oy - piv[1]); ctx.restore() };
 function rigLeg(ch, G, li, v) {
-  const R = ch.R, lg = G.legs[li], part = lg.part, P = R.P[part], C = cutFor(R, part, v, li === 1), L = lg.L;
+  const R = ch.R, lg = G.legs[li], part = lg.part, P = R.P[part], C = cutFor(R, part, v, li === 1, ch.face < 0), L = lg.L;
   const a1 = angOf(lg.hip, lg.kn) - angOf(P.root, P.joint), a2 = angOf(lg.kn, lg.an) - angOf(P.joint, P.end);
   const a3 = L.st ? (L.footRot || 0) : (L.footRot ?? -.25 * Math.sin(PI * cl(L.lift / (ch.c.g.lift * (R.L1 + R.L2) + 1e-6), 0, 1)));
   drawCut(C.ft, P.end, lg.an, a3); drawCut(C.lo, P.joint, lg.kn, a2); drawCut(C.up, P.root, lg.hip, a1);
 }
 function rigArm(ch, G, ai, v) {
-  const R = ch.R, A = G.arms[ai], part = A.part, P = R.P[part], C = cutFor(R, part, v, ai === 1);
+  const R = ch.R, A = G.arms[ai], part = A.part, P = R.P[part], C = cutFor(R, part, v, ai === 1, ch.face < 0);
   drawCut(C.lo, P.joint, A.el, A.a2); drawCut(C.up, P.root, A.sh, A.a1);
 }
 function rigWeapon(ch, G, v) { const R = ch.R, w = G.weapon; if (!w || ch.noWeapon) return; const I = rimg(R.I, 'weapon', v, w.arm === 1 && !R.axe); rigPiece(I, R.P.weapon.grip, w.at, w.rot) }

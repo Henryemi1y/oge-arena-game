@@ -1,5 +1,5 @@
 // assets.js — загрузка встроенных картинок (ASSETS собирается tools/build_game.py) и производные: затемнённые дальние детали.
-const IM = { props: {}, shards: [], cracks: [], eye: {}, soul: {}, ch: {} };
+const IM = { props: {}, shards: [], cracks: [], eye: {}, soul: {}, ch: {}, stones: [] };
 const mkCanvas = (w, h) => { const c = document.createElement('canvas'); c.width = Math.max(1, Math.ceil(w)); c.height = Math.max(1, Math.ceil(h)); return c };
 function loadImg(src) { return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('img')); i.src = src }) }
 // затемнение дальних деталей (без ctx.filter — он есть не во всех браузерах)
@@ -12,6 +12,7 @@ async function loadAssets(onProgress) {
   for (const k of ['bg_far', 'bg_mid', 'floor', 'fg', 'gate_left', 'gate_right']) add(ASSETS[k].src, i => IM[k] = i);
   for (const k in ASSETS.props) add(ASSETS.props[k].src, i => IM.props[k] = i);
   ASSETS.shards.forEach((s, n) => add(s.src, i => IM.shards[n] = i));
+  (ASSETS.stones || []).forEach((s, n) => add(s.src, i => IM.stones[n] = i));
   ASSETS.cracks.forEach((s, n) => add(s.src, i => IM.cracks[n] = i));
   add(ASSETS.dust.src, i => IM.dust = i);
   for (const k in ASSETS.eye) add(ASSETS.eye[k].src, i => IM.eye[k] = i);

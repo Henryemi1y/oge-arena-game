@@ -16,7 +16,7 @@
     knight:      { speed: .85,  stride: 1.05, beta: .64, lift: .10, crouch: .03, lean: .04, bob: 1.0, arm: .22, elbow: .35, heavy: .35, dwell: .10, shake: .08, dust: .35, stance: .08 },
     doctor:      { speed: 1.00, stride: 1.10, beta: .60, lift: .12, crouch: .05, lean: .14, bob: .6,  arm: .12, elbow: .8,  heavy: 0,   dwell: 0,   shake: 0,   dust: .10, armFwd: -.35, stance: .06 },
     goatman:     { speed: 1.05, stride: 1.25, beta: .60, lift: .17, crouch: .07, lean: .16, bob: 1.2, arm: .50, elbow: .45, heavy: .55, dwell: .12, shake: .25, dust: .55, digi: 1, stance: .09 },
-    guardian:    { speed: .42,  stride: 1.20, beta: .70, lift: .12, crouch: .05, lean: .03, bob: 1.6, arm: .28, elbow: .25, heavy: 1.0, dwell: .32, shake: 1.0, dust: 1.0, cracks: 1, stance: .10 },
+    guardian:    { speed: .42,  stride: 1.20, beta: .70, lift: .17, snap: .12, crouch: .05, lean: .03, bob: 1.6, arm: .28, elbow: .25, heavy: 1.0, dwell: .32, shake: 1.0, dust: 1.0, cracks: 1, stance: .10 },
     executioner: { speed: .60,  stride: 1.15, beta: .66, lift: .14, crouch: .10, lean: .20, bob: 1.3, arm: .16, elbow: .55, heavy: .80, dwell: .22, shake: .7,  dust: .8,  cracks: 1, stance: .10 },
   };
 
@@ -77,7 +77,11 @@
         const q = (u - beta) / (1 - beta), q5 = q * q * q * (q * (q * 6 - 15) + 10);
         // точка постановки: где будет бедро к концу переноса + полшага вперёд (при остановке — место под телом)
         const tx = c.x + c.face * ((1 - q) * (1 - beta) * S * m + S * beta / 2 * m) + neu;
-        f.px = lp(f.lx, tx, q5); lift = Math.pow(Math.sin(Math.PI * q), 2) * g.lift * L * Math.max(m, .35);
+        if (g.snap) {
+          // каменный шаг рывками: стопа взлетает за первые ~12 % переноса, висит, идёт вперёд и падает с ускорением
+          const a = g.snap, up = 1 - Math.pow(1 - cl(q / a, 0, 1), 3), dn = Math.pow(cl((q - .86) / .14, 0, 1), 2.2), qx = sm((q - a * .6) / (.86 - a * .6));
+          f.px = lp(f.lx, tx, qx); lift = up * (1 - dn) * g.lift * L * Math.max(m, .35);
+        } else { f.px = lp(f.lx, tx, q5); lift = Math.pow(Math.sin(Math.PI * q), 2) * g.lift * L * Math.max(m, .35) }
       }
       f.st = st;
       return { u, x: (f.px - c.x) * c.face, lift, st, wx: f.px };

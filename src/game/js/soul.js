@@ -119,7 +119,7 @@ const Soul = {
   // насколько прозрачным делать персонажа рядом с душой или монолитом (0 — не трогать)
   fadeFor(x) { if (!this.on || this.ph === 'off') return 0; const a = Math.abs(x - this.x), b = Math.abs(x - World.monolith.x); return Math.max(cl(1 - (a - 90) / 260, 0, 1), this.atMonolith() || Math.abs(this.x - World.monolith.x) < 400 ? cl(1 - (b - 120) / 260, 0, 1) : 0) },
   drawShard(s, x, z, h, k0, glow = 1) {
-    const t = performance.now() / 1000, i = s.d === '−' ? 10 : +s.d, img = IM.shards[i], k = .88 * zs(z) * k0, X = sx(x), Y = zy(z) - h - img.height * k * .5 - (s.landed ? 8 + 5 * Math.sin(t * 2.4 + s.ph) : 0);
+    const t = performance.now() / 1000, i = s.d === '−' ? 10 : +s.d, img = IM.stones.length ? this.stoneImg(s.d, s.shape ?? (s.shape = irnd(0, 3))) : IM.shards[i], k = (IM.stones.length ? 74 / img.width : 1) * .88 * zs(z) * k0, X = sx(x), Y = zy(z) - h - img.height * k * .5 - (s.landed ? 8 + 5 * Math.sin(t * 2.4 + s.ph) : 0);
     if (X < -60 || X > VW + 60) return;
     const near = this.on && this.ph === 'free' && this.nearShard() === s;
     if (glow) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const r = (near ? 70 : 54) * zs(z) * k0 * (1 + .12 * Math.sin(t * 4 + s.ph)), g = ctx.createRadialGradient(X, Y, 0, X, Y, r); g.addColorStop(0, `rgba(110,200,255,${near ? .62 : .4})`); g.addColorStop(1, 'rgba(60,140,255,0)'); ctx.fillStyle = g; ctx.fillRect(X - r, Y - r, 2 * r, 2 * r);
@@ -199,6 +199,11 @@ const Soul = {
   },
   // уравнение на панели монолита (узкая панель, гравировка светится)
   drawMonolith(p, x, y, w, h, k) {
+    const MA = ASSETS.props.monolith;
+    if (MA.sockets) { // v2: пиксели исходника → экран
+      const q = MA.k * k, X0 = x - w / 2, Y0 = y - h * MA.base, E = MA.engrave;
+      this.sockR = MA.sockets.map(([sx_, sy_, sw, sh_]) => [X0 + sx_ * q, Y0 + sy_ * q, sw * q, sh_ * q]);
+      this.mp = this.on && this.prob ? [X0 + E[0] * q, Y0 + E[1] * q, E[2] * q, E[3] * q] : null; return }
     const pn = ASSETS.props.monolith.panel, pk = ASSETS.props.monolith.k * k, px = x - w / 2 + pn[0] * pk, py = y - h + pn[1] * pk, pw = pn[2] * pk, ph = pn[3] * pk, tt = performance.now() / 1000;
     const act = this.on && this.prob;
     ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = `rgba(60,140,220,${act ? .12 + .05 * Math.sin(tt * 2) : .03})`; ctx.fillRect(px, py, pw, ph); ctx.restore();
@@ -207,6 +212,7 @@ const Soul = {
   },
   // ответ на панели монолита рисуется поверх персонажей: босс и тело героя его не закрывают
   drawAnswer() {
+    if (this.sockR) return this.drawCarved();
     const [px, py, pw, ph] = this.mp, tt = performance.now() / 1000;
     // на монолите — уравнение (дроби столбиком, перенос по «=» или «;») и под ним ячейки ответа с цифрами
     const n = this.slots, at = this.atMonolith(), cw = Math.min(40, (pw - 8) / n), x0 = px + pw / 2 - cw * n / 2, cy = py + ph / 2 + 8;
@@ -218,7 +224,36 @@ const Soul = {
       if (s) this.drawShardAt(s, x0 + i * cw + cw / 2, cy, (cw + 4) / 74) }
     ctx.restore();
   },
-  drawShardAt(s, X, Y, k) { const i = s.d === '−' ? 10 : +s.d, img = IM.shards[i]; ctx.drawImage(img, X - img.width * k / 2, Y - img.height * k / 2, img.width * k, img.height * k); if (s.d === '−') { ctx.fillStyle = '#bfefff'; ctx.fillRect(X - img.width * k * .26, Y - img.height * k * .06, img.width * k * .52, img.height * k * .13) } },
+  // надпись, вырезанная в камне: тень сверху-слева внутри борозды, светлая кромка снизу-справа, глубина, слабое свечение
+  carve(str, x, y, size, maxW, glow = .5) {
+    mathText(str, x + 1.2, y + 1.4, size, 'rgba(176,196,226,.38)', 'center', maxW);
+    mathText(str, x - 1, y - 1, size, 'rgba(0,0,0,.7)', 'center', maxW);
+    mathText(str, x, y, size, 'rgba(14,18,30,.94)', 'center', maxW);
+    // магия в бороздах: свет изнутри букв — так надпись читается и на тёмном камне
+    if (glow > 0) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.shadowColor = 'rgba(80,190,255,.9)'; ctx.shadowBlur = 10; mathText(str, x, y, size, `rgba(90,185,255,${.62 * glow})`, 'center', maxW); ctx.restore() }
+  },
+  drawCarved() {
+    const [px, py, pw, ph] = this.mp, tt = performance.now() / 1000, cx = px + pw / 2, sc = pw / 505, at = this.atMonolith();
+    ctx.save(); ctx.textBaseline = 'alphabetic';
+    this.carve(this.prob.c, cx, py + 70 * sc, 44 * sc, pw * 1.05, .6);
+    this.carve(this.prob.t, cx, py + 205 * sc, 74 * sc, pw * 1.14, .9);
+    // слепки: вложенные камни; следующий слепок пульсирует, пока душа у монолита с камнем в руках
+    this.sockR.forEach(([x, y, w, h], i) => {
+      const s = this.placed[i], nx = i === this.placed.length && at && this.carried.length;
+      if (nx || (this.confirm > 0 && s)) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const r = Math.max(w, h) * .9, g = ctx.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, r); g.addColorStop(0, this.confirm > 0 ? 'rgba(255,215,130,.55)' : `rgba(120,210,255,${.35 + .25 * Math.sin(tt * 7)})`); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x + w / 2 - r, y + h / 2 - r, 2 * r, 2 * r); ctx.restore() }
+      if (s) { const img = this.stoneImg(s.d, i), kk = Math.min(w / img.width, h / img.height) * 1.02; ctx.drawImage(img, x + w / 2 - img.width * kk / 2, y + h / 2 - img.height * kk / 2, img.width * kk, img.height * kk) } });
+    ctx.restore();
+  },
+  // камень-осколок: форма из листа камней, цифра вырезана на лицевой грани и светится (кэш по цифре и форме)
+  stoneImg(d, shape) {
+    const key = d + ':' + shape; this._st = this._st || {}; if (this._st[key]) return this._st[key];
+    const src = IM.stones[shape % IM.stones.length], c = mkCanvas(src.width, src.height), x = c.getContext('2d'), cx = c.width / 2, cy = c.height / 2 + 2, fs = Math.min(c.width, c.height) * .62;
+    x.drawImage(src, 0, 0); x.font = `700 ${fs}px ${FONT_EQ}`; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillStyle = 'rgba(0,0,0,.65)'; x.fillText(d, cx - 1.5, cy - 1.5); x.fillStyle = 'rgba(190,210,235,.45)'; x.fillText(d, cx + 1.5, cy + 1.5); x.fillStyle = 'rgb(16,22,36)'; x.fillText(d, cx, cy);
+    x.globalCompositeOperation = 'lighter'; x.shadowColor = 'rgba(90,200,255,1)'; x.shadowBlur = fs * .18; x.fillStyle = 'rgba(80,190,255,.75)'; x.fillText(d, cx, cy);
+    return this._st[key] = c;
+  },
+  drawShardAt(s, X, Y, k) { if (IM.stones.length) { const img = this.stoneImg(s.d, s.shape ?? (s.shape = irnd(0, 3))), kk = k * 74 / img.width; ctx.drawImage(img, X - img.width * kk / 2, Y - img.height * kk / 2, img.width * kk, img.height * kk); return } const i = s.d === '−' ? 10 : +s.d, img = IM.shards[i]; ctx.drawImage(img, X - img.width * k / 2, Y - img.height * k / 2, img.width * k, img.height * k); if (s.d === '−') { ctx.fillStyle = '#bfefff'; ctx.fillRect(X - img.width * k * .26, Y - img.height * k * .06, img.width * k * .52, img.height * k * .13) } },
 };
 // перенос уравнения на строки под ширину панели
 function wrapEq(t, maxW, size) {

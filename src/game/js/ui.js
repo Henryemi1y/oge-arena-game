@@ -45,30 +45,27 @@ const UI = {
   },
   soulTablet() {
     // табличка уходит в сторону от босса, чтобы не закрывать ему голову
-    const S = Soul, mp = S.mp, mono = !!mp && mp[0] > 30 && mp[0] + mp[2] < VW - 30;     const w = 470, h = 124, B = Boss.b, bx = B && !B.gone ? sx(B.x) : null, want = bx == null || bx < -200 || bx > VW + 200 ? VW / 2 : bx > VW / 2 ? 290 : VW - 290;
+    const S = Soul, mp = S.mp, mono = !!mp && mp[0] > 30 && mp[0] + mp[2] < VW - 30;     const w = 470, h = S.sockR && mono ? 58 : 124, B = Boss.b, bx = B && !B.gone ? sx(B.x) : null, want = bx == null || bx < -200 || bx > VW + 200 ? VW / 2 : bx > VW / 2 ? 290 : VW - 290;
     this.tabX = this.tabX == null ? want : lp(this.tabX, want, .08); const cx = this.tabX, x = cx - w / 2, y = Boss.b ? 94 : 60; this.tabB = y + h;
     let full = S.full();
-    ctx.save(); rr(x, y, w, h, 10); ctx.fillStyle = this.pat(); ctx.fill(); ctx.fillStyle = 'rgba(8,12,24,.84)'; ctx.fill(); ctx.strokeStyle = 'rgba(120,200,255,.55)'; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
-    this.text(S.prob.c, x + 16, y + 24, 16, '#8fcbe6', FONT_UI, 'left', 600);
+    const stone = !!S.sockR;
+    // монолит в кадре: задание и пример вырезаны на нём — в интерфейсе остаются только время и камни в руках (справа, не над монолитом)
+    if (stone && mono) { const X = VW - 262, Y = 96, k = S.T / S.TMAX; this.panel(X, Y, 246, 34, .7); this.bar(X + 14, Y + 13, 160, 8, k, k > .3 ? '#7fe3ff' : '#ff9a7a', k > .3 ? '#2c8fbf' : '#b0402a'); this.text(`${Math.ceil(S.T)} с`, X + 232, Y + 23, 15, S.T < 10 ? '#ffb59a' : '#a9d9ee', FONT_UI, 'right', 600);
+      if (S.carried.length) { this.panel(X, Y + 40, 246, 40, .7); S.carried.forEach((c, i) => { if (!i) { ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 2; ctx.strokeRect(X + 12 + i * 36, Y + 45, 30, 30) } Soul.drawShardAt(c, X + 27 + i * 36, Y + 60, .4) }) }
+      this.tabB = Y + 80; return this.soulTips() }
+    ctx.save(); rr(x, y, w, h, 10); ctx.fillStyle = this.pat(); ctx.fill(); ctx.fillStyle = stone ? 'rgba(96,108,132,.38)' : 'rgba(8,12,24,.84)'; ctx.fill(); ctx.strokeStyle = stone ? 'rgba(20,24,36,.9)' : 'rgba(120,200,255,.55)'; ctx.lineWidth = stone ? 3 : 2; ctx.stroke(); ctx.restore();
+    if (stone) { ctx.save(); ctx.textBaseline = 'alphabetic'; Soul.carve(S.prob.c, cx, y + 30, 20, w - 170, .7); if (!mono) Soul.carve(S.prob.t, cx, y + 80, 32, w - 40, 1); ctx.restore() }
+    else { this.text(S.prob.c, x + 16, y + 24, 16, '#8fcbe6', FONT_UI, 'left', 600);
     // уравнение: дроби — столбиком, как в бланке ОГЭ
-    ctx.save(); ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10; mathText(S.prob.t, cx, y + (mono ? 66 : 60), mono ? 30 : 26, '#dcf6ff', 'center', w - 40); ctx.restore();
+    ctx.save(); ctx.shadowColor = '#3fa9ff'; ctx.shadowBlur = 10; mathText(S.prob.t, cx, y + (mono ? 66 : 60), mono ? 30 : 26, '#dcf6ff', 'center', w - 40); ctx.restore() }
     // ячейки ответа
     const n = mono ? 0 : S.slots, cw = 34, x0 = cx - n * cw / 2, cy = y + 104;
-    if (mono) this.text('ответ собирается на монолите', cx, y + 110, 13, '#7f93a8', FONT_UI, 'center', 500);
     for (let i = 0; i < n; i++) { ctx.strokeStyle = S.confirm > 0 && i < S.placed.length ? 'rgba(255,217,138,.95)' : full ? 'rgba(160,255,200,.8)' : 'rgba(140,220,255,.55)'; ctx.lineWidth = 1.5; ctx.strokeRect(x0 + i * cw + 3, cy - 14, cw - 6, 28); const s = S.placed[i]; if (s) Soul.drawShardAt(s, x0 + i * cw + cw / 2, cy, .42) }
     // время души
     const k = S.T / S.TMAX; this.bar(x + w - 124, y + 14, 108, 8, k, k > .3 ? '#7fe3ff' : '#ff9a7a', k > .3 ? '#2c8fbf' : '#b0402a'); this.text(`${Math.ceil(S.T)} с`, x + w - 16, y + 39, 15, S.T < 10 ? '#ffb59a' : '#a9d9ee', FONT_UI, 'right', 600);
     // в руках: первая цифра ляжет следующей
     if (S.carried.length) { const hy = mono ? h + 6 : 92; if (mono) { this.panel(x, y + h + 2, 196, 34, .8) } this.text('В руках:', x + 16, y + hy + 18, 15, '#9fb8cc', FONT_UI, 'left', 500); S.carried.forEach((s, i) => { if (!i) { ctx.strokeStyle = '#ffd98a'; ctx.lineWidth = 2; ctx.strokeRect(x + 84 + i * 30, y + hy, 26, 26) } Soul.drawShardAt(s, x + 97 + i * 30, y + hy + 13, .34) }) }
-    // подсказка внизу — по состоянию
-    const at = S.atMonolith(), near = S.nearShard(), nx = S.carried[0] ? `«${S.carried[0].d}»` : '';
-    const ans = S.placed.map(s => s.d).join('');
-    const tips = S.ph !== 'free' ? [] : at && S.confirm > 0 ? [['E', `проверить ${ans}`], ['Q', 'забрать']]
-      : at && full ? [['E', 'проверить'], ['Q', 'забрать']]
-      : at && S.carried.length ? [['E', `положить ${S.carried[0].d}`], ['R', 'порядок'], ['Q', 'забрать']]
-      : at && S.placed.length ? [['E', 'проверить'], ['Q', 'забрать']]
-      : near && S.carried.length < 3 ? [['E', `взять ${near.d}`]] : S.carried.length >= 3 ? [['Q', 'бросить']] : [];
-    if (tips.length) this.keyTips(tips, VW / 2, VH - 44, S.hint > 0);
+    this.soulTips();
     if (S.msg && S.ph === 'result') {
       const m = S.msg, cy2 = VH * .40; this.panel(VW / 2 - 330, cy2 - 58, 660, m.ok ? 92 : 150, .82);
       this.text(m.text, VW / 2, cy2, 44, m.ok ? '#8dffb3' : '#ff8a7a', FONT_TITLE, 'center', 700);
@@ -78,6 +75,17 @@ const UI = {
     // стрелки к монолиту и к осколкам за краем экрана
     const edge = (wx, z, label, col) => { const X = sx(wx); if (X >= 0 && X <= VW) return; const right = X > VW, ax = right ? VW - 26 : 26, ay = cl(zy(z) - 60, 140, VH - 90); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(ax + (right ? 14 : -14), ay); ctx.lineTo(ax - (right ? 8 : -8), ay - 12); ctx.lineTo(ax - (right ? 8 : -8), ay + 12); ctx.fill(); this.text(label, ax + (right ? -18 : 18), ay + 6, 15, col, FONT_UI, right ? 'right' : 'left', 700) };
     if (S.ph === 'free') { for (const s of S.shards) if (s.landed && !s.carried && !s.placed) edge(s.x, s.z, s.d, 'rgba(150,220,255,.8)'); edge(World.monolith.x, .1, 'монолит', 'rgba(255,225,150,.9)') }
+  },
+  soulTips() { const S = Soul, full = S.full();
+    // подсказка внизу — по состоянию
+    const at = S.atMonolith(), near = S.nearShard(), nx = S.carried[0] ? `«${S.carried[0].d}»` : '';
+    const ans = S.placed.map(s => s.d).join('');
+    const tips = S.ph !== 'free' ? [] : at && S.confirm > 0 ? [['E', `проверить ${ans}`], ['Q', 'забрать']]
+      : at && full ? [['E', 'проверить'], ['Q', 'забрать']]
+      : at && S.carried.length ? [['E', `положить ${S.carried[0].d}`], ['R', 'порядок'], ['Q', 'забрать']]
+      : at && S.placed.length ? [['E', 'проверить'], ['Q', 'забрать']]
+      : near && S.carried.length < 3 ? [['E', `взять ${near.d}`]] : S.carried.length >= 3 ? [['Q', 'бросить']] : [];
+    if (tips.length) this.keyTips(tips, VW / 2, VH - 44, S.hint > 0);
   },
   overlay(a = .62) { ctx.fillStyle = `rgba(5,6,12,${a})`; ctx.fillRect(0, 0, VW, VH) },
   title(t, loadK) {

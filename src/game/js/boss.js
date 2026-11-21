@@ -17,6 +17,9 @@ const BATK = {
   cleave: { arm: 1, axe: 1, wind: .85, strike: .22, hold: .16, rec: .7, dmg: 11, th: .45, r: 80, wk: { ru: 1.2, flex: .5, crouch: .03, lean: -.12, axeC: .9 }, axeHit: 1.55, D: .78 },
   stomp: { leg: 1, wind: .85, strike: .15, hold: .35, rec: .5, dmg: 13, radius: 200 },
 };
+// замах: палач заносит топор плавно; каменный страж — рывком (поза набрана за ~12 кадров), дальше держит её с мелкой
+// дрожью камня до удара — время на реакцию игрока прежнее
+const windE = (B, t, T) => B.id === 'guardian' ? 1 - Math.pow(1 - cl(t / Math.min(T, .2), 0, 1), 3) : sm(t / T);
 const Boss = {
   b: null, waves: [],
   reset() { this.b = null; this.waves = [] },
@@ -169,9 +172,9 @@ const Boss = {
     const k = B.atk, A = k.A, h = Hero.H, L = this.L(B); k.t += dt; ctl.hold = true; let arm = null, leg = null;
     const ph = k.ph, wk = A.wk || {}, P = k.pl;
     // z босса подтягивается к точке удара к моменту удара (выпад)
-    const e = ph === 'wind' ? sm(k.t / A.wind) : ph === 'strike' ? Math.pow(cl(k.t / A.strike, 0, 1), 2.2) : ph === 'hold' ? 1 : 1 - sm(k.t / A.rec);
+    const e = ph === 'wind' ? windE(B, k.t, A.wind) : ph === 'strike' ? Math.pow(cl(k.t / A.strike, 0, 1), 2.2) : ph === 'hold' ? 1 : 1 - sm(k.t / A.rec);
     if (A.leg) { // топот: нога поднимается и бьёт в землю там же, где стояла
-      const li = B.limbs.legN.alive ? 0 : 1, lift = ph === 'wind' ? L * .42 * sm(k.t / A.wind) : ph === 'strike' ? L * .42 * (1 - Math.pow(k.t / A.strike, 2)) : 0;
+      const li = B.limbs.legN.alive ? 0 : 1, lift = ph === 'wind' ? L * .42 * windE(B, k.t, A.wind) : ph === 'strike' ? L * .42 * (1 - Math.pow(k.t / A.strike, 2)) : 0;
       ctl.lean = ph === 'wind' ? -.12 * e : 0; leg = { li, lift, dx: ph === 'wind' ? L * .08 * e : ph === 'strike' ? L * .08 * (1 - k.t / A.strike) : 0 };
     } else {
       // присед и наклон: к позе замаха, затем к позе удара (найдена в plan), в конце — обратно
@@ -231,12 +234,12 @@ const Boss = {
   // ---------- поза руки атаки: IK каждый кадр от текущего плеча (точно в цель к концу удара и в фазе удержания) ----------
   applyArm(B) {
     const k = B.atk; if (!k || k.A.leg) return; const A = k.A, P = k.pl, po = B.pose, ai = P.ai, wk = A.wk, ph = k.ph;
-    const t = k.t, e = ph === 'wind' ? sm(t / A.wind) : ph === 'strike' ? Math.pow(cl(t / A.strike, 0, 1), 2.2) : ph === 'hold' ? 1 : 1 - sm(t / A.rec);
+    const t = k.t, e = ph === 'wind' ? windE(B, t, A.wind) : ph === 'strike' ? Math.pow(cl(t / A.strike, 0, 1), 2.2) : ph === 'hold' ? 1 : 1 - sm(t / A.rec);
     const aH = P.axeC ?? 0, axeC = A.axe ? (ph === 'wind' ? lp(1.55, wk.axeC, e) : ph === 'rec' ? lp(1.55, aH, e) : lp(wk.axeC, aH, e)) : 0;
     const G = rigGeom(B), sh = G.arms[ai].sh, { Pa, E } = this.effector(B, ai, aH), Tl = this.localT(B, k.T, po.hip), sol = this.ikArm(Pa, E, sh, Tl);
     const base = po.arms[ai], wru = wk.ru, wfl = wk.flex;
     let ru, flex;
-    if (ph === 'wind') { const bf = angDiff(base.rf, base.ru); ru = lp(base.ru, wru, e); flex = lp(bf, wfl, e) }
+    if (ph === 'wind') { const bf = angDiff(base.rf, base.ru), tr = B.id === 'guardian' ? .018 * Math.sin(t * 47) * cl((t - .2) / .2, 0, 1) : 0; ru = lp(base.ru, wru, e) + tr; flex = lp(bf, wfl, e) }
     else if (ph === 'strike') { ru = lp(wru, sol.ru, e); flex = lp(wfl, sol.flex, e) }
     else if (ph === 'hold') { ru = sol.ru; flex = sol.flex }
     else { const bf = angDiff(base.rf, base.ru); ru = lp(base.ru, sol.ru, e); flex = lp(bf, sol.flex, e) }

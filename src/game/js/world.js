@@ -16,13 +16,24 @@ const World = {
   t: 0,
   init() {
     const M = W.ARENA / 2;
-    this.monolith = { kind: 'monolith', x: M, z: -.1, s: 1.5 };
-    this.props = [
-      { kind: 'column', x: 500, z: -.12, s: .9 }, { kind: 'brazier', x: M - 520, z: -.1, s: .72, fire: 1 }, this.monolith,
-      { kind: 'brazier', x: M + 520, z: -.1, s: .72, fire: 1 }, { kind: 'bust', x: W.ARENA - 430, z: -.12, s: .78 },
-      { kind: 'column', x: W.ARENA - 760, z: -.13, s: .7 },
-      { kind: 'rubble', x: 1130, z: 1.13, s: .75 }, { kind: 'rubble', x: 2330, z: 1.12, s: .62, flip: 1 }, { kind: 'bust', x: 300, z: 1.16, s: .55, flip: 1 },
-    ];
+    if (ASSETS.props.monolith.base) {
+      // арена v2: всё в камере пола, у каждого предмета своя тень на полу; s — масштаб к сохранённой картинке
+      this.monolith = { kind: 'monolith', x: M, z: -.1, s: .9 };
+      this.props = [
+        { kind: 'column', x: 430, z: -.12, s: .84 }, { kind: 'chain', x: 760, z: -.1, s: .8 },
+        { kind: 'brazier', x: M - 380, z: -.08, s: .66, fire: 1 }, this.monolith, { kind: 'brazier', x: M + 380, z: -.08, s: .66, fire: 1 },
+        { kind: 'head', x: 2080, z: -.06, s: .57 }, { kind: 'column', x: W.ARENA - 420, z: -.13, s: .7, flip: 1 },
+        { kind: 'rubble', x: 1000, z: 1.12, s: .62 }, { kind: 'rubble', x: 1980, z: 1.13, s: .52, flip: 1 },
+      ];
+    } else {
+      this.monolith = { kind: 'monolith', x: M, z: -.1, s: 1.5 };
+      this.props = [
+        { kind: 'column', x: 500, z: -.12, s: .9 }, { kind: 'brazier', x: M - 520, z: -.1, s: .72, fire: 1 }, this.monolith,
+        { kind: 'brazier', x: M + 520, z: -.1, s: .72, fire: 1 }, { kind: 'bust', x: W.ARENA - 430, z: -.12, s: .78 },
+        { kind: 'column', x: W.ARENA - 760, z: -.13, s: .7 },
+        { kind: 'rubble', x: 1130, z: 1.13, s: .75 }, { kind: 'rubble', x: 2330, z: 1.12, s: .62, flip: 1 }, { kind: 'bust', x: 300, z: 1.16, s: .55, flip: 1 },
+      ];
+    }
   },
   // ворота — по краям арены, у стены
   gateX: side => side < 0 ? W.GL : W.GR,
@@ -42,7 +53,8 @@ const World = {
   drawBack(t) {
     this.t = t;
     this.layer(IM.bg_far, .667, .2, -190);
-    this.layer(IM.bg_mid, .667, .5, W.FLOOR_TOP - 466);
+    // у v2 основание стены (y = 650 из 1080) стоит ровно на дальнем крае пола
+    this.layer(IM.bg_mid, .667, .5, ASSETS.bg_mid.v2 ? W.FLOOR_TOP + 4 - 650 * .667 : W.FLOOR_TOP - 466);
     // ворота стоят в плоскости стены, но едут вместе с полом (они на краю арены)
     for (const s of [-1, 1]) { const img = s < 0 ? IM.gate_left : IM.gate_right, k = .52, w = img.width * k, h = img.height * k, x = sx(this.gateX(s)); if (x > -w && x < VW + w) ctx.drawImage(img, x - w / 2, W.FLOOR_TOP + 34 - h, w, h) }
     this.layer(IM.floor, .62, 1, W.FLOOR_TOP);
@@ -51,7 +63,7 @@ const World = {
   },
   drawFront() { this.layer(IM.fg, .667, 1.3, VH - 280 + 46, .95) },
   // искры жаровен — в шаге симуляции (их число не зависит от частоты кадров экрана)
-  update(dt) { for (const p of this.props) if (p.fire && Math.random() < dt * 15) { const k = p.s * zs(p.z), h = IM.props[p.kind].height * k; FX.ember(p.x + rnd(-10, 10), p.z, h * .92 + 20) } },
+  update(dt) { for (const p of this.props) if (p.fire && Math.random() < dt * 15) { const k = p.s * zs(p.z), h = IM.props[p.kind].height * k, A = ASSETS.props[p.kind]; FX.ember(p.x + rnd(-10, 10), p.z, A.base ? h * (A.base - .2) + 10 : h * .92 + 20) } },
   // свет жаровен на полу и стене
   drawLights(t) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -59,14 +71,17 @@ const World = {
     ctx.restore();
   },
   propDrawables(list) {
-    for (const p of this.props) list.push({ z: p.z, draw: () => this.drawProp(p) });
+    for (const p of this.props) list.push({ z: p.z, draw: () => this.drawProp(p), shadow: IM.props[p.kind + '_sh'] ? () => this.drawPropShadow(p) : null });
   },
+  // тень предмета на полу — в общем проходе теней, под персонажами
+  drawPropShadow(p) { const img = IM.props[p.kind + '_sh'], A = ASSETS.props[p.kind], k = p.s * zs(p.z), w = img.width * k, h = img.height * k, x = sx(p.x), y = zy(p.z);
+    if (x < -w || x > VW + w) return; ctx.save(); ctx.translate(x, y); if (p.flip) ctx.scale(-1, 1); ctx.drawImage(img, -w / 2, -h * A.base, w, h); ctx.restore() },
   drawProp(p) {
-    const img = IM.props[p.kind], k = p.s * zs(p.z), w = img.width * k, h = img.height * k, x = sx(p.x), y = zy(p.z);
+    const img = IM.props[p.kind], A = ASSETS.props[p.kind], k = p.s * zs(p.z), w = img.width * k, h = img.height * k, x = sx(p.x), y = zy(p.z), bo = A.base || 1;
     if (x < -w || x > VW + w) return;
-    ctx.save(); ctx.translate(x, y); if (p.flip) ctx.scale(-1, 1); ctx.drawImage(img, -w / 2, -h, w, h); ctx.restore();
+    ctx.save(); ctx.translate(x, y); if (p.flip) ctx.scale(-1, 1); ctx.drawImage(img, -w / 2, -h * bo, w, h); ctx.restore();
     if (p.fire) { // пламя жаровни: живое, с подрагиванием и искрами
-      const fi = IM.props.flame, t = this.t, fk = k * .9, fw = fi.width * fk, fh = fi.height * fk, top = y - h * .92;
+      const fi = IM.props.flame, t = this.t, fk = k * (A.base ? .55 : .9), fw = fi.width * fk, fh = fi.height * fk, top = A.base ? y - h * (A.base - .21) : y - h * .92;
       const sy = 1 + .1 * Math.sin(t * 11 + p.x) + .05 * Math.sin(t * 27), sxk = 1 + .05 * Math.sin(t * 7 + 1);
       ctx.save(); ctx.translate(x, top + fh * .2); ctx.scale(sxk, sy); ctx.globalAlpha = .95; ctx.drawImage(fi, -fw / 2, -fh, fw, fh); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .25 + .1 * Math.sin(t * 13); ctx.drawImage(fi, -fw / 2, -fh, fw, fh); ctx.restore();
     }

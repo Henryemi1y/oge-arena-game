@@ -27,10 +27,12 @@ const Critic = {
       if (t > 3 && t < 5) { hipW.push(po.hip); thigh.push(po.legs[0].ax); arm.push(-po.arms[0].ru) }
     }
     const mean = a => a.reduce((x, y) => x + y, 0) / a.length, cor = (a, b) => { const ma = mean(a), mb = mean(b); let n = 0, da = 0, db = 0; for (let i = 0; i < a.length; i++) { n += (a[i] - ma) * (b[i] - mb); da += (a[i] - ma) ** 2; db += (b[i] - mb) ** 2 } return n / Math.sqrt(da * db + 1e-12) };
+    // у каменного стража шаг рывками задуман (стопа взлетает за ~5 кадров и падает): порог рывка — под этот рисунок
+    const jt = c.g.snap ? .16 : .03;
     const sc = (v, thr) => v <= thr ? 10 : Math.round(10 * cl(1 - (v - thr) / (3 * thr), 0, 1) * 10) / 10;
     const pel = (Math.max(...hipW) - Math.min(...hipW)) / L * 100, c2 = cor(thigh, arm);
     const Rr = [['Скольжение опорной стопы', M.slip, '% ноги/кадр', .05], ['Стопа над землёй в опоре', M.sole, '% ноги', .5], ['Растяжение костей', M.stretch, '% ноги', .3], ['Нога не достаёт (IK)', M.clamp, 'кадров', 0],
-      ['Рывок сустава (шаг)', J.walk[0], 'рад/кадр²', .03], ['Рывок сустава (бег)', J.run[0], 'рад/кадр²', .03], ['Рывок сустава (старт/стоп/разворот)', J.trans[0], 'рад/кадр²', .03], ['Качание таза (шаг)', pel, '% ноги', 9], ['Руки против ног', c2, 'корр.', -.5]];
+      ['Рывок сустава (шаг)', J.walk[0], 'рад/кадр²', jt], ['Рывок сустава (бег)', J.run[0], 'рад/кадр²', jt], ['Рывок сустава (старт/стоп/разворот)', J.trans[0], 'рад/кадр²', jt], ['Качание таза (шаг)', pel, '% ноги', 9], ['Руки против ног', c2, 'корр.', -.5]];
     const R2 = Rr.map(([n, v, u, thr]) => [n, +v.toFixed(4), u, n === 'Руки против ног' ? (v < thr ? 10 : 0) : n.startsWith('Нога не') ? (v ? 0 : 10) : sc(v, thr)]);
     return { id, score: Math.min(...R2.map(r => r[3])), R: R2, jerkAt: [J.walk[1], J.run[1], J.trans[1]].join(' / ') };
   },

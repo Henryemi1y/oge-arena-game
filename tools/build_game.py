@@ -129,6 +129,42 @@ def build_assets():
     b = cy0
     while b < bx[3] - 1 and abs(col[b] - dark) < 18: b += 1
     names['monolith']['panel'] = [l + 1, t + 1, r - l - 1, b - t - 1]  # в пикселях исходника детали
+    # ---------- арена v2 (задачи 015–016): средний план и реквизит в камере пола, с отдельными тенями ----------
+    V2 = os.path.join(R, E, 'v2')
+    if os.path.exists(os.path.join(V2, 'bg_mid_v2.png')):
+        im = Image.open(os.path.join(V2, 'bg_mid_v2.png')).convert('RGBA'); A['bg_mid'] = {'src': uri(im, 88), 'w': im.width, 'h': im.height, 'v2': 1}
+        def grade(im):
+            # реквизит нарисован при нейтральном свете — тонируем под ночную сцену (холоднее и темнее)
+            a = np.array(im).astype(np.float32); a[..., 0] *= .78; a[..., 1] *= .84; a[..., 2] *= .98
+            return Image.fromarray(np.clip(a, 0, 255).astype(np.uint8), 'RGBA')
+        def prop(path, key, shadow=None):
+            im = grade(Image.open(path).convert('RGBA')); al = np.array(im)[..., 3] > 16; ys, xs = np.where(al); k = .5
+            names[key] = {'src': uri(rs(im, k)), 'w': round(im.width * k), 'h': round(im.height * k), 'k': k, 'base': float(ys.max() / im.height), 'top': float(ys.min() / im.height)}
+            if shadow is not None:
+                names[key + '_sh'] = {'src': uri(rs(shadow, k)), 'w': round(shadow.width * k), 'h': round(shadow.height * k), 'k': k}
+        for f, key in [('prop_column_broken', 'column'), ('prop_rubble', 'rubble'), ('prop_statue_head', 'head'), ('prop_brazier', 'brazier'), ('prop_chain_post', 'chain')]:
+            prop(os.path.join(V2, f + '.png'), key, Image.open(os.path.join(V2, f + '_shadow.png')).convert('RGBA'))
+        # монолит: тени нет — рисуем мягкий эллипс у основания, вправо-вниз от света
+        mp = os.path.join(V2, 'monolith_v2.png'); mi = Image.open(mp).convert('RGBA'); al = np.array(mi)[..., 3] > 16; ys, xs = np.where(al)
+        sh = Image.new('RGBA', mi.size, (0, 0, 0, 0)); from PIL import ImageDraw, ImageFilter
+        ImageDraw.Draw(sh).ellipse([xs.min() + 40, ys.max() - 46, xs.max() + 90, ys.max() + 30], fill=(0, 0, 0, 150)); sh = sh.filter(ImageFilter.GaussianBlur(18))
+        prop(mp, 'monolith', sh)
+        # слепки: компоненты белой маски, слева направо (в пикселях исходника)
+        from scipy import ndimage
+        m = np.array(Image.open(os.path.join(V2, 'socket_mask.png')).convert('RGBA'))[..., 3] > 128
+        lab_, nn = ndimage.label(m); socks = []
+        for i in range(1, nn + 1):
+            yy, xx = np.where(lab_ == i)
+            if len(yy) > 400: socks.append([int(xx.min()), int(yy.min()), int(xx.max() - xx.min() + 1), int(yy.max() - yy.min() + 1)])
+        names['monolith']['sockets'] = sorted(socks)
+        names['monolith']['engrave'] = [235, 440, 505, 345]  # гладкая полоса под надпись (пиксели исходника)
+        # камни-осколки: четыре формы, по форме слепков
+        st = grade(Image.open(os.path.join(V2, 'shard_stones.png')).convert('RGBA')); sa = np.array(st)
+        A['stones'] = []
+        for i in range(4):
+            cell = sa[:, i * 256:(i + 1) * 256]; yy, xx = np.where(cell[..., 3] > 16)
+            c = Image.fromarray(cell[yy.min():yy.max() + 1, xx.min():xx.max() + 1], 'RGBA')
+            A['stones'].append({'src': uri(c), 'w': c.width, 'h': c.height})
     # ---------- эффекты ----------
     im, lab, gs = sheet_parts(os.path.join(R, 'assets/fx/shards.png'), 4, 800)
     sh = []
@@ -157,6 +193,20 @@ def build_assets():
     HEAD_NECK = {'ghoul': [150, 222]}
     for n, d in DIRS.items():
         k = .5 if 'bosses' in d else .42; parts = {}
+        if n == 'guardian' and os.path.exists(os.path.join(R, d, 'guardian_side_parts_v2_map.png')):
+            # страж из деталей по швам кладки (задача 017): куски конечностей готовые, с шаровыми шарнирами
+            sys.path.insert(0, os.path.join(R, 'tools')); import guardian_v2 as G2
+            gp, gv, gf = G2.build(); C = G2.compose(gp, gv, gf, k)
+            for p, q in C.items():
+                im2 = q.pop('img'); pcs = q.pop('pieces', None)
+                q = {kk: ([float(x) for x in vv] if isinstance(vv, list) else float(vv)) for kk, vv in q.items()}
+                q['w'], q['h'], q['src'] = im2.width, im2.height, uri(im2)
+                if pcs:
+                    q['pc'] = 1
+                    for role, c in pcs.items(): parts[role + '_' + p] = {'w': c.width, 'h': c.height, 'src': uri(c)}
+                parts[p] = q
+            parts['_k'] = k; A['ch'][n] = parts
+            continue
         for p, info in rigs[n]['parts'].items():
             im = Image.open(os.path.join(R, d, 'parts', p + '.png')).convert('RGBA'); im2 = rs(im, k)
             q = {kk: (vv * k if isinstance(vv, (int, float)) else ([x * k for x in vv] if isinstance(vv, list) else vv)) for kk, vv in info.items()}
@@ -218,7 +268,7 @@ def main():
     for root, _, fs in os.walk(os.path.join(R, 'assets')):
         for f in fs:
             if f.endswith(('.png', '.json')): src_files.append(os.path.join(root, f))
-    src_files += [os.path.join(R, 'src/hero/hero_side4.json'), __file__]
+    src_files += [os.path.join(R, 'src/hero/hero_side4.json'), __file__, os.path.join(R, 'tools/guardian_v2.py')]
     h = hashlib.md5()
     for f in sorted(src_files): h.update(f.encode()); h.update(str(os.path.getmtime(f)).encode())
     key = h.hexdigest()
