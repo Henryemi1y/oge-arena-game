@@ -1,7 +1,7 @@
 ---
 id: 015
 title: Арена в правильной перспективе — средний план и реквизит с тенями
-status: pending
+status: done
 created_by: claude
 ---
 
@@ -54,4 +54,17 @@ no watermark.
 - Без текста, рамок и подписей.
 
 ## Результат
-(заполняет Codex)
+
+- `assets/environment/arena25d/v2/bg_mid_v2.png` — PNG 3840×1080.
+- `assets/environment/arena25d/v2/prop_column_broken.png` — PNG 512×1024.
+- `assets/environment/arena25d/v2/prop_column_broken_shadow.png` — PNG 512×1024.
+- `assets/environment/arena25d/v2/prop_rubble.png` — PNG 768×384.
+- `assets/environment/arena25d/v2/prop_rubble_shadow.png` — PNG 768×384.
+- `assets/environment/arena25d/v2/prop_statue_head.png` — PNG 768×512.
+- `assets/environment/arena25d/v2/prop_statue_head_shadow.png` — PNG 768×512.
+- `assets/environment/arena25d/v2/prop_brazier.png` — PNG 384×512.
+- `assets/environment/arena25d/v2/prop_brazier_shadow.png` — PNG 384×512.
+- `assets/environment/arena25d/v2/prop_chain_post.png` — PNG 384×768.
+- `assets/environment/arena25d/v2/prop_chain_post_shadow.png` — PNG 384×768.
+
+Основание стены на y=650. У реквизита нижний пиксель основания расположен на 92% высоты. Каждая тень — отдельный чёрный RGBA-слой в координатах предмета с альфой не выше 153/255. Проверено совместное наложение на пол из 012. Голова лежит на щеке, срез шеи виден под углом справа. Холодный свет доминирует, тёплый отсвет наиболее заметен у жаровен стены.
