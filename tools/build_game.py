@@ -132,7 +132,17 @@ def build_assets():
     # ---------- арена v2 (задачи 015–016): средний план и реквизит в камере пола, с отдельными тенями ----------
     V2 = os.path.join(R, E, 'v2')
     if os.path.exists(os.path.join(V2, 'bg_mid_v2.png')):
-        im = Image.open(os.path.join(V2, 'bg_mid_v2.png')).convert('RGBA'); A['bg_mid'] = {'src': uri(im, 88), 'w': im.width, 'h': im.height, 'v2': 1}
+        im = Image.open(os.path.join(V2, 'bg_mid_v2.png')).convert('RGBA')
+        # огонь в чашах на постаментах нарисован неподвижным: стираем его над краем чаши, в игре там идёт покадровое
+        # пламя (fires: центр по x, линия края чаши — ниже неё пламя закрыто передним бортом)
+        a = np.array(im); fires = []
+        for x0, y0 in [(1080, 320), (2610, 330)]:
+            c = a[y0:y0 + 160, x0:x0 + 150].astype(int); m = (c[..., 2] - c[..., 0] > 40) & (c[..., 2] > 140) & (c[..., 3] > 60)
+            ys, xs = np.where(m); bx0, bx1, by0 = x0 + xs.min(), x0 + xs.max(), y0 + ys.min()
+            rim = next(y for y in range(by0, y0 + 160) if (a[y, bx0 - 4:bx1 + 5, 3] > 60).sum() >= (bx1 - bx0 + 9) * .97)
+            a[by0 - 8:rim, bx0 - 6:bx1 + 7, 3] = 0
+            fires.append([float((bx0 + bx1) / 2), float(rim + 7)])
+        im = Image.fromarray(a); A['bg_mid'] = {'src': uri(im, 88), 'w': im.width, 'h': im.height, 'v2': 1, 'fires': fires}
         def grade(im):
             # реквизит нарисован при нейтральном свете — тонируем под ночную сцену (холоднее и темнее)
             a = np.array(im).astype(np.float32); a[..., 0] *= .78; a[..., 1] *= .84; a[..., 2] *= .98
@@ -181,6 +191,10 @@ def build_assets():
     en = ['eye', 'ring', 'flame', 'chip']; A['eye'] = {}
     for n, (ids, _) in zip(en, gs):
         p, box = crop_comp(im, lab, ids); A['eye'][n] = {'src': uri(p), 'w': p.width, 'h': p.height}
+    # ---------- покадровое пламя жаровен (tools/fire_flipbook.py) ----------
+    fj = os.path.join(R, 'assets/fx/fire/brazier_fire.json')
+    if os.path.exists(fj):
+        A['fire'] = {**json.load(open(fj)), 'src': 'data:image/webp;base64,' + base64.b64encode((lambda b: (Image.open(fj.replace('.json', '.png')).convert('RGBA').save(b, 'WEBP', lossless=True), b.getvalue())[1])(io.BytesIO())).decode()}  # без потерь: пиксель-арт
     # ---------- душа ----------
     A['soul'] = soul_parts()
     # ---------- враги и боссы ----------

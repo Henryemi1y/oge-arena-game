@@ -50,11 +50,24 @@ const World = {
     for (let x = o; x < VW; x += w) ctx.drawImage(c, Math.floor(x), y, Math.ceil(w) + 1, h);
     ctx.globalAlpha = 1;
   },
+  // покадровое пламя в чашах на стене (едет вместе со средним планом); низ срезан по краю чаши
+  wallFires(k, par, y, t) {
+    const F = ASSETS.fire, I = IM.fire, w = IM.bg_mid.width * k; let o = ((-Cam.x * par) % w + w) % w; if (o > 0) o -= w;
+    const fq = .5, bw = F.w * fq, bh = F.h * fq;
+    for (let x = o; x < VW; x += w) for (const [fx, ry] of ASSETS.bg_mid.fires) {
+      const X = x + fx * k, Y = y + ry * k; if (X < -60 || X > VW + 60) continue;
+      const n = (Math.floor(t * F.fps + fx % F.n) % F.n + F.n) % F.n, cx = (n % F.cols) * F.w, cy = Math.floor(n / F.cols) * F.h, by = Y + (F.h - F.base) * fq + 3;
+      ctx.save(); ctx.beginPath(); ctx.rect(X - bw, Y - bh * 1.2, bw * 2, bh * 1.2); ctx.clip(); ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(I, cx, cy, F.w, F.h, X - bw / 2, by - bh, bw, bh); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .2; ctx.drawImage(I, cx, cy, F.w, F.h, X - bw / 2, by - bh, bw, bh); ctx.restore();
+    }
+  },
   drawBack(t) {
     this.t = t;
     this.layer(IM.bg_far, .667, .2, -190);
     // у v2 основание стены (y = 650 из 1080) стоит ровно на дальнем крае пола
-    this.layer(IM.bg_mid, .667, .5, ASSETS.bg_mid.v2 ? W.FLOOR_TOP + 4 - 650 * .667 : W.FLOOR_TOP - 466);
+    const my = ASSETS.bg_mid.v2 ? W.FLOOR_TOP + 4 - 650 * .667 : W.FLOOR_TOP - 466;
+    this.layer(IM.bg_mid, .667, .5, my);
+    if (ASSETS.bg_mid.fires && IM.fire) this.wallFires(.667, .5, my, t);
     // ворота стоят в плоскости стены, но едут вместе с полом (они на краю арены)
     for (const s of [-1, 1]) { const img = s < 0 ? IM.gate_left : IM.gate_right, k = .52, w = img.width * k, h = img.height * k, x = sx(this.gateX(s)); if (x > -w && x < VW + w) ctx.drawImage(img, x - w / 2, W.FLOOR_TOP + 34 - h, w, h) }
     this.layer(IM.floor, .62, 1, W.FLOOR_TOP);
@@ -67,7 +80,7 @@ const World = {
   // свет жаровен на полу и стене
   drawLights(t) {
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (const p of this.props) if (p.fire) { const x = sx(p.x), y = zy(p.z) - 120 * p.s; if (x < -300 || x > VW + 300) continue; const f = .85 + .15 * Math.sin(t * 9 + p.x) + .06 * Math.sin(t * 23); const r = 260 * f, gr = ctx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(70,150,255,.20)'); gr.addColorStop(1, 'rgba(40,90,255,0)'); ctx.fillStyle = gr; ctx.fillRect(x - r, y - r, 2 * r, 2 * r) }
+    for (const p of this.props) if (p.fire) { const x = sx(p.x), y = zy(p.z) - 120 * p.s; if (x < -300 || x > VW + 300) continue; const f = .9 + .07 * Math.sin(t * 3.1 + p.x) + .03 * Math.sin(t * 7.7 + p.x * .3); const r = 260 * f, gr = ctx.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(70,150,255,.20)'); gr.addColorStop(1, 'rgba(40,90,255,0)'); ctx.fillStyle = gr; ctx.fillRect(x - r, y - r, 2 * r, 2 * r) }
     ctx.restore();
   },
   propDrawables(list) {
@@ -82,8 +95,20 @@ const World = {
     ctx.save(); ctx.translate(x, y); if (p.flip) ctx.scale(-1, 1); ctx.drawImage(img, -w / 2, -h * bo, w, h); ctx.restore();
     if (p.fire) { // пламя жаровни: живое, с подрагиванием и искрами
       const fi = IM.props.flame, t = this.t, fk = k * (A.base ? .55 : .9), fw = fi.width * fk, fh = fi.height * fk, top = A.base ? y - h * (A.base - .21) : y - h * .92;
-      const sy = 1 + .1 * Math.sin(t * 11 + p.x) + .05 * Math.sin(t * 27), sxk = 1 + .05 * Math.sin(t * 7 + 1);
-      ctx.save(); ctx.translate(x, top + fh * .2); ctx.scale(sxk, sy); ctx.globalAlpha = .95; ctx.drawImage(fi, -fw / 2, -fh, fw, fh); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .25 + .1 * Math.sin(t * 13); ctx.drawImage(fi, -fw / 2, -fh, fw, fh); ctx.restore();
+      const F = ASSETS.fire, I = IM.fire;
+      if (F && I) { // покадровое пламя (48 кадров, цикл 2 с): три языка с разной фазой заполняют чашу; низ прячется за передним бортом
+        const it = y - h * bo, ph = p.x * 7.3, base = it + .30 * h, q0 = 1.34 * k;
+        ctx.save(); ctx.beginPath(); ctx.rect(x - w, it - h * 2, w * 2, h * 2 + .229 * h); ctx.ellipse(x, it + .229 * h, .37 * w, .085 * h, 0, 0, TAU); ctx.clip(); ctx.imageSmoothingEnabled = false;
+        for (const [dx, sk, o] of [[-.16, .72, 17], [.17, .78, 31], [0, 1, 0]]) {
+          const q = q0 * sk, n = (Math.floor(t * F.fps + ph + o) % F.n + F.n) % F.n, cx = (n % F.cols) * F.w, cy = Math.floor(n / F.cols) * F.h, bw = F.w * q, bh = F.h * q, by = base + (F.h - F.base) * q, X = x + dx * w;
+          ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; ctx.drawImage(I, cx, cy, F.w, F.h, X - bw / 2, by - bh, bw, bh);
+          ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .2; ctx.drawImage(I, cx, cy, F.w, F.h, X - bw / 2, by - bh, bw, bh);
+        }
+        ctx.restore();
+      } else {
+        const sy = 1 + .1 * Math.sin(t * 11 + p.x) + .05 * Math.sin(t * 27), sxk = 1 + .05 * Math.sin(t * 7 + 1);
+        ctx.save(); ctx.translate(x, top + fh * .2); ctx.scale(sxk, sy); ctx.globalAlpha = .95; ctx.drawImage(fi, -fw / 2, -fh, fw, fh); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .25 + .1 * Math.sin(t * 13); ctx.drawImage(fi, -fw / 2, -fh, fw, fh); ctx.restore();
+      }
     }
     if (p === this.monolith && Soul.drawMonolith) Soul.drawMonolith(p, x, y, w, h, k);
   },
