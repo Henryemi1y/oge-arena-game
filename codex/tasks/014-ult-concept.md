@@ -1,7 +1,7 @@
 ---
 id: 014
 title: Концепт-арт ульты «Разлом» — героиня против каменного стража
-status: pending
+status: done
 created_by: claude
 ---
 
@@ -58,4 +58,10 @@ silhouettes, the effect does not cover them. No UI, no text, no letters, no fram
 - Никакого текста и интерфейса на картинках.
 
 ## Результат
-(заполняет Codex: список файлов, размеры, отклонения, вопросы)
+
+- `assets/fx/ult/concept/ult_rift_v1.png` — PNG 1920×1080.
+- `assets/fx/ult/concept/ult_rift_v2.png` — PNG 1920×1080.
+- `assets/fx/ult/concept/ult_rift_v3.png` — PNG 1920×1080.
+- `assets/fx/ult/concept/ult_rift_storyboard_v1.png` — PNG 2880×1080.
+
+В первом варианте удар сопровождает призрачный клинок, во втором — рунический круг и столбы света. Для третьего варианта выбран каскад приподнятых плит с подсветкой вдоль разломов. В раскадровке три ячейки 960×1080: замах, прыжок, удар. Страж и упыри реагируют на удар в третьей фазе.
