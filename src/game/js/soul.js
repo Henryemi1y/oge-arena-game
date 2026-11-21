@@ -122,13 +122,10 @@ const Soul = {
     const t = performance.now() / 1000, i = s.d === '−' ? 10 : +s.d, img = IM.stones.length ? this.stoneImg(s.d, s.shape ?? (s.shape = irnd(0, 3))) : IM.shards[i], k = (IM.stones.length ? 74 / img.width : 1) * .88 * zs(z) * k0, X = sx(x), Y = zy(z) - h - img.height * k * .5 - (s.landed ? 8 + 5 * Math.sin(t * 2.4 + s.ph) : 0);
     if (X < -60 || X > VW + 60) return;
     const near = this.on && this.ph === 'free' && this.nearShard() === s;
-    if (glow) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const r = (near ? 70 : 54) * zs(z) * k0 * (1 + .12 * Math.sin(t * 4 + s.ph)), g = ctx.createRadialGradient(X, Y, 0, X, Y, r); g.addColorStop(0, `rgba(110,200,255,${near ? .62 : .4})`); g.addColorStop(1, 'rgba(60,140,255,0)'); ctx.fillStyle = g; ctx.fillRect(X - r, Y - r, 2 * r, 2 * r);
-      if (s.landed) { const bw = 16 * zs(z), bh = 150 * zs(z), bg = ctx.createLinearGradient(0, Y - bh, 0, Y); bg.addColorStop(0, 'rgba(90,190,255,0)'); bg.addColorStop(1, `rgba(120,210,255,${.22 + .1 * Math.sin(t * 3 + s.ph)})`); ctx.fillStyle = bg; ctx.fillRect(X - bw / 2, Y - bh, bw, bh) }
-      ctx.restore() }
-    // тёмная обводка: цифра на осколке отличается от резьбы на плитах пола
-    if (glow) { ctx.save(); ctx.globalAlpha = .55; ctx.translate(X, Y); ctx.rotate(s.landed ? 0 : s.r); const kk = k * 1.12; ctx.drawImage(img, -img.width * kk / 2, -img.height * kk / 2, img.width * kk, img.height * kk); ctx.restore() }
+    // обычный камень: без свечения и обводки; тот, что рядом с душой, чуть светлеет (его можно поднять)
     ctx.save(); ctx.translate(X, Y); ctx.rotate(s.landed ? 0 : s.r); ctx.drawImage(img, -img.width * k / 2, -img.height * k / 2, img.width * k, img.height * k);
-    if (s.d === '−') { ctx.fillStyle = 'rgba(150,225,255,.95)'; ctx.shadowColor = '#5fc8ff'; ctx.shadowBlur = 8; ctx.fillRect(-img.width * k * .26, -img.height * k * .06, img.width * k * .52, img.height * k * .13) }
+    if (near) { ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .16 + .06 * Math.sin(t * 5); ctx.drawImage(img, -img.width * k / 2, -img.height * k / 2, img.width * k, img.height * k) }
+    if (!IM.stones.length && s.d === '−') { ctx.fillStyle = 'rgba(150,225,255,.95)'; ctx.fillRect(-img.width * k * .26, -img.height * k * .06, img.width * k * .52, img.height * k * .13) }
     ctx.restore();
   },
   // душа героя: цельная фигура с листа. Из неё один раз готовится «призрачная» версия: детали размыты, ядро
@@ -240,17 +237,18 @@ const Soul = {
     // слепки: вложенные камни; следующий слепок пульсирует, пока душа у монолита с камнем в руках
     this.sockR.forEach(([x, y, w, h], i) => {
       const s = this.placed[i], nx = i === this.placed.length && at && this.carried.length;
-      if (nx || (this.confirm > 0 && s)) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const r = Math.max(w, h) * .9, g = ctx.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, r); g.addColorStop(0, this.confirm > 0 ? 'rgba(255,215,130,.55)' : `rgba(120,210,255,${.35 + .25 * Math.sin(tt * 7)})`); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x + w / 2 - r, y + h / 2 - r, 2 * r, 2 * r); ctx.restore() }
+      if (nx || (this.confirm > 0 && s)) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; const r = Math.max(w, h) * .9, g = ctx.createRadialGradient(x + w / 2, y + h / 2, 0, x + w / 2, y + h / 2, r); g.addColorStop(0, this.confirm > 0 ? 'rgba(255,215,130,.4)' : `rgba(225,215,190,${.12 + .08 * Math.sin(tt * 5)})`); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x + w / 2 - r, y + h / 2 - r, 2 * r, 2 * r); ctx.restore() }
       if (s) { const img = this.stoneImg(s.d, i), kk = Math.min(w / img.width, h / img.height) * 1.02; ctx.drawImage(img, x + w / 2 - img.width * kk / 2, y + h / 2 - img.height * kk / 2, img.width * kk, img.height * kk) } });
     ctx.restore();
   },
-  // камень-осколок: форма из листа камней, цифра вырезана на лицевой грани и светится (кэш по цифре и форме)
+  // камень-осколок: форма из листа камней, цифра высечена на лицевой грани (кэш по цифре и форме)
   stoneImg(d, shape) {
     const key = d + ':' + shape; this._st = this._st || {}; if (this._st[key]) return this._st[key];
     const src = IM.stones[shape % IM.stones.length], c = mkCanvas(src.width, src.height), x = c.getContext('2d'), cx = c.width / 2, cy = c.height / 2 + 2, fs = Math.min(c.width, c.height) * .62;
     x.drawImage(src, 0, 0); x.font = `700 ${fs}px ${FONT_EQ}`; x.textAlign = 'center'; x.textBaseline = 'middle';
-    x.fillStyle = 'rgba(0,0,0,.65)'; x.fillText(d, cx - 1.5, cy - 1.5); x.fillStyle = 'rgba(190,210,235,.45)'; x.fillText(d, cx + 1.5, cy + 1.5); x.fillStyle = 'rgb(16,22,36)'; x.fillText(d, cx, cy);
-    x.globalCompositeOperation = 'lighter'; x.shadowColor = 'rgba(90,200,255,1)'; x.shadowBlur = fs * .18; x.fillStyle = 'rgba(80,190,255,.75)'; x.fillText(d, cx, cy);
+    // высеченная цифра: светлая кромка снизу справа, тень сверху слева, тёмное дно (только по камню)
+    x.globalCompositeOperation = 'source-atop';
+    x.fillStyle = 'rgba(205,212,225,.5)'; x.fillText(d, cx + 2, cy + 2); x.fillStyle = 'rgba(0,0,0,.55)'; x.fillText(d, cx - 1.5, cy - 1.5); x.fillStyle = 'rgba(22,26,34,.88)'; x.fillText(d, cx, cy);
     return this._st[key] = c;
   },
   drawShardAt(s, X, Y, k) { if (IM.stones.length) { const img = this.stoneImg(s.d, s.shape ?? (s.shape = irnd(0, 3))), kk = k * 74 / img.width; ctx.drawImage(img, X - img.width * kk / 2, Y - img.height * kk / 2, img.width * kk, img.height * kk); return } const i = s.d === '−' ? 10 : +s.d, img = IM.shards[i]; ctx.drawImage(img, X - img.width * k / 2, Y - img.height * k / 2, img.width * k, img.height * k); if (s.d === '−') { ctx.fillStyle = '#bfefff'; ctx.fillRect(X - img.width * k * .26, Y - img.height * k * .06, img.width * k * .52, img.height * k * .13) } },

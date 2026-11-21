@@ -11,11 +11,14 @@ const Cam = {
 };
 const sx = x => x - Cam.x;
 
+// пока только пол и монолит: стены арены, реквизит и передний план отключены (вернуть — FLOOR_ONLY = false)
+const FLOOR_ONLY = true;
 const World = {
   props: [],
   t: 0,
   init() {
     const M = W.ARENA / 2;
+    if (FLOOR_ONLY) { this.monolith = { kind: 'monolith', x: M, z: -.1, s: .9 }; this.props = [this.monolith]; return }
     if (ASSETS.props.monolith.base) {
       // арена v2: всё в камере пола, у каждого предмета своя тень на полу; s — масштаб к сохранённой картинке
       this.monolith = { kind: 'monolith', x: M, z: -.1, s: .9 };
@@ -61,8 +64,27 @@ const World = {
       ctx.drawImage(I, cx, cy, F.w, F.h, X - bw / 2, by - bh, bw, bh); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = .2; ctx.drawImage(I, cx, cy, F.w, F.h, X - bw / 2, by - bh, bw, bh); ctx.restore();
     }
   },
+  // фон без арены: тёмная пустота, пол уходит в туман; у краёв арены — темнота (враги выходят из неё)
+  drawVoid(t) {
+    const H0 = W.FLOOR_TOP + 40, g = ctx.createLinearGradient(0, 0, 0, H0); g.addColorStop(0, '#03050a'); g.addColorStop(.7, '#090e1a'); g.addColorStop(1, '#121b2e');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, VW, H0);
+    // холодный свет сверху на середину арены (на монолит)
+    const mx = sx(this.monolith.x), lg = ctx.createRadialGradient(mx, W.FLOOR_TOP - 40, 0, mx, W.FLOOR_TOP - 40, 620); lg.addColorStop(0, 'rgba(90,120,180,.16)'); lg.addColorStop(1, 'rgba(90,120,180,0)');
+    ctx.fillStyle = lg; ctx.fillRect(0, 0, VW, W.FLOOR_TOP + 200);
+    this.layer(IM.floor, .62, 1, W.FLOOR_TOP);
+    // дальний край пола тонет в тумане
+    const f = ctx.createLinearGradient(0, W.FLOOR_TOP - 2, 0, W.FLOOR_TOP + 110); f.addColorStop(0, 'rgba(14,21,36,1)'); f.addColorStop(.35, 'rgba(12,18,32,.6)'); f.addColorStop(1, 'rgba(10,15,28,0)');
+    ctx.fillStyle = f; ctx.fillRect(0, W.FLOOR_TOP - 2, VW, 112);
+    // края арены: темнота (градиент держит конечный цвет и за краем)
+    for (const s of [-1, 1]) {
+      const ex = sx(s < 0 ? W.GL - 120 : W.GR + 120), x0 = sx(s < 0 ? W.XMIN + 60 : W.XMAX - 60); if (s < 0 ? x0 < 0 : x0 > VW) continue;
+      const e = ctx.createLinearGradient(x0, 0, ex, 0); e.addColorStop(0, 'rgba(3,5,10,0)'); e.addColorStop(1, 'rgba(3,5,10,.97)'); ctx.fillStyle = e;
+      if (s < 0) ctx.fillRect(0, 0, x0, VH); else ctx.fillRect(x0, 0, VW - x0, VH);
+    }
+  },
   drawBack(t) {
     this.t = t;
+    if (FLOOR_ONLY) return this.drawVoid(t);
     this.layer(IM.bg_far, .667, .2, -190);
     // у v2 основание стены (y = 650 из 1080) стоит ровно на дальнем крае пола
     const my = ASSETS.bg_mid.v2 ? W.FLOOR_TOP + 4 - 650 * .667 : W.FLOOR_TOP - 466;
@@ -74,7 +96,7 @@ const World = {
     // мягкая тень у основания стены
     const gr = ctx.createLinearGradient(0, W.FLOOR_TOP, 0, W.FLOOR_TOP + 60); gr.addColorStop(0, 'rgba(5,7,16,.55)'); gr.addColorStop(1, 'rgba(5,7,16,0)'); ctx.fillStyle = gr; ctx.fillRect(0, W.FLOOR_TOP, VW, 60);
   },
-  drawFront() { this.layer(IM.fg, .667, 1.3, VH - 280 + 46, .95) },
+  drawFront() { if (!FLOOR_ONLY) this.layer(IM.fg, .667, 1.3, VH - 280 + 46, .95) },
   // искры жаровен — в шаге симуляции (их число не зависит от частоты кадров экрана)
   update(dt) { for (const p of this.props) if (p.fire && Math.random() < dt * 15) { const k = p.s * zs(p.z), h = IM.props[p.kind].height * k, A = ASSETS.props[p.kind]; FX.ember(p.x + rnd(-10, 10), p.z, A.base ? h * (A.base - .2) + 10 : h * .92 + 20) } },
   // свет жаровен на полу и стене

@@ -14,6 +14,7 @@ async function loadAssets(onProgress) {
   ASSETS.shards.forEach((s, n) => add(s.src, i => IM.shards[n] = i));
   (ASSETS.stones || []).forEach((s, n) => add(s.src, i => IM.stones[n] = i));
   if (ASSETS.fire) add(ASSETS.fire.src, i => IM.fire = i);
+  if (ASSETS.comp) { add(ASSETS.comp.src, i => IM.comp = i); add(ASSETS.comp.pupil, i => IM.compPupil = i) }
   ASSETS.cracks.forEach((s, n) => add(s.src, i => IM.cracks[n] = i));
   add(ASSETS.dust.src, i => IM.dust = i);
   for (const k in ASSETS.eye) add(ASSETS.eye[k].src, i => IM.eye[k] = i);

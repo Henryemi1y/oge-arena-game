@@ -18,7 +18,7 @@ const FX = {
   puff(col) { return this._sp['p' + col] || (this._sp['p' + col] = this._grad([[0, `rgba(${col},.9)`], [1, `rgba(${col},0)`]])) },
   glow(col) { return this._sp['g' + col] || (this._sp['g' + col] = this._grad([[0, 'rgba(255,255,255,.85)'], [.35, `rgba(${col},.45)`], [1, `rgba(${col},0)`]])) },
   _grad(stops) { const c = mkCanvas(64, 64), x = c.getContext('2d'), g = x.createRadialGradient(32, 32, 0, 32, 32, 32); for (const [o, v] of stops) g.addColorStop(o, v); x.fillStyle = g; x.fillRect(0, 0, 64, 64); return c },
-  ember(x, z, h) { this.P.push({ k: 'ember', x, z, h, vx: rnd(-15, 15), vz: 0, vh: rnd(50, 110), t: 0, life: rnd(.5, 1.1), g: -20 }) },
+  ember(x, z, h, c) { this.P.push({ k: 'ember', x, z, h, vx: rnd(-15, 15), vz: 0, vh: rnd(50, 110), t: 0, life: rnd(.5, 1.1), g: -20, c }) },
   smoke(x, z, h, n = 6, col = '20,18,28', sz = 30) { for (let i = 0; i < n; i++) this.P.push({ k: 'smoke', x: x + rnd(-20, 20), z, h: h + rnd(-20, 20), vx: rnd(-40, 40), vz: 0, vh: rnd(20, 70), t: 0, life: rnd(.6, 1.2), s: sz * rnd(.6, 1.3), col, g: -10 }) },
   poison(x, z, n = 14) { for (let i = 0; i < n; i++) this.P.push({ k: 'smoke', a: .3, x: x + rnd(-44, 44), z: z + rnd(-.03, .03), h: rnd(0, 34), vx: rnd(-40, 40), vz: 0, vh: rnd(8, 46), t: 0, life: rnd(.9, 1.9), s: rnd(18, 36), col: pick(['62,120,58', '96,150,64', '40,84,52', '130,170,80']), g: -5 }) },
   soulMote(x, z, h, col) { this.P.push({ k: 'mote', col, x, z, h, vx: rnd(-20, 20), vz: 0, vh: rnd(15, 50), t: 0, life: rnd(.6, 1.2), g: -10 }) },
@@ -89,7 +89,7 @@ const FX = {
       if (p.k === 'dust') { const f = Math.min(5, (k * 6) | 0), sz = DI.height * p.s * (1 + k * .8); ctx.globalAlpha = .8 * (1 - k * .7); ctx.drawImage(DI, f * fw, 0, fw, DI.height, x - sz / 2, y - sz * .75, sz, sz) }
       else if (p.k === 'spark') { ctx.globalAlpha = 1 - k; ctx.strokeStyle = `rgb(${p.col})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - p.vx * .03, y + p.vh * .03); ctx.stroke() }
       else if (p.k === 'chip') { ctx.globalAlpha = Math.min(1, (1 - k) * 3); ctx.fillStyle = p.col; ctx.save(); ctx.translate(x, y); ctx.rotate(p.r); ctx.fillRect(-p.s, -p.s * .7, p.s * 2, p.s * 1.4); ctx.restore() }
-      else if (p.k === 'ember') { ctx.globalAlpha = 1 - k; ctx.fillStyle = k < .5 ? '#bfe6ff' : '#4d8dff'; ctx.fillRect(x - 1.5, y - 1.5, 3, 3) }
+      else if (p.k === 'ember') { ctx.globalAlpha = 1 - k; ctx.fillStyle = p.c ? (k < .5 ? p.c[0] : p.c[1]) : k < .5 ? '#bfe6ff' : '#4d8dff'; ctx.fillRect(x - 1.5, y - 1.5, 3, 3) }
       else if (p.k === 'mote') { ctx.globalAlpha = (1 - k) * .9; ctx.fillStyle = p.col || '#b8f6ff'; ctx.fillRect(x - 1.5, y - 1.5, 3, 3) }
       else if (p.k === 'smoke') { const r = p.s * (1 + k); ctx.globalAlpha = (p.a || .4) * (1 - k) * Math.min(1, p.t * 6); ctx.drawImage(this.puff(p.col), x - r, y - r, 2 * r, 2 * r) }
     }

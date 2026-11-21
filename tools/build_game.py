@@ -195,6 +195,12 @@ def build_assets():
     fj = os.path.join(R, 'assets/fx/fire/brazier_fire.json')
     if os.path.exists(fj):
         A['fire'] = {**json.load(open(fj)), 'src': 'data:image/webp;base64,' + base64.b64encode((lambda b: (Image.open(fj.replace('.json', '.png')).convert('RGBA').save(b, 'WEBP', lossless=True), b.getvalue())[1])(io.BytesIO())).decode()}  # без потерь: пиксель-арт
+    # ---------- зелёный спутник: покадровая анимация (tools/companion_flipbook.py) ----------
+    cj = os.path.join(R, 'assets/characters/companion-green/flipbook.json')
+    if os.path.exists(cj):
+        cd = os.path.dirname(cj)
+        A['comp'] = {**json.load(open(cj)), 'src': uri(Image.open(os.path.join(cd, 'flipbook.png')).convert('RGBA'), 92),
+                     'pupil': uri(Image.open(os.path.join(cd, 'pupil.png')).convert('RGBA'), 95)}
     # ---------- душа ----------
     A['soul'] = soul_parts()
     # ---------- враги и боссы ----------
